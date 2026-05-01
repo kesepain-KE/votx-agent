@@ -206,13 +206,10 @@ def register():
 ## 启动
 
 ```bash
-# 安装依赖
-pip install openai requests yt-dlp tavily-python python-docx pyyaml
+# 克隆后首次运行
+python 快速配置.py    # 一键安装依赖、配置 Key、创建用户
 
-# 设置 Key（任选一种）
-echo "DEEPSEEK_API_KEY=sk-your-key" > .env
-
-# 启动
+# 日常运行
 python start.py
 ```
 

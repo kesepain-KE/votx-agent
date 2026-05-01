@@ -5,6 +5,13 @@
 ## 快速开始
 
 ```bash
+python 快速配置.py    # 克隆后首次运行——一键安装依赖、配置 Key、创建用户
+python start.py       # 配置完成后日常只需这条
+```
+
+或手动设置：
+
+```bash
 pip install openai requests yt-dlp tavily-python python-docx pyyaml
 cp .env.example .env   # 编辑填入 DEEPSEEK_API_KEY
 python start.py
