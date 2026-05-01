@@ -1,4 +1,5 @@
 """对话管理 - 消息组装、历史加载保存、压缩归档"""
+import gzip
 import json
 import os
 from datetime import datetime, timezone
@@ -194,13 +195,24 @@ class ChatManager:
             self._archive(trimmed)
 
     def _archive(self, old_messages: list[dict[str, Any]]):
-        """将旧消息归档到独立文件"""
+        """将旧消息归档到独立文件。
+
+        zip_history=True → gzip 压缩 (.json.gz)，节省约 80% 空间
+        zip_history=False → 纯 JSON
+        """
         try:
             os.makedirs(self.archive_dir, exist_ok=True)
             ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S_%f")
-            archive_path = os.path.join(self.archive_dir, f"history_{ts}.json")
-            with open(archive_path, "w", encoding="utf-8") as f:
-                json.dump(old_messages, f, ensure_ascii=False, indent=2)
+            payload = json.dumps(old_messages, ensure_ascii=False, indent=2).encode("utf-8")
+
+            if self.zip_history:
+                archive_path = os.path.join(self.archive_dir, f"history_{ts}.json.gz")
+                with gzip.open(archive_path, "wb", compresslevel=6) as f:
+                    f.write(payload)
+            else:
+                archive_path = os.path.join(self.archive_dir, f"history_{ts}.json")
+                with open(archive_path, "wb") as f:
+                    f.write(payload)
         except Exception:
             pass  # 归档失败不影响主流程
 
@@ -254,13 +266,14 @@ class ChatManager:
                     tool_log_count = sum(1 for _ in f)
         except Exception:
             pass
-        # 归档文件数
+        # 归档文件数（含 .json 和 .json.gz）
         archive_count = 0
         if os.path.isdir(self.archive_dir):
             try:
                 archive_count = len([
                     f for f in os.listdir(self.archive_dir)
-                    if f.endswith(".json") and os.path.isfile(os.path.join(self.archive_dir, f))
+                    if (f.endswith(".json") or f.endswith(".json.gz"))
+                    and os.path.isfile(os.path.join(self.archive_dir, f))
                 ])
             except OSError:
                 pass
