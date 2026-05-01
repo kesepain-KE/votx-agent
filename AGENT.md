@@ -130,6 +130,7 @@ skills/<skill-name>/
 
 - `SKILL.md` 是唯一必需文件（agentskills.io 规范）。启动时注入摘要（name+description）到 system prompt（渐进披露），详细正文由 LLM 按需通过 `read_file` 读取。
 - `tool.py` 是本项目的 **OpenAI function calling 扩展**。有 tool.py 的 Skill 可被 LLM 作为工具调用；无 tool.py 的 Skill 作为纯指令 Skill，靠摘要引导生效。
+- **Skill 安装路径硬规则**: 所有 Skill 必须放在项目根目录的 `skills/` 下。禁止安装到 `users/<name>/skills/` 或任何其他位置。用 skillhub 安装时必须指定 `--dir skills/`。
 - `name` 必须与文件夹名完全一致，仅限小写字母+数字+连字符，64 字符内。
 - `description` 需同时描述功能和使用时机，1024 字符内。
 
