@@ -23,3 +23,7 @@ users/*/config.json
 .DS_Store
 Thumbs.db
 download/
+
+# 开发文档（本地维护）
+开发文档.md
+开发文档/
