@@ -1,6 +1,7 @@
 ---
 name: uapi-hotboard-reporter
 description: UAPI 全网热榜查询 — 抓取多平台热搜并生成报告。支持视频区和新闻区，可按平台和关键词筛选。Agent 查询热搜、热榜、热点话题时使用。
+compatibility: 需要 UAPI_API_KEY 环境变量
 ---
 
 # UAPI 热榜查询

@@ -5,14 +5,14 @@
 ## 快速开始
 
 ```bash
-pip install openai requests yt-dlp tavily-python python-docx
+pip install openai requests yt-dlp tavily-python python-docx pyyaml
 cp .env.example .env   # 编辑填入 DEEPSEEK_API_KEY
 python start.py
 ```
 
 ## 能力
 
-**8 个 Skill，14 个工具**（agentskills.io 规范，放入即自动发现）
+**14 个 Skill，25 个工具**（[agentskills.io](https://agentskills.io/specification) 规范，放入即自动发现）
 
 | Skill | 工具 | 说明 |
 |-------|------|------|
@@ -24,6 +24,12 @@ python start.py
 | video-download | `download_video` | yt-dlp 多平台视频下载 |
 | uapi-hotboard-reporter | `query_hotboard` | 全网热榜查询（知乎/微博/B站等） |
 | tavily-search | `tavily_search` | AI 搜索引擎 |
+| self-improving-agent | `log_learning` `log_error` `log_feature_request` `read_learnings` | 自主学习：记录错误/纠正/功能请求 |
+| agent-memory | `mem_remember` `mem_recall` `mem_learn` `mem_get_lessons` `mem_track_entity` `mem_get_entity` `mem_stats` | 持久记忆：记住/回忆/学习/实体追踪 |
+| skill-creator | —（纯指令） | 创建 agentskills.io 规范的新 Skill |
+| skill-vetter | —（纯指令） | Skill 质量审查（规范/安全/可用性） |
+| web-content-fetcher | —（纯指令） | 网页内容获取（r.jina.ai 等服务） |
+| web-tools-guide | —（纯指令） | Web 开发工具使用指南 |
 
 ## 对话命令
 
@@ -48,11 +54,13 @@ python start.py
 ├── run/
 │   ├── chat.py          # ChatManager：消息管理/历史归档/清除
 │   └── tool.py          # ToolRunner：注册/权限校验/限流/日志
-├── skills/              # Skill 标准骨架
+├── skills/              # agentskills.io 标准骨架
 │   ├── _common/         # 公共模块（err/truncate/safe_path/log）
-│   ├── file/            network/    shell/    time/
-│   ├── video-download/  word-docx/  tavily-search/
-│   └── uapi-hotboard-reporter/
+│   ├── file/            network/       shell/    time/
+│   ├── video-download/  word-docx/     tavily-search/
+│   ├── uapi-hotboard-reporter/         self-improving-agent/
+│   ├── agent-memory/    skill-creator/ skill-vetter/
+│   ├── web-content-fetcher/            web-tools-guide/
 ├── AGENT.md             # 项目能力指南（注入 system prompt）
 ├── users/
 │   └── kesepain/        # 用户目录（self_soul.md + config.json + history/）
@@ -63,9 +71,10 @@ python start.py
 
 ```
 start.py → 扫描 users/ → 选择用户 → main.py
-main.py → self_soul.md + soul.md + AGENT.md → system prompt
-        → register_all() → 8 Skill / 14 tools
+main.py → self_soul.md + soul.md + AGENT.md + Skill 摘要 + 持久记忆 → system prompt
+        → register_all() → 14 Skill / 25 tools
         → 对话循环（MAX_TOOL_ROUNDS=20）
+        → tool_calls 链自动修复（防 Ctrl+C 后 Provider 400）
         → 同命令连败 3 次自动提示 LLM 换思路
         → Token 累计显示（含缓存命中）
 ```
@@ -108,7 +117,12 @@ cp -r users/kesepain users/<name>
 在 `skills/` 下创建目录即可，无需修改任何注册代码：
 
 ```
+# 工具型 Skill
 skills/my-skill/
 ├── SKILL.md   # name + description + 使用指引
 └── tool.py    # register() 注册 schema + handler
+
+# 纯指令 Skill（同样生效，无 tool.py）
+skills/my-skill/
+└── SKILL.md   # 摘要自动注入 system prompt，正文按需读取
 ```

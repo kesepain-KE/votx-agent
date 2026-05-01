@@ -30,6 +30,11 @@ _TOOL_ICONS: dict[str, str] = {
     "create_docx": "📝", "read_docx": "📄",
     # search
     "tavily_search": "🔍",
+    # self-improving-agent
+    "log_learning": "🧠", "log_error": "🚨", "log_feature_request": "💡", "read_learnings": "📋",
+    # agent-memory
+    "mem_remember": "💾", "mem_recall": "🔎", "mem_learn": "📚", "mem_get_lessons": "📖",
+    "mem_track_entity": "👤", "mem_get_entity": "🔍", "mem_stats": "📊",
 }
 
 
@@ -64,6 +69,25 @@ def _pick_arg(name: str, args: dict) -> str:
     # 时间: 显示秒数
     if name == "sleep":
         return f"{args.get('seconds', '')}s"
+    # 学习: 显示摘要
+    if name in ("log_learning", "log_feature_request"):
+        s = args.get("summary", "") or args.get("capability", "")
+        return s if len(s) <= 50 else s[:47] + "..."
+    if name == "log_error":
+        c = args.get("command", "")
+        return c if len(c) <= 50 else c[:47] + "..."
+    if name == "read_learnings":
+        return args.get("file_name", "") or args.get("filter_area", "") or "全部"
+    # 记忆: 显示内容摘要
+    if name == "mem_remember":
+        c = args.get("content", "")
+        return c if len(c) <= 40 else c[:37] + "..."
+    if name in ("mem_recall",):
+        return args.get("query", "")
+    if name == "mem_track_entity":
+        return f"{args.get('name','')} ({args.get('entity_type','person')})"
+    if name == "mem_get_entity":
+        return args.get("name", "")
     return ""
 
 
@@ -94,6 +118,44 @@ def _fmt_usage(u: dict | None) -> str:
     return f"[{' '.join(parts)}]"
 
 
+def _load_memory_context(user_dir: str) -> str:
+    """从 agent-memory 数据库加载关键事实，注入 system prompt
+
+    即使 /clear 清空对话历史，这些记忆仍然保留在 system prompt 中。
+    """
+    import sqlite3, json as _json
+    db_path = os.path.join(user_dir, "agent_memory.db")
+    if not os.path.exists(db_path):
+        return ""
+
+    try:
+        conn = sqlite3.connect(db_path)
+        cur = conn.cursor()
+        # 加载最近活跃的事实（按最后访问时间排序，最多20条）
+        cur.execute("""
+            SELECT content, tags FROM facts
+            WHERE superseded_by IS NULL
+              AND (expires_at IS NULL OR expires_at > datetime('now'))
+            ORDER BY last_accessed DESC
+            LIMIT 20
+        """)
+        rows = cur.fetchall()
+        conn.close()
+
+        if not rows:
+            return ""
+
+        lines = ["以下是从持久记忆中加载的已知信息："]
+        for content, tags_str in rows:
+            tags = _json.loads(tags_str or "[]")
+            tag_str = f" [{', '.join(tags)}]" if tags else ""
+            lines.append(f"- {content}{tag_str}")
+        lines.append("\n请在对话中直接使用这些信息，无需再次询问用户。如果用户修改了某项信息，用 mem_remember 更新并用 mem_recall 确认。")
+        return "\n".join(lines)
+    except Exception:
+        return ""
+
+
 def main():
     user_dir = os.environ.get("KESEPAIN_USER_DIR")
     if not user_dir:
@@ -108,7 +170,7 @@ def main():
     with open(os.path.join(user_dir, "config.json"), encoding="utf-8") as f:
         user_config = json.load(f)
 
-    # System prompt
+    # System prompt 基础：角色人设 + 运行纪律
     with open(os.path.join(user_dir, "self_soul.md"), encoding="utf-8") as f:
         system_prompt = f.read()
     global_soul = os.path.join(root, "config", "soul.md")
@@ -118,21 +180,44 @@ def main():
             if content and not content.startswith("<!--"):
                 system_prompt += "\n\n" + content
 
-    # 注入项目 AGENT.md（让 LLM 了解自身能力、工具用法和项目结构）
+    # 初始化 provider 和工具系统
+    provider = DeepSeekProvider(user_config)
+    tool_runner = ToolRunner(core_config, user_config)
+
+    # 注册所有 Skill（agentskills.io 标准：扫描 SKILL.md → 加载 tool.py）
+    skill_instructions = register_all()
+    tools = load_tool_schemas()
+
+    # 注入项目 AGENT.md（项目结构 + 工具列表 + 安全机制）
     agent_md = os.path.join(root, "AGENT.md")
     if os.path.exists(agent_md):
         with open(agent_md, encoding="utf-8") as f:
             system_prompt += "\n\n" + f.read()
 
-    # 初始化
+    # 注入 Skill 目录摘要（agentskills.io 渐进披露：仅 name+description，正文 on-demand）
+    if skill_instructions:
+        tool_skills = [si for si in skill_instructions if si["has_tools"]]
+        guide_skills = [si for si in skill_instructions if not si["has_tools"]]
+        lines = ["\n\n## 可用 Skill 目录（详细指令用 read_file 读取 SKILL.md）"]
+        if tool_skills:
+            lines.append("\n### 工具型 Skill（可 function call）")
+            for si in tool_skills:
+                lines.append(si["summary"])
+        if guide_skills:
+            lines.append("\n### 指令型 Skill（正文引导）")
+            for si in guide_skills:
+                lines.append(si["summary"])
+        system_prompt += "\n".join(lines)
+
+    # 注入持久记忆上下文（/clear 后也不会丢失）
+    mem_ctx = _load_memory_context(user_dir)
+    if mem_ctx:
+        system_prompt += "\n\n## 持久记忆（跨会话保留，/clear 不清除）\n" + mem_ctx
+
+    # 初始化对话管理
     chat = ChatManager(user_dir, core_config, user_config)
     chat.set_system_prompt(system_prompt)
     chat.load_history()
-
-    provider = DeepSeekProvider(user_config)
-    tool_runner = ToolRunner(core_config, user_config)
-    register_all()
-    tools = load_tool_schemas()
 
     # 退出时保存
     def _on_exit():

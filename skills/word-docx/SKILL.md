@@ -1,6 +1,7 @@
 ---
 name: word-docx
 description: Word 文档工具 — 创建和读取 .docx 文件。支持标题、正文、表格。当 Agent 需要生成 Word 文档或读取 .docx 文件内容时使用。
+compatibility: 需要 python-docx (pip install python-docx)
 ---
 
 # Word 文档

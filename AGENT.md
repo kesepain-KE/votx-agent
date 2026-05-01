@@ -29,14 +29,20 @@ kesepain-Agent/
 ├── skills/                   # 【agentskills.io 标准骨架】
 │   ├── __init__.py           # register_all()：扫描 SKILL.md → 加载 tool.py
 │   ├── _common/              # 公共模块（err/truncate/safe_path/log_tool_call）
-│   ├── file/                 # 文件操作（read/write/list/delete + 路径沙箱）
-│   ├── network/              # HTTP 请求（http_get/http_post + SSRF防护）
-│   ├── shell/                # 系统命令（run_command + 危险参数拦截）
-│   ├── time/                 # 时间工具（get_time/sleep）
+│   ├── file/                    # 文件操作（read/write/list/delete + 路径沙箱）
+│   ├── network/                 # HTTP 请求（http_get/http_post + SSRF防护）
+│   ├── self-improving-agent/    # 自主学习（log_learning/log_error/log_feature_request）
+│   ├── shell/                   # 系统命令（run_command + 危险参数拦截）
+│   ├── tavily-search/           # 网络搜索（需 TAVILY_API_KEY）
+│   ├── time/                    # 时间工具（get_time/sleep）
 │   ├── uapi-hotboard-reporter/  # 热榜查询（需 UAPI_API_KEY）
-│   ├── video-download/       # 视频下载（yt-dlp 封装）
-│   ├── word-docx/            # Word 文档（python-docx 封装）
-│   └── tavily-search/        # 网络搜索（需 TAVILY_API_KEY）
+│   ├── video-download/          # 视频下载（yt-dlp 封装）
+│   ├── word-docx/               # Word 文档（python-docx 封装）
+│   ├── agent-memory/            # 持久记忆（mem_remember/mem_recall 等 7 工具，/clear 不丢）
+│   ├── skill-creator/           # [纯指令] 创建 agentskills.io 规范的新 Skill
+│   ├── skill-vetter/            # [纯指令] Skill 质量审查
+│   ├── web-content-fetcher/     # [纯指令] 网页内容获取
+│   └── web-tools-guide/         # [纯指令] Web 开发工具指南
 │
 ├── users/
 │   ├── <name>/config.json    # 用户配置：provider/历史/工具权限
@@ -55,8 +61,18 @@ kesepain-Agent/
 
 ```
 start.py → 扫描users/ → 用户选择 → KESEPAIN_USER_DIR → main.py (子进程)
-main.py → 加载配置 + .env → ChatManager → Provider → register_all() → 对话循环
+main.py → 加载配置 + .env → ChatManager → Provider → register_all() → Skill 摘要目录 → 持久记忆注入 → 对话循环
 ```
+
+### 持久记忆
+
+agent-memory Skill 提供跨会话记忆：事实存储到 `users/<name>/agent_memory.db`（SQLite），每次启动时 `_load_memory_context()` 将最近活跃事实注入 system prompt。`/clear` 只清空对话历史，不影响记忆数据库。
+
+### tool_calls 链完整性
+
+ChatManager 内置两层保护防止 OpenAI tool_calls 链断裂（Ctrl+C 中断导致下次启动 400 错误）：
+- **写入保护**: `_close_tool_chain()` — save 前自动闭合未完成的 tool_calls
+- **读取修复**: `_repair_tool_chain()` — load 后检测并切除断链
 
 ### 对话循环内层
 
@@ -101,28 +117,34 @@ LLM tool_calls → ToolRunner.execute()
 
 ## Skill 规范
 
-遵循 **agentskills.io** 标准：
+遵循 **[agentskills.io](https://agentskills.io/specification)** 标准：
 
 ```
 skills/<skill-name>/
 ├── SKILL.md      # 必需：YAML frontmatter(name+description) + Markdown 指引
-├── tool.py       # 必需：含 register()，注册 OpenAI function schema + handler
-├── scripts/      # 可选：内部脚本（不被自动发现）
-└── references/   # 可选：参考文档
+├── tool.py       # 可选（本项目扩展）：含 register()，注册 OpenAI function schema
+├── scripts/      # 可选：内部脚本
+├── references/   # 可选：参考文档
+└── assets/       # 可选：模板/静态资源
 ```
+
+- `SKILL.md` 是唯一必需文件（agentskills.io 规范）。启动时注入摘要（name+description）到 system prompt（渐进披露），详细正文由 LLM 按需通过 `read_file` 读取。
+- `tool.py` 是本项目的 **OpenAI function calling 扩展**。有 tool.py 的 Skill 可被 LLM 作为工具调用；无 tool.py 的 Skill 作为纯指令 Skill，靠摘要引导生效。
+- `name` 必须与文件夹名完全一致，仅限小写字母+数字+连字符，64 字符内。
+- `description` 需同时描述功能和使用时机，1024 字符内。
 
 **SKILL.md 最小模板**:
 ```markdown
 ---
 name: my-skill
-description: 当用户需要 xxx 时使用
+description: 当用户需要 xxx 时使用。描述功能和使用时机。
+compatibility: 需要 python-docx 和网络访问（可选）
 ---
-
 # 使用指引
 ...
 ```
 
-**tool.py 最小模板**:
+**tool.py 最小模板** (可选，仅当 Skill 需要工具调用时):
 ```python
 from run.tool import register_tool
 from skills._common import err, truncate
@@ -157,7 +179,7 @@ def register():
 ## 添加功能怎么做
 
 ### 添加 Skill
-在 `skills/` 下创建目录（含 SKILL.md + tool.py），重启自动生效。
+在 `skills/` 下创建目录含 SKILL.md，重启自动生效。如需工具调用再加 tool.py。纯指令 Skill（无 tool.py）同样生效——摘要注入 system prompt，正文按需读取。
 
 ### 添加命令
 在 `main.py` 的 `_dispatch()` 里加 `elif` 分支。返回 True=退出，False=已处理，None=交给LLM。
@@ -185,7 +207,7 @@ def register():
 
 ```bash
 # 安装依赖
-pip install openai requests yt-dlp tavily-python python-docx
+pip install openai requests yt-dlp tavily-python python-docx pyyaml
 
 # 设置 Key（任选一种）
 echo "DEEPSEEK_API_KEY=sk-your-key" > .env

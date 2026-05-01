@@ -1,6 +1,7 @@
 ---
 name: video-download
 description: 使用 yt-dlp 下载视频。用户提到下载视频、B站、YouTube、抖音等平台的视频时使用。支持指定输出目录、文件名、格式选择。
+compatibility: 需要 yt-dlp (pip install yt-dlp)
 ---
 
 # 视频下载

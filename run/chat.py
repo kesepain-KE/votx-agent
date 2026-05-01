@@ -71,13 +71,14 @@ class ChatManager:
     # ---- 持久化 ----
 
     def load_history(self):
-        """从 JSON 文件恢复历史消息（损坏时自动修复）"""
+        """从 JSON 文件恢复历史消息（损坏时自动修复 + tool_calls 链完整性检查）"""
         if os.path.exists(self.data_path):
             try:
                 with open(self.data_path, encoding="utf-8") as f:
                     data = json.load(f)
                 if isinstance(data, list):
                     self.messages = data
+                    self._repair_tool_chain()
             except (json.JSONDecodeError, Exception):
                 # 损坏时备份并重置
                 corrupt_path = self.data_path + ".corrupt"
@@ -87,11 +88,78 @@ class ChatManager:
                     pass
                 self.messages = []
 
+    def _repair_tool_chain(self):
+        """修复历史中的断链 tool_calls：删除末尾未闭合的 assistant(tool_calls) 及其之后的消息
+
+        OpenAI 兼容接口硬规则：assistant(tool_calls) 之后必须紧跟对应数量的 tool 消息，
+        且每个 tool 消息的 tool_call_id 必须匹配。中断/Ctrl+C 可能导致 assistant(tool_calls)
+        已落盘但 tool 结果未写入，下次启动时 Provider 直接 400。
+        """
+        i = 0
+        cut_at = None
+        while i < len(self.messages):
+            msg = self.messages[i]
+            if msg.get("role") == "assistant" and msg.get("tool_calls"):
+                tc_list = msg["tool_calls"]
+                needed = len(tc_list)
+                expected_ids = {tc["id"] for tc in tc_list}
+                # 检查后续是否至少有 needed 条 tool 消息且 ID 匹配
+                j = i + 1
+                found = 0
+                found_ids = set()
+                while j < len(self.messages) and found < needed:
+                    nxt = self.messages[j]
+                    if nxt.get("role") == "tool":
+                        tid = nxt.get("tool_call_id", "")
+                        if tid in expected_ids:
+                            found_ids.add(tid)
+                            found += 1
+                        else:
+                            # 不属于这个 tool_calls 组的 tool 消息，跳过
+                            pass
+                        j += 1
+                    else:
+                        # 遇到非 tool 消息，链断了
+                        break
+                if found < needed:
+                    # 链不完整：从这个 assistant 开始切除
+                    cut_at = i
+                    break
+                i = j
+            else:
+                i += 1
+
+        if cut_at is not None:
+            dropped = len(self.messages) - cut_at
+            self.messages = self.messages[:cut_at]
+            print(f"[历史修复] 检测到未闭合的 tool_calls 链，已切除末尾 {dropped} 条消息")
+
     def save_history(self):
-        """落盘历史消息（不含 system prompt）"""
+        """落盘历史消息（不含 system prompt）
+
+        写入前自动闭合末尾未完成的 tool_calls 链——防止 Ctrl+C 中断后
+        下次启动时 Provider 因断链而报 400 错误。
+        """
+        self._close_tool_chain()
         os.makedirs(os.path.dirname(self.data_path), exist_ok=True)
         with open(self.data_path, "w", encoding="utf-8") as f:
             json.dump(self.messages, f, ensure_ascii=False, indent=2)
+
+    def _close_tool_chain(self):
+        """如果最后一条消息是未闭合的 assistant(tool_calls)，补上 tool 错误消息"""
+        if not self.messages:
+            return
+        last = self.messages[-1]
+        if last.get("role") != "assistant" or not last.get("tool_calls"):
+            return
+        # 检查是否已有 tool 响应（正常流程不会走到这）
+        tc_list = last["tool_calls"]
+        for tc in tc_list:
+            self.messages.append({
+                "role": "tool",
+                "tool_call_id": tc["id"],
+                "content": "ERROR: 程序中断，工具调用未完成",
+            })
 
     def save_log(self, full_messages: list[dict[str, Any]]):
         """落盘完整日志（含 system prompt + 本次响应）"""

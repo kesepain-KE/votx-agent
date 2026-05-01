@@ -13,6 +13,7 @@ build/
 # 用户私有数据
 users/*/history/
 users/*/config.json
+users/*/agent_memory.db
 !users/*/config.example.json
 
 # IDE
@@ -27,3 +28,6 @@ download/
 # 开发文档（本地维护）
 开发文档.md
 开发文档/
+
+# SkillHub 商店缓存与 CLI
+tools/skillhub/
