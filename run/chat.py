@@ -170,8 +170,37 @@ class ChatManager:
 
     # ---- 历史压缩归档 ----
 
+    @staticmethod
+    def _extract_digest(messages: list[dict[str, Any]], max_items: int = 6) -> list[str]:
+        """从消息列表中提取关键用户/助手对话摘要。
+
+        只取 user 和 assistant(非 tool_calls) 消息的 content，
+        保留最先和最后各 max_items//2 条，中间截断。
+        """
+        lines: list[str] = []
+        for m in messages:
+            role = m.get("role", "")
+            if role == "user":
+                c = m.get("content", "")
+                if c:
+                    lines.append(f"  用户: {c}" if len(c) <= 80 else f"  用户: {c[:77]}...")
+            elif role == "assistant" and not m.get("tool_calls"):
+                c = m.get("content", "")
+                if c:
+                    lines.append(f"  助手: {c}" if len(c) <= 80 else f"  助手: {c[:77]}...")
+
+        if len(lines) <= max_items:
+            return lines
+
+        half = max_items // 2
+        return lines[:half] + ["  ..."] + lines[-half:]
+
     def _trim_if_needed(self):
-        """超过最大条数时裁剪；确保不切断 tool_calls/tool_result 配对"""
+        """超过最大条数时裁剪；确保不切断 tool_calls/tool_result 配对。
+
+        裁剪后将旧消息归档，并插入一条摘要消息到历史开头，
+        让 LLM 知道前面聊过什么、什么时候聊的。
+        """
         if len(self.messages) < self.max_history:
             return
 
@@ -190,6 +219,20 @@ class ChatManager:
 
         trimmed = self.messages[:safe]
         self.messages = self.messages[safe:]
+
+        # 生成摘要并插入历史开头
+        digest = self._extract_digest(trimmed)
+        if digest:
+            ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+            lines = [
+                f"[历史压缩] 以下是之前 {len(trimmed)} 条对话的摘要（已归档保存）：",
+                *digest,
+                f"归档时间: {ts}",
+            ]
+            self.messages.insert(0, {
+                "role": "user",
+                "content": "\n".join(lines),
+            })
 
         if self.zip_history and trimmed:
             self._archive(trimmed)
