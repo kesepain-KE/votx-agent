@@ -1,0 +1,215 @@
+"""对话管理 - 消息组装、历史加载保存、压缩归档"""
+import json
+import os
+from datetime import datetime, timezone
+from typing import Any
+
+
+class ChatManager:
+    """管理对话消息列表和历史记录"""
+
+    def __init__(self, user_dir: str, core_config: dict[str, Any], user_config: dict[str, Any]):
+        hist_cfg = core_config["history"]
+        self.max_history = hist_cfg["history_max"]
+        self.zip_history = hist_cfg["zip_history"]
+        user_hist = user_config.get("history", {})
+        data_file = user_hist.get("data", "chat_data.json")
+        log_file = user_hist.get("log", "chat_log.json")
+        self.data_path = os.path.join(user_dir, "history", "chat", data_file)
+        self.log_path = os.path.join(user_dir, "history", "log", log_file)
+        self.tool_log_path = os.path.join(user_dir, "history", "log", "tool_log.json")
+        self.archive_dir = os.path.join(user_dir, "history", "archive")
+        self.system_prompt = ""
+        self.messages: list[dict[str, Any]] = []
+
+    # ---- system prompt ----
+
+    def set_system_prompt(self, prompt: str):
+        self.system_prompt = prompt
+
+    # ---- 消息组装 ----
+
+    def build_messages(self) -> list[dict[str, Any]]:
+        """组装完整消息列表: system + history"""
+        msgs: list[dict[str, Any]] = []
+        if self.system_prompt:
+            msgs.append({"role": "system", "content": self.system_prompt})
+        msgs.extend(self.messages)
+        return msgs
+
+    # ---- 添加消息 ----
+
+    def add_user_message(self, content: str):
+        self._trim_if_needed()
+        self.messages.append({"role": "user", "content": content})
+
+    def add_assistant_message(self, content: str):
+        self.messages.append({"role": "assistant", "content": content})
+
+    def add_tool_call_message(self, tool_calls):
+        """将 SDK tool_calls 对象转为可序列化 dict 后追加"""
+        tc_list = []
+        for tc in tool_calls:
+            tc_list.append({
+                "id": tc.id,
+                "type": "function",
+                "function": {
+                    "name": tc.function.name,
+                    "arguments": tc.function.arguments,
+                },
+            })
+        self.messages.append({
+            "role": "assistant",
+            "content": None,
+            "tool_calls": tc_list,
+        })
+
+    def add_tool_results(self, tool_outputs: list[dict[str, Any]]):
+        self._trim_if_needed()
+        self.messages.extend(tool_outputs)
+
+    # ---- 持久化 ----
+
+    def load_history(self):
+        """从 JSON 文件恢复历史消息（损坏时自动修复）"""
+        if os.path.exists(self.data_path):
+            try:
+                with open(self.data_path, encoding="utf-8") as f:
+                    data = json.load(f)
+                if isinstance(data, list):
+                    self.messages = data
+            except (json.JSONDecodeError, Exception):
+                # 损坏时备份并重置
+                corrupt_path = self.data_path + ".corrupt"
+                try:
+                    os.rename(self.data_path, corrupt_path)
+                except Exception:
+                    pass
+                self.messages = []
+
+    def save_history(self):
+        """落盘历史消息（不含 system prompt）"""
+        os.makedirs(os.path.dirname(self.data_path), exist_ok=True)
+        with open(self.data_path, "w", encoding="utf-8") as f:
+            json.dump(self.messages, f, ensure_ascii=False, indent=2)
+
+    def save_log(self, full_messages: list[dict[str, Any]]):
+        """落盘完整日志（含 system prompt + 本次响应）"""
+        os.makedirs(os.path.dirname(self.log_path), exist_ok=True)
+        with open(self.log_path, "w", encoding="utf-8") as f:
+            json.dump(full_messages, f, ensure_ascii=False, indent=2)
+
+    # ---- 历史压缩归档 ----
+
+    def _trim_if_needed(self):
+        """超过最大条数时裁剪；确保不切断 tool_calls/tool_result 配对"""
+        if len(self.messages) < self.max_history:
+            return
+
+        keep = self.max_history // 2
+        cut = len(self.messages) - keep
+
+        # 向后扫描到安全切点：不在 tool_calls/tool 配对中间截断
+        safe = cut
+        for i in range(cut, len(self.messages)):
+            role = self.messages[i].get("role", "")
+            if role != "tool":
+                safe = i
+                break
+        else:
+            safe = cut  # fallback
+
+        trimmed = self.messages[:safe]
+        self.messages = self.messages[safe:]
+
+        if self.zip_history and trimmed:
+            self._archive(trimmed)
+
+    def _archive(self, old_messages: list[dict[str, Any]]):
+        """将旧消息归档到独立文件"""
+        try:
+            os.makedirs(self.archive_dir, exist_ok=True)
+            ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S_%f")
+            archive_path = os.path.join(self.archive_dir, f"history_{ts}.json")
+            with open(archive_path, "w", encoding="utf-8") as f:
+                json.dump(old_messages, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass  # 归档失败不影响主流程
+
+    # ---- 用户命令 ----
+
+    def clear_history(self) -> str:
+        """清除当前对话历史（先归档再清空），返回提示信息"""
+        if not self.messages:
+            return "没有可清除的历史记录。"
+        count = len(self.messages)
+        self._archive(self.messages)
+        self.messages = []
+        try:
+            if os.path.exists(self.data_path):
+                os.remove(self.data_path)
+        except Exception:
+            pass
+        # 同时清空工具日志
+        tl_count = 0
+        try:
+            if os.path.exists(self.tool_log_path):
+                with open(self.tool_log_path, encoding="utf-8") as f:
+                    tl_count = sum(1 for _ in f)
+                os.remove(self.tool_log_path)
+        except Exception:
+            pass
+        extra = f"，{tl_count} 条工具日志已清空" if tl_count else ""
+        return f"已清除 {count} 条历史消息（归档备份已保存）{extra}。"
+
+    def archive_now(self) -> str:
+        """手动归档当前全部历史，不清空"""
+        if not self.messages:
+            return "没有可归档的历史记录。"
+        count = len(self.messages)
+        self._archive(list(self.messages))
+        return f"已归档 {count} 条历史消息。"
+
+    def history_stats(self) -> str:
+        """返回当前历史状态摘要"""
+        msg_count = len(self.messages)
+        # 估算大小
+        try:
+            size = os.path.getsize(self.data_path) if os.path.exists(self.data_path) else 0
+        except OSError:
+            size = 0
+        # 工具日志条数
+        tool_log_count = 0
+        try:
+            if os.path.exists(self.tool_log_path):
+                with open(self.tool_log_path, encoding="utf-8") as f:
+                    tool_log_count = sum(1 for _ in f)
+        except Exception:
+            pass
+        # 归档文件数
+        archive_count = 0
+        if os.path.isdir(self.archive_dir):
+            try:
+                archive_count = len([
+                    f for f in os.listdir(self.archive_dir)
+                    if f.endswith(".json") and os.path.isfile(os.path.join(self.archive_dir, f))
+                ])
+            except OSError:
+                pass
+        lines = [
+            f"当前会话消息: {msg_count} 条（上限 {self.max_history}）",
+            f"历史文件大小: {_fmt_bytes(size)}",
+            f"工具调用日志: {tool_log_count} 条",
+            f"归档备份数: {archive_count} 个",
+            f"自动归档: {'开' if self.zip_history else '关'}",
+        ]
+        return "\n".join(lines)
+
+
+def _fmt_bytes(n: int) -> str:
+    if n < 1024:
+        return f"{n} B"
+    elif n < 1024 * 1024:
+        return f"{n / 1024:.1f} KB"
+    else:
+        return f"{n / 1024 / 1024:.1f} MB"

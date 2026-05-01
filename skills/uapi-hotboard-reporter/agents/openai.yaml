@@ -1,0 +1,21 @@
+# OpenAI 兼容 Agent 配置
+openapi: 3.1.0
+info:
+  title: UAPI Hotboard Reporter
+  version: "1.0"
+servers:
+  - url: https://uapi.run
+paths:
+  /hotboard/{platform}:
+    get:
+      operationId: fetch_hotboard
+      description: 拉取指定平台热榜数据
+      parameters:
+        - name: platform
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 热榜数据

@@ -1,0 +1,12 @@
+{
+    "history": {
+        "history_max": 100,
+        "zip_history": true
+    },
+    "tool": {
+        "tool_max": 100,
+        "tool_max_per_type": 50,
+        "tool_log_max": 1000,
+        "enabled": {}
+    }
+}

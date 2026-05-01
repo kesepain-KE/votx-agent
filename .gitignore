@@ -1,0 +1,25 @@
+# 密钥
+.env
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# 用户私有数据
+users/*/history/
+users/*/config.json
+!users/*/config.example.json
+
+# IDE
+.vscode/
+.idea/
+
+# 系统
+.DS_Store
+Thumbs.db
+download/
