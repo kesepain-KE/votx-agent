@@ -5,7 +5,3 @@ tavily-python>=0.3.0
 python-docx>=1.0.0
 pyyaml>=6.0
 pytest>=7.0.0
-
-# 运行时环境依赖（WSL）
-# fd >= 9.0.0  — 快速文件搜索（apt install fd-find，需 symlink fd->fdfind）
-# rg >= 15.1.0 — 文件内容搜索（apt install ripgrep）
