@@ -3,6 +3,11 @@ import os
 import time as _time
 from pathlib import Path
 from typing import Any
+
+# 修复 Windows SSL_CERT_FILE 指向不存在文件导致的 httpx 崩溃
+if "SSL_CERT_FILE" in os.environ and not os.path.isfile(os.environ["SSL_CERT_FILE"]):
+    del os.environ["SSL_CERT_FILE"]
+
 from openai import OpenAI, APIError, APITimeoutError, APIConnectionError
 from openai.types.chat import ChatCompletionMessage
 
@@ -37,7 +42,8 @@ RETRY_DELAY = 1.0
 class DeepSeekProvider:
     """LLM Provider - 支持 OpenAI 兼容接口"""
 
-    def __init__(self, user_config: dict):
+    def __init__(self, user_config: dict, core_config: dict | None = None):
+        core = core_config or {}
         cfg = user_config.get("provider", {})
         # API Key: config > DEEPSEEK_API_KEY > OPENAI_API_KEY
         api_key = (
@@ -61,7 +67,8 @@ class DeepSeekProvider:
         self.client = OpenAI(api_key=api_key, base_url=base_url)
         self.model = cfg.get("model", "deepseek-v4-flash")
         self.think = cfg.get("think", False)
-        self.stream = cfg.get("stream", False)
+        # stream: 用户配置 > 全局配置 > False
+        self.stream = cfg.get("stream", core.get("output", {}).get("stream", False))
         self.timeout = cfg.get("timeout", 120)
         self.last_usage: dict | None = None
 
@@ -103,6 +110,94 @@ class DeepSeekProvider:
         else:
             self.last_usage = _extract_usage(response)
             return response.choices[0].message
+
+    def chat_stream(self, messages, tools=None):
+        """流式 LLM 调用 — yield 文本增量，完成后 self.last_usage + self._stream_result 可用
+
+        用法:
+            for delta_text in provider.chat_stream(messages, tools):
+                ...  # delta_text 是 str，可能为空字符串
+            # 流结束后:
+            msg = provider._stream_result  # ChatCompletionMessage（含 tool_calls）
+            usage = provider.last_usage
+        """
+        kwargs: dict[str, Any] = {
+            "model": self.model,
+            "messages": messages,
+            "stream": True,
+            "timeout": self.timeout,
+        }
+        if self.think:
+            kwargs["reasoning_effort"] = "high"
+        else:
+            kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
+        if tools:
+            kwargs["tools"] = tools
+
+        last_err = None
+        for attempt in range(MAX_RETRIES + 1):
+            try:
+                response = self.client.chat.completions.create(**kwargs)
+                break
+            except (APITimeoutError, APIConnectionError) as e:
+                last_err = e
+                if attempt < MAX_RETRIES:
+                    _time.sleep(RETRY_DELAY * (attempt + 1))
+                    continue
+                raise RuntimeError(f"API 调用失败（已重试 {MAX_RETRIES} 次）: {e}") from e
+            except APIError as e:
+                raise RuntimeError(f"API 错误: {e}") from e
+
+        content_parts: list[str] = []
+        tool_calls_map: dict[int, dict] = {}
+        usage = None
+
+        for chunk in response:
+            if hasattr(chunk, "usage") and chunk.usage:
+                usage = _extract_usage(chunk)
+                self.last_usage = usage
+            delta = chunk.choices[0].delta
+            if delta.content:
+                content_parts.append(delta.content)
+                yield delta.content
+            if delta.tool_calls:
+                for tc in delta.tool_calls:
+                    idx = tc.index
+                    if idx not in tool_calls_map:
+                        tool_calls_map[idx] = {
+                            "id": tc.id or "",
+                            "function": {"name": "", "arguments": ""},
+                        }
+                    if tc.id:
+                        tool_calls_map[idx]["id"] = tc.id
+                    if tc.function and tc.function.name:
+                        tool_calls_map[idx]["function"]["name"] += tc.function.name
+                    if tc.function and tc.function.arguments:
+                        tool_calls_map[idx]["function"]["arguments"] += tc.function.arguments
+
+        if usage:
+            self.last_usage = usage
+
+        content = "".join(content_parts)
+        tool_calls = None
+        if tool_calls_map:
+            from openai.types.chat.chat_completion_message_tool_call import (
+                ChatCompletionMessageToolCall,
+            )
+            tool_calls = []
+            for idx in sorted(tool_calls_map):
+                tc = tool_calls_map[idx]
+                tool_calls.append(ChatCompletionMessageToolCall(
+                    id=tc["id"],
+                    type="function",
+                    function={
+                        "name": tc["function"]["name"],
+                        "arguments": tc["function"]["arguments"],
+                    },
+                ))
+        self._stream_result = ChatCompletionMessage(
+            role="assistant", content=content or None, tool_calls=tool_calls
+        )
 
     def _collect_stream(self, response) -> tuple[ChatCompletionMessage, dict | None]:
         """收集流式 chunk 拼接为完整 Message，同时提取 usage"""

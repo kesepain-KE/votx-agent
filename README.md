@@ -1,18 +1,20 @@
-# votx-agent
+# kesepain-Agent
 
-多用户 AI Agent 框架。OpenAI 兼容接口，支持角色扮演、工具调用、对话持久化，内置多层安全机制。
+多用户 AI Agent 框架。OpenAI 兼容接口，支持角色扮演、工具调用、对话持久化，内置多层安全机制。提供 CLI 和 Web UI 两种交互方式。
 
 ## 快速开始
 
 ```bash
-python 快速配置.py    # 克隆后首次运行——一键安装依赖、配置 Key、创建用户
-python start.py       # 配置完成后日常只需这条
+python 快速配置.py         # 克隆后首次运行——一键安装依赖、配置 Key、创建用户
+python start.py            # CLI 模式（日常使用）
+python start.py --web       # Web UI 模式（默认端口 13579）
+python start_web.py        # Web UI 专用入口（默认端口 1478，冲突自动轮询）
 ```
 
 或手动设置：
 
 ```bash
-pip install openai requests yt-dlp tavily-python python-docx pyyaml
+pip install openai requests yt-dlp tavily-python python-docx pyyaml flask
 cp .env.example .env   # 编辑填入 DEEPSEEK_API_KEY
 python start.py
 ```
@@ -47,48 +49,54 @@ python start.py
 | 命令 | 功能 |
 |------|------|
 | `/exit` `/quit` `/q` | 退出（自动保存） |
-| `/clear` | 清除对话历史 + 工具日志（先归档） |
+| `/clear` | 清除对话历史 + 工具日志 |
 | `/history` `/stats` | 消息数 / 工具日志条数 / 归档数 |
 | `/archive` | 手动归档（不清空） |
+| `/retry` | 移除上一条 AI 回复，重新生成 |
+| `/summarize` `/总结` | 生成当前对话摘要 |
 | `/help` | 显示帮助 |
 
 ## 项目结构
 
 ```
-├── start.py            # 入口：用户选择 → 启动 main.py
-├── main.py             # 主循环 + 命令分发 + Token 统计 + 死循环检测
+├── start.py              # CLI 入口：用户选择 → 启动 main.py
+├── start_web.py          # Web UI 入口：端口 1478，冲突自动轮询
+├── main.py               # CLI 核心：命令分发 + 对话循环（委托 run/engine.py）
 ├── config/
-│   ├── config_core.json # 全局配置（历史/限流）
-│   └── soul.md          # 运行纪律规则（注入 system prompt）
+│   ├── config_core.json   # 全局配置（历史/限流）
+│   └── soul.md            # 运行纪律规则（注入 system prompt）
 ├── provider/
-│   └── openai_api.py    # DeepSeekProvider（流式/重试/Token统计）
+│   └── openai_api.py      # DeepSeekProvider（流式/重试/Token统计/SSL修复）
 ├── run/
-│   ├── chat.py          # ChatManager：消息管理/历史归档/清除
-│   └── tool.py          # ToolRunner：注册/权限校验/限流/日志
-├── skills/              # agentskills.io 标准骨架
-│   ├── _common/         # 公共模块（err/truncate/safe_path/log）
-│   ├── file/            network/       shell/    time/
-│   ├── video-download/  word-docx/     tavily-search/
-│   ├── uapi-hotboard-reporter/         self-improving-agent/
-│   ├── agent-memory/    vision/        download-anything/
-│   ├── find-skills/     pdf-tools/     skill-creator/
-│   ├── skill-vetter/    web-content-fetcher/  web-tools-guide/
-├── AGENT.md             # 项目能力指南（注入 system prompt）
+│   ├── engine.py           # 【共用引擎】build_system_prompt() + run_chat_turn() generator
+│   ├── chat.py             # ChatManager：消息管理/历史归档/清除
+│   └── tool.py             # ToolRunner：注册/权限校验/限流/日志
+├── web/                    # 【Web UI】Flask + SSE 流式聊天
+│   ├── __init__.py
+│   ├── server.py           # Flask 后端：20 个 /api 端点 + SSE 事件流
+│   └── templates/
+│       └── index.html      # 单页聊天界面（高级黑/白 glassmorphism 主题）
+├── skills/                 # agentskills.io 标准骨架（18 Skill）
+│   ├── _common/            # 公共模块（err/truncate/safe_path/log）
+│   ├── file/  network/  shell/  time/  video-download/
+│   ├── word-docx/  tavily-search/  uapi-hotboard-reporter/
+│   ├── self-improving-agent/  agent-memory/
+│   ├── vision/  download-anything/  find-skills/  pdf-tools/
+│   ├── skill-creator/  skill-vetter/  web-content-fetcher/  web-tools-guide/
+├── AGENT.md               # 项目能力指南（注入 system prompt）
 ├── users/
-│   └── kesepain/        # 用户目录（self_soul.md + config.json + history/）
+│   └── kesepain/           # 用户目录（self_soul.md + config.json + history/）
 └── requirements.txt
 ```
 
 ## 调用链
 
 ```
-start.py → 扫描 users/ → 选择用户 → main.py
-main.py → self_soul.md + soul.md + AGENT.md + Skill 摘要 + 持久记忆 → system prompt
-        → register_all() → 18 Skill / 25 tools
-        → 对话循环（MAX_TOOL_ROUNDS=20）
-        → tool_calls 链自动修复（防 Ctrl+C 后 Provider 400）
-        → 同命令连败 3 次自动提示 LLM 换思路
-        → Token 累计显示（含缓存命中）
+CLI: start.py → 扫描 users/ → 选择用户 → main.py → engine
+Web: start.py --web / start_web.py → Flask → 浏览器选择用户 → engine
+engine: self_soul.md + soul.md + AGENT.md + Skill 摘要 + 持久记忆 → system prompt
+        → register_all() → 25 tools → run_chat_turn() generator → SSE/CLI 输出
+        → tool_calls 链自动修复 → 同命令连败 3 次提示 → Token 累计
 ```
 
 ## 安全机制
@@ -109,9 +117,9 @@ main.py → self_soul.md + soul.md + AGENT.md + Skill 摘要 + 持久记忆 → 
 ```bash
 # .env（可选 Key）
 DEEPSEEK_API_KEY=sk-xxx       # 必填
+OPENAI_API_KEY=sk-xxx         # vision Skill 图像识别
 UAPI_API_KEY=uapi-xxx         # 热榜查询
 TAVILY_API_KEY=tvly-xxx       # 网络搜索
-HTTP_TIMEOUT=15               # HTTP 超时
 ```
 
 权限控制：`users/<name>/config.json` → `tool.deny` / `tool.enabled`

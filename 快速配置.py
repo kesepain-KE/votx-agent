@@ -137,7 +137,6 @@ def create_user() -> bool:
     # 创建 config.json
     config = {
         "provider": {
-            "name": "deepseek",
             "model": model,
             "api_key": "",
             "think": False,

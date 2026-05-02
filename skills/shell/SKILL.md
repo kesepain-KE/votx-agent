@@ -1,5 +1,5 @@
 ---
-name: "shell"
+name: shell
 version: "1.0.0"
 description: "Shell scripting reference — Bash syntax, redirections, process substitution, signal handling, debugging techniques. Use when writing shell scripts, troubleshooting Bash behavior, or automating system tasks."
 author: "BytesAgain"
