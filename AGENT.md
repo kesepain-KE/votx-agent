@@ -39,11 +39,16 @@ kesepain-Agent/
 │   ├── video-download/          # 视频下载（yt-dlp 封装）
 │   ├── word-docx/               # Word 文档（python-docx 封装）
 │   ├── agent-memory/            # 持久记忆（mem_remember/mem_recall 等 7 工具，/clear 不丢）
+│   ├── vision/                  # 图像识别（vision_infer，GPT-4o-mini 多模态，需 OPENAI_API_KEY）
+│   ├── download-anything/       # [纯指令] 下载任意数字资源（yt-dlp/aria2/gallery-dl/网盘搜索）
+│   ├── find-skills/             # [纯指令] 发现并安装 Agent Skills（npx skills CLI）
+│   ├── pdf-tools/               # [纯指令] PDF 操作（提取/合并/拆分/旋转/编辑文字）
 │   ├── skill-creator/           # [纯指令] 创建 agentskills.io 规范的新 Skill
 │   ├── skill-vetter/            # [纯指令] Skill 质量审查
 │   ├── web-content-fetcher/     # [纯指令] 网页内容获取
 │   └── web-tools-guide/         # [纯指令] Web 开发工具指南
 │
+├── skillhub-cli/                # SkillHub CLI 工具
 ├── users/
 │   ├── <name>/config.json    # 用户配置：provider/历史/工具权限
 │   ├── <name>/self_soul.md   # 角色人设（system prompt，核心）
