@@ -19,7 +19,7 @@ python start.py
 
 ## 能力
 
-**18 个 Skill，26 个工具**（[agentskills.io](https://agentskills.io/specification) 规范，放入即自动发现）
+**18 个 Skill，25 个工具**（[agentskills.io](https://agentskills.io/specification) 规范，放入即自动发现）
 
 | Skill | 工具 | 说明 |
 |-------|------|------|
@@ -33,7 +33,7 @@ python start.py
 | tavily-search | `tavily_search` | AI 搜索引擎 |
 | self-improving-agent | `log_learning` `log_error` `log_feature_request` `read_learnings` | 自主学习：记录错误/纠正/功能请求 |
 | agent-memory | `mem_remember` `mem_recall` `mem_learn` `mem_get_lessons` `mem_track_entity` `mem_get_entity` `mem_stats` | 持久记忆：记住/回忆/学习/实体追踪 |
-| vision | `vision_infer` | 图像识别（GPT-4o-mini 多模态，需 OPENAI_API_KEY） |
+| vision | —（纯指令） | 图像识别（GPT-4o-mini，通过 run_command 调用脚本） |
 | download-anything | —（纯指令） | 下载任意数字资源（视频/电子书/音乐/软件/网盘） |
 | find-skills | —（纯指令） | 发现并安装 Agent Skills（npx skills CLI） |
 | pdf-tools | —（纯指令） | PDF 操作（提取/合并/拆分/旋转/编辑） |
@@ -84,7 +84,7 @@ python start.py
 ```
 start.py → 扫描 users/ → 选择用户 → main.py
 main.py → self_soul.md + soul.md + AGENT.md + Skill 摘要 + 持久记忆 → system prompt
-        → register_all() → 18 Skill / 26 tools
+        → register_all() → 18 Skill / 25 tools
         → 对话循环（MAX_TOOL_ROUNDS=20）
         → tool_calls 链自动修复（防 Ctrl+C 后 Provider 400）
         → 同命令连败 3 次自动提示 LLM 换思路

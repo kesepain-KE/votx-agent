@@ -39,7 +39,7 @@ kesepain-Agent/
 │   ├── video-download/          # 视频下载（yt-dlp 封装）
 │   ├── word-docx/               # Word 文档（python-docx 封装）
 │   ├── agent-memory/            # 持久记忆（mem_remember/mem_recall 等 7 工具，/clear 不丢）
-│   ├── vision/                  # 图像识别（vision_infer，GPT-4o-mini 多模态，需 OPENAI_API_KEY）
+│   ├── vision/                  # [纯指令] 图像识别（GPT-4o-mini，通过 run_command 调用脚本）
 │   ├── download-anything/       # [纯指令] 下载任意数字资源（yt-dlp/aria2/gallery-dl/网盘搜索）
 │   ├── find-skills/             # [纯指令] 发现并安装 Agent Skills（npx skills CLI）
 │   ├── pdf-tools/               # [纯指令] PDF 操作（提取/合并/拆分/旋转/编辑文字）
