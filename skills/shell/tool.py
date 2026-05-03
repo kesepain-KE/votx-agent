@@ -3,13 +3,23 @@ import os
 import shlex
 import subprocess
 from run.tool import register_tool
-from skills._common import err, truncate
+from skills._common import err, truncate, check_dangerous_command, safe_working_dir, sanitize_env
 
 
 def run_command(command: str, working_dir: str = "") -> str:
     """执行系统命令"""
     if not command.strip():
         return err("命令为空")
+
+    # 安全检查：危险命令拦截
+    danger_err = check_dangerous_command(command)
+    if danger_err:
+        return err(danger_err)
+
+    # 安全检查：工作目录校验
+    wd_err = safe_working_dir(working_dir)
+    if wd_err:
+        return err(wd_err)
 
     # cmd.exe /c 时注入 UTF-8 代码页，防止中文路径乱码
     cmd = command.strip()
@@ -21,7 +31,9 @@ def run_command(command: str, working_dir: str = "") -> str:
             # 去掉已有的外层引号
             if rest.startswith('"') and rest.endswith('"'):
                 rest = rest[1:-1]
-            cmd = f'{m.group(1)} {m.group(3)} "chcp 65001 > nul & {rest}"'
+            # 转义内部双引号防止命令注入
+            rest_escaped = rest.replace('"', '\\"')
+            cmd = f'{m.group(1)} {m.group(3)} "chcp 65001 > nul & {rest_escaped}"'
 
     try:
         args = shlex.split(cmd)
@@ -40,9 +52,10 @@ def run_command(command: str, working_dir: str = "") -> str:
             errors="replace",
             text=True,
             cwd=cwd,
+            env=sanitize_env(),
         )
         output = r.stdout.strip() or r.stderr.strip() or f"(exit={r.returncode})"
-        return truncate(output)
+        return truncate(output, max_len=100000)
     except FileNotFoundError:
         return err(f"命令未找到: {args[0]}")
     except subprocess.TimeoutExpired:

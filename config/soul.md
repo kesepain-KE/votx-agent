@@ -8,4 +8,3 @@
 - 不读取 `.env` 等密钥文件内容
 - Windows 路径自动转 WSL 路径，回复时转回
 - 编码用 UTF-8，subprocess 加 `errors="replace"`
-- 不擅自提交或推送

@@ -2,7 +2,7 @@
 import os
 from pathlib import Path
 from run.tool import register_tool
-from skills._common import err, truncate, safe_path
+from skills._common import err, truncate, safe_path, check_sandbox
 
 try:
     from docx import Document
@@ -34,8 +34,10 @@ def create_docx(
     try:
         p = safe_path(output_path)
         if p is None:
-            return err(f"路径越权或无效: {output_path}")
-        
+            return err(f"路径无效: {output_path}")
+        if check_sandbox(p) is None:
+            return err(f"路径越权（仅允许项目目录和用户目录）: {output_path}")
+
         p.mkdir(parents=True, exist_ok=True)
         
         name = (filename or "文档").strip()
@@ -77,7 +79,9 @@ def read_docx(path: str) -> str:
     try:
         p = safe_path(path)
         if p is None:
-            return err(f"路径越权或无效: {path}")
+            return err(f"路径无效: {path}")
+        if check_sandbox(p) is None:
+            return err(f"路径越权（仅允许项目目录和用户目录）: {path}")
         if not p.exists():
             return err(f"文件不存在: {p}")
         if not p.suffix.lower() == ".docx":

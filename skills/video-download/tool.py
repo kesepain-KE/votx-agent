@@ -2,7 +2,7 @@
 import os
 import subprocess
 from run.tool import register_tool
-from skills._common import err, truncate, safe_path
+from skills._common import err, truncate, safe_path, check_sandbox
 
 
 def download_video(url: str, output_dir: str = "", filename: str = "", format_spec: str = "") -> str:
@@ -15,7 +15,9 @@ def download_video(url: str, output_dir: str = "", filename: str = "", format_sp
     if out_dir:
         sp = safe_path(out_dir)
         if sp is None:
-            return err(f"输出目录越权或无效: {out_dir}")
+            return err(f"输出目录无效: {out_dir}")
+        if check_sandbox(sp) is None:
+            return err(f"输出目录越权（仅允许项目目录和用户目录）: {out_dir}")
         out_dir = str(sp)
 
     # 组装 yt-dlp 参数

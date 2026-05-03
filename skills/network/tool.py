@@ -6,7 +6,7 @@ import ssl
 import urllib.error
 
 from run.tool import register_tool
-from skills._common import err
+from skills._common import err, validate_url, MAX_RESPONSE_BYTES
 
 try:
     import urllib.request as _req
@@ -54,9 +54,19 @@ def _get_proxy() -> str | None:
     return None
 
 
+class _SafeRedirectHandler(_req.HTTPRedirectHandler):
+    """在跟随重定向前校验目标 URL 安全性，防止 SSRF 重定向绕过。"""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        url_err = validate_url(newurl)
+        if url_err:
+            raise urllib.error.URLError(f"SSRF 阻断: 重定向目标不安全 - {url_err}")
+        return _req.HTTPRedirectHandler.redirect_request(
+            self, req, fp, code, msg, headers, newurl)
+
+
 def _do_request(url: str, method: str = "GET", body: bytes | None = None,
                 headers: dict | None = None) -> str:
-    """发送 HTTP 请求，自动走系统代理"""
+    """发送 HTTP 请求，自动走系统代理，含 SSRF 防护"""
     try:
         req = _req.Request(url, data=body, method=method)
         req.add_header("User-Agent", "votx-agent/1.0")
@@ -65,16 +75,37 @@ def _do_request(url: str, method: str = "GET", body: bytes | None = None,
                 req.add_header(k, v)
 
         proxy_url = _get_proxy()
-        handlers = []
+        handlers = [_SafeRedirectHandler()]
         if proxy_url:
             handlers.append(_req.ProxyHandler({"http": proxy_url, "https": proxy_url}))
         ctx = _ssl_ctx()
         if ctx:
             handlers.append(_req.HTTPSHandler(context=ctx))
-        opener = _req.build_opener(*handlers) if handlers else _req.build_opener()
+        opener = _req.build_opener(*handlers)
 
         with opener.open(req, timeout=_TIMEOUT) as resp:
-            raw = resp.read()
+            cl_header = resp.headers.get("Content-Length")
+            if cl_header:
+                try:
+                    if int(cl_header) > MAX_RESPONSE_BYTES:
+                        return err(
+                            f"响应体过大 ({int(cl_header)} bytes / "
+                            f"{MAX_RESPONSE_BYTES // 1024 // 1024}MB 限制)，拒绝下载")
+                except ValueError:
+                    pass
+
+            chunks: list[bytes] = []
+            total = 0
+            while True:
+                chunk = resp.read(8192)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > MAX_RESPONSE_BYTES:
+                    return err(
+                        f"响应体超过 {MAX_RESPONSE_BYTES // 1024 // 1024}MB 限制，已截断")
+                chunks.append(chunk)
+            raw = b"".join(chunks)
             text = raw.decode("utf-8", errors="replace")
             return text
     except urllib.error.URLError as e:
@@ -103,6 +134,9 @@ def _parse_headers(headers_str: str) -> dict | None:
 
 def http_get(url: str, headers: str = "") -> str:
     """发送 HTTP GET 请求"""
+    url_err = validate_url(url)
+    if url_err:
+        return err(url_err)
     try:
         hdrs = _parse_headers(headers)
     except ValueError as e:
@@ -112,6 +146,9 @@ def http_get(url: str, headers: str = "") -> str:
 
 def http_post(url: str, body: str = "", headers: str = "") -> str:
     """发送 HTTP POST 请求"""
+    url_err = validate_url(url)
+    if url_err:
+        return err(url_err)
     try:
         hdrs = _parse_headers(headers)
     except ValueError as e:

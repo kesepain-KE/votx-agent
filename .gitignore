@@ -40,5 +40,9 @@ skillhub-cli/
 tools/skillhub/
 skills/.skills_store_lock.json
 
+# Windows 保留名文件
+*\\nul
+nul
+
 # 临时文件
 tmp/

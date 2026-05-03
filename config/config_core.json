@@ -9,7 +9,13 @@
         "tool_log_max": 1000,
         "enabled": {}
     },
-    "output":{
+    "output": {
         "stream": true
+    },
+    "security": {
+        "sandbox_enabled": true,
+        "ssrf_enabled": true,
+        "command_blacklist_enabled": true,
+        "env_isolation": true
     }
 }
