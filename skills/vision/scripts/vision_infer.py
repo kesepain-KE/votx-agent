@@ -92,8 +92,9 @@ def test_proxy(proxy_url, target_url="https://www.baidu.com", timeout=5):
     try:
         req = urllib.request.Request(target_url)
         handler = urllib.request.ProxyHandler({"http": proxy_url, "https": proxy_url})
-        opener = urllib.request.build_opener(handler)
-        opener.open(req, timeout=timeout, context=_make_ssl_ctx())
+        ctx = _make_ssl_ctx()
+        opener = urllib.request.build_opener(handler, urllib.request.HTTPSHandler(context=ctx))
+        opener.open(req, timeout=timeout)
         return True
     except Exception:
         return False
@@ -102,7 +103,9 @@ def test_proxy(proxy_url, target_url="https://www.baidu.com", timeout=5):
 def test_direct(target_url="https://www.baidu.com", timeout=5):
     """测试直连是否可用"""
     try:
-        urllib.request.urlopen(target_url, timeout=timeout, context=_make_ssl_ctx())
+        ctx = _make_ssl_ctx()
+        opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=ctx))
+        opener.open(target_url, timeout=timeout)
         return True
     except Exception:
         return False
