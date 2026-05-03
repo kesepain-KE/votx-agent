@@ -13,7 +13,7 @@ from run.tool import ToolRunner, load_tool_schemas
 
 
 def main():
-    user_dir = os.environ.get("KESEPAIN_USER_DIR")
+    user_dir = os.environ.get("VOTX_USER_DIR")
     if not user_dir:
         print("错误: 未指定用户目录")
         sys.exit(1)
@@ -50,7 +50,40 @@ def main():
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
 
     print(f"\n系统已就绪，用户: {os.path.basename(user_dir)}")
-    print("命令: /exit 退出  /clear 清除历史  /history 状态  /archive 归档  /summarize 摘要  /help 帮助\n")
+    print("命令: /exit 退出  /clear 清除  /retry 重试  /history 状态  /archive 归档  /summarize 摘要  /help 帮助\n")
+
+    # 执行一轮对话
+    def _run_turn(user_text: str):
+        chat.add_user_message(user_text)
+        tool_runner.reset_count()
+        round_usages: list[dict] = []
+
+        for event in run_chat_turn(chat, tool_runner, provider, tools):
+            if event["type"] == "tool_call":
+                print(f"  {event['line']}")
+            elif event["type"] == "text_chunk":
+                print(event["content"], end="", flush=True)
+            elif event["type"] == "text_done":
+                print()
+            elif event["type"] == "text":
+                print(f"助手: {event['content']}")
+            elif event["type"] == "usage":
+                round_usages.append(event["data"])
+            elif event["type"] == "error":
+                print(f"\n[Provider 错误: {event['content']}]")
+            elif event["type"] == "deadlock_warning":
+                print("  ⚠ 同命令连败 3 次，已提示 LLM 换思路")
+            elif event["type"] == "max_rounds":
+                print("[已达到工具调用上限]")
+
+        if round_usages:
+            total_in = sum(u["prompt_tokens"] for u in round_usages)
+            total_out = sum(u["completion_tokens"] for u in round_usages)
+            total_cached = sum(u["cached_tokens"] for u in round_usages)
+            print(f"[Token: 输入 {total_in} (缓存命中 {total_cached}) | 输出 {total_out} | 总计 {total_in + total_out}]\n")
+
+        chat.save_history()
+        chat.save_log(chat.build_messages())
 
     # 命令分发
     def _dispatch(cmd: str) -> bool | None:
@@ -65,11 +98,39 @@ def main():
             print("再见！")
             return True
         if cmd == "/clear":
-            summarize_and_store(provider, chat.messages, user_dir)
-            msg = chat.clear_history()
-            sync_to_new_archives(user_dir)
-            print(msg)
+            count = len(chat.messages)
+            chat.messages = []
+            try:
+                if os.path.exists(chat.data_path):
+                    os.remove(chat.data_path)
+            except Exception:
+                pass
+            tl_count = 0
+            try:
+                if os.path.exists(chat.tool_log_path):
+                    with open(chat.tool_log_path, encoding="utf-8") as f:
+                        tl_count = sum(1 for _ in f)
+                    os.remove(chat.tool_log_path)
+            except Exception:
+                pass
+            extra = f"，{tl_count} 条工具日志已清空" if tl_count else ""
+            print(f"已清除 {count} 条历史消息{extra}。")
             chat.save_history()
+            return False
+        if cmd == "/retry":
+            last_user_idx = -1
+            for i in range(len(chat.messages) - 1, -1, -1):
+                if chat.messages[i].get("role") == "user":
+                    last_user_idx = i
+                    break
+            if last_user_idx == -1:
+                print("没有可重试的消息")
+                return False
+            user_msg = chat.messages[last_user_idx].get("content", "")
+            chat.messages = chat.messages[:last_user_idx]
+            chat.save_history()
+            print(f"已移除上一条 AI 回复，重新发送…")
+            _run_turn(user_msg)
             return False
         if cmd in ("/history", "/stats"):
             print(chat.history_stats())
@@ -88,9 +149,10 @@ def main():
             return False
         if cmd == "/help":
             print("  /exit, /quit, /q    退出（自动摘要 + 保存）")
-            print("  /clear              清除当前对话历史（自动摘要 + 归档备份）")
+            print("  /clear              清除当前对话历史及工具日志")
+            print("  /retry              移除上一条 AI 回复并重新生成")
             print("  /history, /stats    查看历史状态")
-            print("  /archive            手动归档当前历史（自动摘要）")
+            print("  /archive            手动归档当前历史")
             print("  /summarize          生成对话摘要")
             print("  /help               显示此帮助")
             return False
@@ -118,36 +180,7 @@ def main():
             if result is False:
                 continue
 
-        chat.add_user_message(user_input)
-        tool_runner.reset_count()
-        round_usages: list[dict] = []
-
-        for event in run_chat_turn(chat, tool_runner, provider, tools):
-            if event["type"] == "tool_call":
-                print(f"  {event['line']}")
-            elif event["type"] == "text_chunk":
-                print(event["content"], end="", flush=True)
-            elif event["type"] == "text_done":
-                print()  # 流式结束换行
-            elif event["type"] == "text":
-                print(f"助手: {event['content']}")
-            elif event["type"] == "usage":
-                round_usages.append(event["data"])
-            elif event["type"] == "error":
-                print(f"\n[Provider 错误: {event['content']}]")
-            elif event["type"] == "deadlock_warning":
-                print("  ⚠ 同命令连败 3 次，已提示 LLM 换思路")
-            elif event["type"] == "max_rounds":
-                print("[已达到工具调用上限]")
-
-        if round_usages:
-            total_in = sum(u["prompt_tokens"] for u in round_usages)
-            total_out = sum(u["completion_tokens"] for u in round_usages)
-            total_cached = sum(u["cached_tokens"] for u in round_usages)
-            print(f"[Token: 输入 {total_in} (缓存命中 {total_cached}) | 输出 {total_out} | 总计 {total_in + total_out}]\n")
-
-        chat.save_history()
-        chat.save_log(chat.build_messages())
+        _run_turn(user_input)
 
 
 if __name__ == "__main__":

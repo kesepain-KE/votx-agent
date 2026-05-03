@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>kesepain-Agent</title>
+  <title>votx-agent</title>
   <style>
     /* =============================================
        Design System — CSS Custom Properties
@@ -55,8 +55,8 @@
       --bg-soft: #fafafa;
       --glass-bg: rgba(255, 255, 255, 0.70);
       --glass-bg-hover: rgba(255, 255, 255, 0.88);
-      --glass-border: rgba(0, 0, 0, 0.06);
-      --glass-border-hover: rgba(0, 0, 0, 0.15);
+      --glass-border: rgba(0, 0, 0, 0.07);
+      --glass-border-hover: rgba(0, 0, 0, 0.18);
       --glass-shine: rgba(255, 255, 255, 0.80);
 
       --text-primary: #0a0a0a;
@@ -127,15 +127,15 @@
     /* ========== Layout ========== */
     .app {
       position: relative; z-index: 1;
-      width: min(1560px, calc(100vw - 28px));
-      height: min(calc(100vh - 28px), calc((100vw - 28px) * 0.62));
-      margin: auto;
+      width: min(1600px, calc(100vw - 48px));
+      height: min(calc(100vh - 48px), calc((100vw - 48px) * 0.62));
+      margin: 24px auto;
       display: grid;
       grid-template-columns: 272px 1fr 388px;
-      gap: 14px;
+      gap: 10px;
     }
     @media (min-aspect-ratio: 16/10) {
-      .app { height: calc(100vh - 28px); }
+      .app { height: calc(100vh - 48px); }
     }
 
     /* ========== Glass Panel ========== */
@@ -169,7 +169,13 @@
     .glass > * { position: relative; z-index: 2; }
 
     /* ========== Sidebar ========== */
-    .sidebar { padding: var(--s-5); gap: 14px; display: flex; flex-direction: column; }
+    .sidebar {
+      padding: var(--s-5); gap: 14px; display: flex; flex-direction: column;
+      box-shadow: 0 0 40px rgba(255,255,255,0.08), 0 0 80px rgba(255,255,255,0.04), 0 0 120px rgba(255,255,255,0.02);
+    }
+    body[data-theme="light"] .sidebar {
+      box-shadow: 0 0 40px rgba(0,0,0,0.08), 0 0 80px rgba(0,0,0,0.04), 0 0 120px rgba(0,0,0,0.02);
+    }
     .brand { display: flex; gap: var(--s-3); align-items: center; }
 
     .logo {
@@ -346,6 +352,23 @@
 
     body[data-theme="light"] .theme-toggle:hover { background: rgba(0,0,0,0.04); }
 
+    .refresh-btn {
+      width: 30px; height: 30px; flex-shrink: 0;
+      border-radius: 50%; border: 1px solid var(--glass-border);
+      background: rgba(255,255,255,0.04);
+      color: var(--text-secondary); cursor: pointer;
+      font-size: 14px; display: grid; place-items: center;
+      transition: all var(--duration) var(--ease-out);
+    }
+    .refresh-btn:hover {
+      border-color: var(--glass-border-hover);
+      background: rgba(255,255,255,0.08);
+      color: var(--text-primary);
+    }
+    .refresh-btn:active { transform: scale(0.92); }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .refresh-btn.spinning { animation: spin 0.6s ease-in-out; pointer-events: none; }
+
     /* ========== Forms ========== */
     select, input, textarea {
       font-family: var(--font-sans); font-size: 13px;
@@ -503,6 +526,25 @@
       border: 1px solid var(--glass-border);
       box-shadow: 0 8px 24px rgba(0,0,0,0.12);
     }
+    .bubble-wrap {
+      display: flex; flex-direction: column; gap: 3px;
+    }
+    .msg.me .bubble-wrap { align-items: flex-end; }
+    .copy-msg {
+      height: 22px; padding: 0 8px; border-radius: 6px;
+      border: 1px solid var(--glass-border);
+      background: var(--glass-bg);
+      color: var(--text-tertiary); cursor: pointer;
+      font-size: 11px; display: grid; place-items: center;
+      opacity: 0.4; transition: opacity 0.15s var(--ease-out);
+      font-family: var(--font-sans);
+    }
+    .copy-msg:hover {
+      opacity: 1;
+      border-color: var(--glass-border-hover);
+      color: var(--text-primary);
+    }
+    .copy-msg.copied { opacity: 1; color: var(--success); }
 
     .msg.me .bubble {
       background: rgba(255,255,255,0.88);
@@ -528,9 +570,11 @@
     /* Token stats */
     .token-row {
       margin-top: 6px; display: flex; gap: 5px; flex-wrap: wrap;
+      align-items: center; justify-content: space-between;
       font: 10px/1.4 var(--font-mono);
       color: var(--text-tertiary);
     }
+    .token-row .token-left { display: flex; gap: 5px; flex-wrap: wrap; }
 
     .token-row span {
       padding: 3px 7px; border-radius: var(--r-full);
@@ -549,6 +593,33 @@
       background: rgba(0,0,0,0.04);
       border-color: rgba(0,0,0,0.12);
     }
+
+    /* Thinking block */
+    .think-block {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px; margin-top: 6px;
+      overflow: hidden;
+      transition: border-color var(--duration) var(--ease-out);
+    }
+    .think-block.open { border-color: rgba(255,255,255,0.16); }
+    .think-header {
+      display: flex; gap: 8px; align-items: center;
+      padding: 8px 12px; font-size: 12px; cursor: pointer; user-select: none;
+      color: var(--text-secondary);
+      transition: background var(--duration) var(--ease-out);
+    }
+    .think-header:hover { background: rgba(255,255,255,0.02); }
+    .think-body {
+      display: none;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      padding: 9px 12px;
+      font: 11px/1.6 var(--font-mono);
+      color: var(--text-secondary);
+      white-space: pre-wrap;
+      max-height: 200px; overflow-y: auto;
+    }
+    .think-block.open .think-body { display: block; }
 
     /* Tool calls */
     .tool-call {
@@ -713,7 +784,13 @@
     .send-btn:disabled { opacity: 0.4; cursor: not-allowed; filter: none; transform: none; }
 
     /* ========== Right Panel ========== */
-    .right { display: grid; grid-template-rows: auto 1fr; }
+    .right {
+      display: grid; grid-template-rows: auto 1fr;
+      box-shadow: 0 0 40px rgba(255,255,255,0.08), 0 0 80px rgba(255,255,255,0.04), 0 0 120px rgba(255,255,255,0.02);
+    }
+    body[data-theme="light"] .right {
+      box-shadow: 0 0 40px rgba(0,0,0,0.08), 0 0 80px rgba(0,0,0,0.04), 0 0 120px rgba(0,0,0,0.02);
+    }
 
     .panel-head { padding: 16px 18px; border-bottom: 1px solid var(--glass-border); }
 
@@ -722,17 +799,7 @@
       display: flex; align-items: center; gap: 6px;
     }
 
-    .panel-head h3::after {
-      content: "live";
-      font-size: 10px; font-weight: 600;
-      color: var(--text-secondary);
-      background: rgba(255,255,255,0.06);
-      padding: 2px 7px; border-radius: var(--r-full);
-    }
-
-    body[data-theme="light"] .panel-head h3::after {
-      background: rgba(0,0,0,0.05);
-    }
+    /* live badge removed */
 
     .tabs {
       display: grid; grid-template-columns: repeat(4, 1fr);
@@ -1077,9 +1144,9 @@
     </div>
     <div>
       <div class="section-title">状态</div>
-      <div class="stat"><span>Provider</span><b class="ok" id="health-provider">—</b></div>
-      <div class="stat"><span>Skills</span><b class="ok">18</b></div>
-      <div class="stat"><span>Tools</span><b class="ok">25</b></div>
+      <div class="stat"><span>历史消息</span><b id="stat-msg-count">—</b></div>
+      <div class="stat"><span>工具调用</span><b id="stat-tool-count">—</b></div>
+      <div class="stat"><span>会话大小</span><b id="stat-file-size">—</b></div>
     </div>
     <div class="section-row">
       <div class="section-title">对话历史</div>
@@ -1089,6 +1156,10 @@
       </div>
     </div>
     <div class="conv-list" id="conv-list"><div style="color:var(--text-secondary);font-size:11px;padding:4px">选择用户后加载…</div></div>
+    <div class="section-row" style="margin-bottom:8px">
+      <div class="section-title">状态刷新</div>
+      <button class="refresh-btn" id="refresh-btn" type="button" title="刷新右侧栏所有数据" onclick="refreshOverview()">↻</button>
+    </div>
     <div class="profile card profile-with-theme">
       <div class="avatar" id="profile-avatar">K</div>
       <div><b id="profile-name">未连接</b><br><span style="font-size:11px;color:var(--text-secondary)" id="profile-info">选择用户开始</span></div>
@@ -1115,11 +1186,12 @@
         <button class="chip" data-cmd="/clear">/clear</button>
         <button class="chip" data-cmd="/history">/history</button>
         <button class="chip" data-cmd="/retry">/retry</button>
+        <button class="chip" data-cmd="/help">/help</button>
       </div>
       <div class="attach-chips" id="attach-chips" style="display:none;display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px"></div>
       <div class="input-row">
-        <input type="file" id="upload-input" multiple onchange="uploadFiles(this.files)" accept="*/*" style="display:none">
-        <button class="upload-btn" onclick="document.getElementById('upload-input').click()" title="上传文件">📎</button>
+        <input type="file" id="upload-input" multiple onchange="uploadFiles(this.files,'file')" accept="*/*" style="display:none">
+        <button class="upload-btn" onclick="document.getElementById('upload-input').click()" title="上传文件">↑</button>
         <textarea id="user-input" placeholder="输入消息或 / 命令... (Enter 发送, Shift+Enter 换行)" autofocus rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage()}" style="resize:none;overflow-y:auto;min-height:22px;max-height:150px;line-height:1.5;border:0;background:transparent;outline:0;padding:0 8px;font-size:14px;color:var(--text-primary);font-family:var(--font-sans);width:100%"></textarea>
         <button class="send-btn" id="send-btn" onclick="sendMessage()">发送</button>
       </div>
@@ -1128,7 +1200,7 @@
 
   <!-- Right Panel -->
   <aside class="right glass">
-    <div class="panel-head"><h3>项目侧栏</h3>
+    <div class="panel-head"><h3>项目状态</h3>
       <div class="tabs">
         <button class="tab active" data-tab="overview">概览</button>
         <button class="tab" data-tab="debug">调试</button>
@@ -1181,7 +1253,7 @@
 
 <script>
 /* ============================================
-   kesepain-Agent WebUI — real backend wiring
+   votx-agent WebUI — real backend wiring
    ============================================ */
 
 const $ = s => document.querySelector(s);
@@ -1192,6 +1264,9 @@ let userActive = false;
 let currentBlock = null;
 let chunkBubble = null;
 let selectedConv = null;
+let _pendingUsage = null;
+let _thinkBlock = null;
+let currentFileDir = "file";
 
 // ---- Toast ----
 function toast(t) { const el = $("#toast"); el.textContent = t; el.classList.add("show"); setTimeout(() => el.classList.remove("show"), 2200); }
@@ -1263,7 +1338,6 @@ async function selectUser() {
     if (d.error) { $("#select-err").textContent = d.error; return; }
     userActive = true;
     $("#select-err").textContent = "";
-    $("#health-provider").textContent = "ready";
     $("#profile-name").textContent = d.user;
     $("#profile-info").textContent = "已连接";
     $("#chat-title").textContent = d.user + " · 对话";
@@ -1277,6 +1351,7 @@ async function selectUser() {
     loadFileList();
     loadSystemPrompt();
     loadDebugConfig();
+    updateStats();
     $("#debug-user").textContent = d.user;
     toast("已连接: " + d.user);
   } catch(e) { $("#select-err").textContent = "连接失败: " + e.message; }
@@ -1328,8 +1403,10 @@ async function newChat() {
     const r = await fetch("/api/command", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({command: "/clear"}) });
     const d = await r.json();
     chatEl.innerHTML = "";
+    $("#chat-title").textContent = ($("#profile-name").textContent || "") + " · 新对话";
     appendSysMsg(d.content || "已创建新对话");
     refreshConversations();
+    updateStats();
     toast("新对话已创建");
   } catch(e) { toast("创建失败"); }
 }
@@ -1344,11 +1421,12 @@ async function refreshConversations() {
     const el = $("#conv-list");
     if (!convs.length) { el.innerHTML = '<div style="color:var(--text-secondary);font-size:11px;padding:4px">暂无历史对话</div>'; return; }
     el.innerHTML = convs.map(c => {
-      const label = c.id === "__current__" ? ("★ " + (c.summary || "当前对话")) : escHtml(c.label);
+      const label = c.id === "__current__" ? ("★ " + (c.summary || "新对话")) : escHtml(c.label);
       const meta = `${c.msg_count} 条 · ${formatSize(c.size)} · ${formatTime(c.mtime)}`;
       const rawInfo = c.raw_label ? `<p style="font-size:10px;color:var(--text-tertiary);margin-top:2px">${escHtml(c.raw_label)}</p>` : "";
       const cls = c.id === "__current__" ? "conv active" : "conv";
-      return `<div class="${cls}" oncontextmenu="openConvMenu(event,this,'${c.id}')" onclick="if(!event.target.closest('button,span[onclick]'))loadConversation('${c.id}')">
+      const dispLabel = c.id === "__current__" ? (c.summary || "新对话") : (c.label || c.raw_label || "");
+      return `<div class="${cls}" oncontextmenu="openConvMenu(event,this,'${c.id}')" onclick="if(!event.target.closest('button,span[onclick]'))loadConversation('${c.id}','${escHtml(dispLabel).replace(/'/g, "\\'")}','${c.msg_count}')">
         <div><b>${label}</b><p>${meta}</p>${rawInfo}</div>
         <div class="conv-actions">
           <button class="icon-btn" onclick="event.stopPropagation();renameConv(event,'${c.id}')" title="重命名">✎</button>
@@ -1359,7 +1437,7 @@ async function refreshConversations() {
   } catch(e) {}
 }
 
-async function loadConversation(id) {
+async function loadConversation(id, displayName, msgCount) {
   if (!userActive) return;
   if (id === "__current__") { toast("已在当前对话"); return; }
   if (!confirm("加载此对话将替换当前对话（已自动保存），继续？")) return;
@@ -1368,6 +1446,7 @@ async function loadConversation(id) {
     const d = await r.json();
     if (d.error) { toast("加载失败: " + d.error); return; }
     chatEl.innerHTML = "";
+    $("#chat-title").textContent = ($("#profile-name").textContent || "") + " · " + (displayName || (d.msg_count ? "历史对话" : "新对话"));
     appendSysMsg(`已加载对话 (${d.msg_count} 条消息)`);
 
     // Fetch and render messages
@@ -1378,8 +1457,11 @@ async function loadConversation(id) {
         const role = m.role || "";
         const content = m.content || "";
         const toolCalls = m.tool_calls;
-        if (role === "user" && content) {
-          addUserMessage(content);
+        if (role === "system") {
+          continue; // 跳过 system prompt
+        } else if (role === "user") {
+          currentBlock = null; // 新回合
+          if (content) addUserMessage(content);
         } else if (role === "assistant") {
           if (toolCalls) {
             for (const tc of toolCalls) {
@@ -1390,6 +1472,8 @@ async function loadConversation(id) {
             }
           }
           if (content) appendText(content);
+        } else if (role === "tool") {
+          // 工具结果不单独显示，已合并在 tool_call 卡片中
         }
       }
     }
@@ -1462,6 +1546,23 @@ async function deleteAllConvs() {
 // ---- System Prompt ----
 let systemPromptData = {};
 
+async function refreshOverview() {
+  const btn = $("#refresh-btn");
+  btn.classList.add("spinning");
+  try {
+    await Promise.all([
+      updateStats(),
+      loadSystemPrompt(),
+      loadDebugConfig(),
+      loadToolLogs(),
+      loadFileList(),
+      refreshConversations(),
+    ]);
+    toast("已刷新");
+  } catch (e) { /* ignore */ }
+  setTimeout(() => btn.classList.remove("spinning"), 600);
+}
+
 async function loadSystemPrompt() {
   if (!userActive) return;
   try {
@@ -1489,7 +1590,8 @@ async function sendCommand(cmd) {
   const r = await fetch("/api/command", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({command: cmd}) });
   const d = await r.json();
   if (d.retry && d.content) {
-    // 真正重生成：后端已移除旧回复，前端直接发起流式请求
+    // 真正重生成：后端已移除旧回复，前端先清理旧 UI 再发起流式请求
+    removeLastAIReply();
     setInputLock(true);
     currentBlock = createBlock();
     chunkBubble = null;
@@ -1497,7 +1599,7 @@ async function sendCommand(cmd) {
     return;
   }
   appendSysMsg(d.content || "命令已执行");
-  if (cmd === "/clear") { chatEl.innerHTML = ""; loadToolLogs(); }
+  if (cmd === "/clear") { chatEl.innerHTML = ""; loadToolLogs(); updateStats(); }
   if (cmd === "/archive" || cmd === "/summarize" || cmd === "/总结") refreshConversations();
   scrollBottom();
 }
@@ -1507,15 +1609,18 @@ async function sendMessage() {
   const userText = input.value.trim();
   if (!userText || sendBtn.disabled) return;
 
-  // 附上文件引用
-  const attachNames = [...document.querySelectorAll("#attach-chips .attach-chip")].map(c => c.dataset.file).filter(Boolean);
+  // 附上文件引用 - 使用相对路径
+  const chips = [...document.querySelectorAll("#attach-chips .attach-chip")];
+  const attachPaths = chips.map(c => c.dataset.path || c.dataset.file).filter(Boolean);
+  // 保存图片信息用于预览 {name, dir}
+  const imageInfos = chips.map(c => ({name: c.dataset.file, dir: c.dataset.dir || "file"})).filter(x => isImageFile(x.name));
   let fullMsg = userText;
-  if (attachNames.length) {
-    fullMsg = attachNames.map(f => `[文件: ${f}]`).join("\n") + "\n" + userText;
+  if (attachPaths.length) {
+    fullMsg = attachPaths.join("\n") + "\n" + userText;
     clearAttachChips();
   }
 
-  addUserMessage(fullMsg);
+  addUserMessage(fullMsg, imageInfos);
   input.value = "";
   setInputLock(true);
   currentBlock = createBlock();
@@ -1558,10 +1663,13 @@ async function streamChat(message) {
   setInputLock(false);
   currentBlock = null;
   chunkBubble = null;
+  _pendingUsage = null;
+  _thinkBlock = null;
   scrollBottom();
   loadToolLogs();
   loadFileList();
   refreshConversations();
+  updateStats();
 }
 
 function handleEvent(ev) {
@@ -1571,42 +1679,65 @@ function handleEvent(ev) {
     case "text_done":
       if (chunkBubble) { chunkBubble.innerHTML = formatContent(chunkBubble._raw || ""); }
       chunkBubble = null;
+      if (_pendingUsage) { appendUsage(_pendingUsage); _pendingUsage = null; }
       break;
-    case "text": appendText(ev.content); break;
-    case "usage": appendUsage(ev.data); break;
+    case "text": appendText(ev.content); if (_pendingUsage) { appendUsage(_pendingUsage); _pendingUsage = null; } break;
+    case "thinking_chunk": appendThinkingChunk(ev.content); break;
+    case "thinking_done": finalizeThinking(); break;
+    case "thinking": appendThinking(ev.content); break;
+    case "usage": _pendingUsage = ev.data; break;
     case "error": chunkBubble = null; appendError(ev.content); break;
     case "deadlock_warning": appendWarn("同命令连败 3 次，已提示 LLM 换思路"); break;
-    case "max_rounds": appendWarn("已达到最大工具调用轮数"); break;
+    case "max_rounds": appendMaxRounds("已达到最大工具调用轮数"); break;
   }
 }
 
 function appendChunk(text) {
   if (!currentBlock) currentBlock = createBlock();
   if (!chunkBubble) {
-    chunkBubble = document.createElement("div");
-    chunkBubble.className = "bubble";
-    chunkBubble.style.marginTop = "4px";
-    chunkBubble._raw = "";
-    currentBlock.appendChild(chunkBubble);
+    const wrap = document.createElement("div");
+    wrap.className = "bubble-wrap";
+    wrap.style.marginTop = "4px";
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+    bubble._raw = "";
+    wrap.appendChild(bubble);
+    currentBlock.appendChild(wrap);
+    chunkBubble = bubble;
   }
   chunkBubble._raw += text;
   chunkBubble.textContent += text;
   scrollBottom();
 }
 
+function removeLastAIReply() {
+  // 移除最后一个 AI 回复在 DOM 中的所有痕迹
+  const children = [...chatEl.children];
+  // 找到最后一个用户消息的位置
+  let lastUserIdx = -1;
+  for (let i = children.length - 1; i >= 0; i--) {
+    if (children[i].classList && children[i].classList.contains("me")) { lastUserIdx = i; break; }
+  }
+  // 删除其后所有元素 (AI block, tool cards, thinking 等)
+  for (let i = children.length - 1; i > lastUserIdx; i--) {
+    children[i].remove();
+  }
+}
+
 function isImageFile(name) {
   return /\.(png|jpe?g|gif|webp|svg|bmp|ico)$/i.test(name);
 }
 
-function addUserMessage(text) {
+function addUserMessage(text, imageInfos) {
   const d = document.createElement("div");
   d.className = "msg me";
-  const imgNames = [...document.querySelectorAll("#attach-chips .attach-chip")].map(c => c.dataset.file).filter(isImageFile);
   let previewHtml = "";
-  for (const name of imgNames) {
-    previewHtml += `<img src="/api/files/view/${encodeURIComponent(name)}" alt="${escHtml(name)}" style="max-width:100%;max-height:260px;border-radius:12px;margin-bottom:6px;display:block">`;
+  for (const img of (imageInfos || [])) {
+    if (!isImageFile(img.name)) continue;
+    const dirParam = img.dir && img.dir !== "file" ? "?dir=" + img.dir : "";
+    previewHtml += `<img src="/api/files/view/${encodeURIComponent(img.name)}${dirParam}" alt="${escHtml(img.name)}" style="max-width:100%;max-height:260px;border-radius:12px;margin-bottom:6px;display:block" loading="lazy">`;
   }
-  d.innerHTML = `<div class="msg-avatar">你</div><div class="bubble">${previewHtml}${escHtml(text)}</div>`;
+  d.innerHTML = `<div class="msg-avatar">你</div><div class="bubble-wrap"><div class="bubble">${previewHtml}${escHtml(text)}</div><button class="copy-msg" title="复制" onclick="copyBubble(this)">复制</button></div>`;
   chatEl.appendChild(d);
 }
 
@@ -1636,11 +1767,33 @@ function appendTool(ev) {
 
 function appendText(text) {
   if (!currentBlock) currentBlock = createBlock();
-  const d = document.createElement("div");
-  d.className = "bubble";
-  d.innerHTML = formatContent(text);
-  d.style.marginTop = "4px";
-  currentBlock.appendChild(d);
+  const wrap = document.createElement("div");
+  wrap.className = "bubble-wrap";
+  wrap.style.marginTop = "4px";
+  wrap.innerHTML = '<div class="bubble">' + formatContent(text) + '</div>';
+  currentBlock.appendChild(wrap);
+}
+
+function copyBubble(btn) {
+  const bubble = btn.parentElement.querySelector(".bubble");
+  const text = (bubble?.textContent || "").trim();
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = "✓ 已复制";
+    btn.classList.add("copied");
+    setTimeout(() => { btn.textContent = "复制"; btn.classList.remove("copied"); }, 1500);
+  }).catch(() => {});
+}
+
+function copyAIReply(btn) {
+  const container = btn.closest(".msg");
+  if (!container) return;
+  const bubbles = container.querySelectorAll(".bubble");
+  const text = [...bubbles].map(b => b.textContent || "").join("\n").trim();
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = "✓ 已复制";
+    btn.classList.add("copied");
+    setTimeout(() => { btn.textContent = "复制"; btn.classList.remove("copied"); }, 1500);
+  }).catch(() => {});
 }
 
 function appendUsage(data) {
@@ -1649,11 +1802,14 @@ function appendUsage(data) {
   const cached = data.cached_tokens || 0;
   const totalK = ((data.total_tokens||0) / 1000).toFixed(1);
   const hitRate = data.prompt_tokens ? (cached / data.prompt_tokens * 100).toFixed(1) : "0.0";
-  let html = `<span>总 ${data.total_tokens||0}</span>`;
+  let html = '<div class="token-left">';
+  html += `<span>总 ${data.total_tokens||0}</span>`;
   if (cached) html += `<span>命中 ${cached}</span>`;
   html += `<span>命中率 ${hitRate}%</span>`;
   html += `<span>输出 ${data.completion_tokens||0}</span>`;
   html += `<span>耗时 ${((data.elapsed||0)/1000).toFixed(1)}s</span>`;
+  html += '</div>';
+  html += '<button class="copy-msg" title="复制" onclick="copyAIReply(this)">复制</button>';
   d.innerHTML = html;
   (currentBlock || chatEl).appendChild(d);
 }
@@ -1679,17 +1835,80 @@ function appendWarn(text) {
   (currentBlock || chatEl).appendChild(d);
 }
 
+function appendThinking(content) {
+  const d = document.createElement("div");
+  d.className = "think-block";
+  d.innerHTML = `<div class="think-header" onclick="this.parentElement.classList.toggle('open')">💭 思考过程</div>
+    <div class="think-body">${escHtml(content)}</div>`;
+  (currentBlock || chatEl).appendChild(d);
+  scrollBottom();
+}
+
+function appendThinkingChunk(content) {
+  if (!_thinkBlock) {
+    _thinkBlock = document.createElement("div");
+    _thinkBlock.className = "think-block open";
+    _thinkBlock.innerHTML = `<div class="think-header" onclick="this.parentElement.classList.toggle('open')">💭 思考过程</div>
+      <div class="think-body"></div>`;
+    (currentBlock || chatEl).appendChild(_thinkBlock);
+  }
+  const body = _thinkBlock.querySelector(".think-body");
+  body.textContent += content;
+  scrollBottom();
+}
+
+function finalizeThinking() {
+  if (_thinkBlock) {
+    _thinkBlock.classList.remove("open");
+    _thinkBlock = null;
+    scrollBottom();
+  }
+}
+
+function appendMaxRounds(text) {
+  const d = document.createElement("div");
+  d.className = "sys-warn";
+  d.style.display = "flex";
+  d.style.alignItems = "center";
+  d.style.gap = "8px";
+  d.innerHTML = `<span>⚠ ${text}</span><button class="btn btn-ghost small" onclick="continueAfterMaxRounds()">继续</button>`;
+  (currentBlock || chatEl).appendChild(d);
+  scrollBottom();
+}
+
+async function continueAfterMaxRounds() {
+  if (!userActive) return;
+  setInputLock(true);
+  currentBlock = createBlock();
+  chunkBubble = null;
+  await streamChat("继续");
+}
+
 // ---- File Attach Chips ----
-function addAttachChip(name) {
+function addAttachChip(name, path, dir) {
   const container = $("#attach-chips");
   container.style.display = "flex";
-  // 避免重复
-  if ([...container.children].some(c => c.dataset.file === name)) return;
+  if ([...container.children].some(c => c.dataset.file === name && c.dataset.dir === (dir||"file"))) return;
   const chip = document.createElement("span");
   chip.className = "attach-chip";
   chip.dataset.file = name;
-  chip.innerHTML = `📎 ${escHtml(name)}<span class="remove-file" onclick="this.parentElement.remove();if(!$('#attach-chips').children.length)$('#attach-chips').style.display='none'">×</span>`;
+  chip.dataset.path = path || "";
+  chip.dataset.dir = dir || "file";
+  chip.innerHTML = `↑ ${escHtml(name)}<span class="remove-file" onclick="this.parentElement.remove();if(!$('#attach-chips').children.length)$('#attach-chips').style.display='none'">×</span>`;
   container.appendChild(chip);
+}
+
+async function updateStats() {
+  if (!userActive) return;
+  try {
+    const r = await fetch("/api/stats");
+    const d = await r.json();
+    if (!d.error) {
+      $("#stat-msg-count").textContent = (d.msg_count || 0) + " 条";
+      $("#stat-tool-count").textContent = (d.tool_count || 0) + " 次";
+      $("#stat-file-size").textContent = formatSize(d.file_size || 0);
+    }
+  } catch(e) {}
 }
 
 function clearAttachChips() {
@@ -1698,16 +1917,20 @@ function clearAttachChips() {
   container.style.display = "none";
 }
 
+// ---- File Dir ----
+// currentFileDir 保留用于上传等场景，但文件列表同时显示两个目录
+
 // ---- File Upload ----
-async function uploadFiles(fileList) {
+async function uploadFiles(fileList, forceDir) {
   if (!fileList.length || !userActive) return;
+  const uploadDir = forceDir || "file";
   const form = new FormData();
   for (const f of fileList) form.append("files", f);
   try {
-    const r = await fetch("/api/upload", { method: "POST", body: form });
+    const r = await fetch("/api/upload?dir=" + uploadDir, { method: "POST", body: form });
     const d = await r.json();
     if (d.ok && d.files.length) {
-      for (const f of d.files) addAttachChip(f.name);
+      for (const f of d.files) addAttachChip(f.name, f.path, f.dir || uploadDir);
       toast("已上传: " + d.files.map(f => f.name).join(", "));
     }
     loadFileList();
@@ -1718,42 +1941,71 @@ async function uploadFiles(fileList) {
 async function loadFileList() {
   if (!userActive) return;
   try {
-    const r = await fetch("/api/files");
-    const files = await r.json();
-    if (!Array.isArray(files) || !files.length) {
-      $("#file-list").innerHTML = '<div style="color:var(--text-secondary);font-size:12px;padding:4px">暂无上传文件</div>';
+    // 同时加载两个目录
+    const [r1, r2] = await Promise.all([
+      fetch("/api/files?dir=file"),
+      fetch("/api/files?dir=download"),
+    ]);
+    const files1 = await r1.json();
+    const files2 = await r2.json();
+    const uploadFiles = Array.isArray(files1) ? files1 : [];
+    const downloadFiles = Array.isArray(files2) ? files2 : [];
+
+    if (!uploadFiles.length && !downloadFiles.length) {
+      $("#file-list").innerHTML = '<div style="color:var(--text-secondary);font-size:12px;padding:4px">暂无文件</div>';
       return;
     }
-    $("#file-list").innerHTML = files.map(f => `
-      <div class="item" data-file="${escHtml(f.path)}">
-        <div class="item-top">
-          <div class="file-select"><input class="file-check" type="checkbox"><b>${escHtml(f.name)}</b></div>
-          <span class="pill">${formatSize(f.size)}</span>
-        </div>
-        <p style="color:var(--text-secondary);font-size:11px;margin-top:4px">${escHtml(f.path)}</p>
-        <div class="file-actions">
-          <button class="btn btn-ghost small" onclick="guideFile(this)">引用指引</button>
-          <button class="btn btn-danger small" onclick="deleteFile(this)">删除</button>
-        </div>
-      </div>`).join("");
+
+    const renderDir = (files, label) => {
+      if (!files.length) return "";
+      return `<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--text-tertiary);padding:6px 0 4px;border-bottom:1px solid var(--glass-border);margin-bottom:6px">${label} (${files.length})</div>`
+        + files.map(f => {
+          const mtime = f.mtime ? formatTime(f.mtime) : "";
+          const fdir = f.dir || "file";
+          return `
+          <div class="item" data-file="${escHtml(f.path)}" data-name="${escHtml(f.name)}" data-dir="${fdir}">
+            <div class="item-top">
+              <div class="file-select"><input class="file-check" type="checkbox"><b>${escHtml(f.name)}</b></div>
+              <span class="pill">${formatSize(f.size)}${mtime ? " · "+mtime : ""}</span>
+            </div>
+            <p style="color:var(--text-secondary);font-size:11px;margin-top:4px">${escHtml(f.path)}</p>
+            <div class="file-actions">
+              <button class="btn btn-ghost small" onclick="guideFile(this)">引用</button>
+              <button class="btn btn-ghost small" onclick="downloadFile(this)">下载</button>
+              <button class="btn btn-danger small" onclick="deleteFile(this)">删除</button>
+            </div>
+          </div>`;
+        }).join("");
+    };
+
+    $("#file-list").innerHTML = renderDir(uploadFiles, "上传文件") + renderDir(downloadFiles, "下载文件");
   } catch(e) {}
+}
+
+function downloadFile(btn) {
+  const item = btn.closest(".item");
+  const name = (item.dataset.name || "").split("/").pop() || item.dataset.file.split("/").pop();
+  const dir = item.dataset.dir || "file";
+  window.open("/api/files/download/" + encodeURIComponent(name) + "?dir=" + dir, "_blank");
 }
 
 function guideFile(btn) {
   const item = btn.closest(".item");
-  const path = item.dataset.file;
-  const name = path.split("/").pop();
-  addAttachChip(name);
+  const path = item.dataset.file || "";
+  const name = item.dataset.name || path.split("/").pop();
+  const dir = item.dataset.dir || "file";
+  addAttachChip(name, path, dir);
   input.focus();
-  toast("已引用文件: " + name);
+  toast("已引用: " + path);
 }
 
 async function deleteFile(btn) {
   const item = btn.closest(".item");
   const path = item.dataset.file || "";
+  const dir = item.dataset.dir || "file";
   try {
     const name = path.split("/").pop();
-    const r = await fetch("/api/files/" + encodeURIComponent(name), { method: "DELETE" });
+    const r = await fetch("/api/files/" + encodeURIComponent(name) + "?dir=" + dir, { method: "DELETE" });
     const d = await r.json();
     if (d.ok) { item.remove(); toast("文件已删除"); }
     else { toast(d.error || "删除失败"); }
@@ -1761,28 +2013,43 @@ async function deleteFile(btn) {
 }
 
 async function deleteAllFiles() {
-  if (!confirm("删除全部上传文件？此操作不可撤销。")) return;
+  if (!confirm("删除全部上传和下载文件？此操作不可撤销。")) return;
   try {
-    const r = await fetch("/api/files", { method: "DELETE" });
-    const d = await r.json();
-    $("#file-list").innerHTML = '<div style="color:var(--text-secondary);font-size:12px;padding:4px">暂无上传文件</div>';
-    toast("已删除 " + (d.deleted || 0) + " 个文件");
+    let total = 0;
+    for (const dir of ["file", "download"]) {
+      const r = await fetch("/api/files?dir=" + dir, { method: "DELETE" });
+      const d = await r.json();
+      total += (d.deleted || 0);
+    }
+    $("#file-list").innerHTML = '<div style="color:var(--text-secondary);font-size:12px;padding:4px">暂无文件</div>';
+    toast("已删除 " + total + " 个文件");
   } catch(e) { toast("删除失败: " + e.message); }
 }
 
 async function deleteCheckedFiles() {
   const checked = [...document.querySelectorAll("#file-list .file-check:checked")];
   if (!checked.length) { toast("请先勾选要删除的文件"); return; }
-  const names = checked.map(c => c.closest(".item").dataset.file.split("/").pop()).filter(Boolean);
+  // 按目录分组分别删除
+  const groups = {};
+  for (const c of checked) {
+    const item = c.closest(".item");
+    const dir = item.dataset.dir || "file";
+    const name = item.dataset.file.split("/").pop();
+    if (name) { (groups[dir] ||= []).push(name); }
+  }
+  let total = 0;
   try {
-    const r = await fetch("/api/files", {
-      method: "DELETE",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({files: names}),
-    });
-    const d = await r.json();
+    for (const [dir, names] of Object.entries(groups)) {
+      const r = await fetch("/api/files?dir=" + dir, {
+        method: "DELETE",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({files: names}),
+      });
+      const d = await r.json();
+      total += (d.deleted || 0);
+    }
     checked.forEach(c => c.closest(".item").remove());
-    toast("已批量删除 " + (d.deleted || checked.length) + " 个文件");
+    toast("已批量删除 " + total + " 个文件");
   } catch(e) { toast("删除失败: " + e.message); }
 }
 
@@ -1796,9 +2063,12 @@ async function loadToolLogs() {
       $("#log-list").innerHTML = '<div style="color:var(--text-secondary);font-size:12px;padding:4px">暂无工具调用日志</div>';
       return;
     }
-    const recent = logs.slice(-30);
+    const recent = logs.slice(-30).reverse();
     $("#log-list").innerHTML = recent.map(l => {
-      const ts = (l.ts||"").replace("T"," ").slice(0,19);
+      let ts = "";
+      if (l.ts) {
+        try { const d = new Date(l.ts); if (!isNaN(d.getTime())) ts = d.toLocaleString("zh-CN"); else ts = String(l.ts).replace("T"," ").slice(0,19); } catch(e) { ts = String(l.ts).replace("T"," ").slice(0,19); }
+      }
       const ok = l.success ? "✓" : "✗";
       const args = JSON.stringify(l.args||{}).slice(0,80);
       const cls = l.success ? "" : "fail";
@@ -1843,6 +2113,9 @@ async function toggleConfigSwitch(key, el) {
   const on = el.classList.contains("on");
   try {
     await fetch("/api/config", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({[key]: on}) });
+    // 独立生效：切换后立即同步到provider
+    if (key === "think") $("#switch-think").classList.toggle("on", on);
+    if (key === "stream") $("#switch-stream").classList.toggle("on", on);
     toast((on ? "已开启 " : "已关闭 ") + key);
   } catch(e) { el.classList.toggle("on"); toast("保存失败"); }
 }
@@ -1854,8 +2127,6 @@ function snapshotConfig() {
   _lastSavedConfig = {
     model: $("#cfg-model").value || "",
     base_url: $("#cfg-base-url").value || "",
-    think: $("#switch-think").classList.contains("on"),
-    stream: $("#switch-stream").classList.contains("on"),
   };
 }
 
@@ -1864,8 +2135,6 @@ async function saveAllConfig() {
   const data = {
     model: $("#cfg-model").value,
     base_url: $("#cfg-base-url").value,
-    think: $("#switch-think").classList.contains("on"),
-    stream: $("#switch-stream").classList.contains("on"),
   };
   try {
     await fetch("/api/config", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(data) });
@@ -1886,8 +2155,6 @@ function restoreConfig() {
   if (!_lastSavedConfig.model && !_lastSavedConfig.base_url) { toast("没有可恢复的保存状态"); return; }
   $("#cfg-model").value = _lastSavedConfig.model || "";
   $("#cfg-base-url").value = _lastSavedConfig.base_url || "";
-  $("#switch-think").classList.toggle("on", !!_lastSavedConfig.think);
-  $("#switch-stream").classList.toggle("on", !!_lastSavedConfig.stream);
   toast("已恢复到上次保存状态");
 }
 
@@ -1909,9 +2176,9 @@ const themeBtn = $("#theme-toggle");
 function setTheme(theme) {
   document.body.dataset.theme = theme;
   if (themeBtn) themeBtn.textContent = theme === "dark" ? "浅色" : "深色";
-  try { localStorage.setItem("kesepain-webui-theme", theme); } catch(e) {}
+  try { localStorage.setItem("votx-webui-theme", theme); } catch(e) {}
 }
-setTheme((() => { try { return localStorage.getItem("kesepain-webui-theme") || "dark"; } catch(e) { return "dark"; } })());
+setTheme((() => { try { return localStorage.getItem("votx-webui-theme") || "dark"; } catch(e) { return "dark"; } })());
 if (themeBtn) themeBtn.addEventListener("click", () => setTheme(document.body.dataset.theme === "dark" ? "light" : "dark"));
 
 // ---- Init ----
@@ -1947,7 +2214,8 @@ loadUsers();
             const role = m.role || "";
             const content = m.content || "";
             const tc = m.tool_calls;
-            if (role === "user" && content) addUserMessage(content);
+            if (role === "system") continue;
+            else if (role === "user") { currentBlock = null; if (content) addUserMessage(content); }
             else if (role === "assistant") {
               if (tc) for (const t of tc) {
                 const n = t.function?.name || "unknown";
@@ -1967,6 +2235,7 @@ loadUsers();
       loadFileList();
       loadSystemPrompt();
       loadDebugConfig();
+      updateStats();
     }
   } catch(e) {}
 })();

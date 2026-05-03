@@ -1,47 +1,34 @@
-"""系统命令执行工具 — shell=False + shlex 解析，参数黑名单拦截"""
+"""系统命令执行工具 — shell=False + shlex 解析"""
 import os
 import shlex
 import subprocess
 from run.tool import register_tool
-from skills._common import err, truncate, safe_path
-
-# 仅拦截真正危险的参数模式
-_PARAM_BLOCK = [
-    "rm -rf /",
-    "rm -rf ~",
-    "chmod 777 /",
-    "shutdown",
-    "mkfs.",
-    "dd if=",
-    "/dev/sda",
-    ":(){ :|:& };:",
-    "> /dev/sda",
-    "format c:",
-]
+from skills._common import err, truncate
 
 
 def run_command(command: str, working_dir: str = "") -> str:
-    """安全执行系统命令"""
+    """执行系统命令"""
     if not command.strip():
         return err("命令为空")
 
-    cmd_lower = command.lower()
-    for pattern in _PARAM_BLOCK:
-        if pattern in cmd_lower:
-            return err(f"危险命令被拦截 (匹配: {pattern})")
+    # cmd.exe /c 时注入 UTF-8 代码页，防止中文路径乱码
+    cmd = command.strip()
+    if cmd[:4].lower() == "cmd " or cmd[:8].lower() == "cmd.exe ":
+        import re
+        m = re.match(r'(cmd(\.exe)?)\s+(/[ck])\s+', cmd, re.IGNORECASE)
+        if m:
+            rest = cmd[m.end():].strip()
+            # 去掉已有的外层引号
+            if rest.startswith('"') and rest.endswith('"'):
+                rest = rest[1:-1]
+            cmd = f'{m.group(1)} {m.group(3)} "chcp 65001 > nul & {rest}"'
 
     try:
-        args = shlex.split(command)
+        args = shlex.split(cmd)
     except ValueError as e:
         return err(f"命令解析失败: {e}")
 
-    if working_dir.strip():
-        sp = safe_path(working_dir.strip())
-        if sp is None:
-            return err(f"工作目录越权或无效: {working_dir}")
-        cwd = str(sp)
-    else:
-        cwd = os.environ.get("KESEPAIN_USER_DIR") or None
+    cwd = working_dir.strip() or os.environ.get("VOTX_USER_DIR") or None
 
     try:
         r = subprocess.run(
@@ -69,8 +56,7 @@ SCHEMA = {
     "function": {
         "name": "run_command",
         "description": (
-            "执行系统命令。shell=False 安全模式，仅拦截 rm -rf / 等极端危险操作。"
-            "支持任意命令，超时 120 秒。Windows 下自动处理编码。"
+            "执行系统命令。shell=False 安全模式。支持任意命令，超时 120 秒。Windows 下自动处理编码。"
         ),
         "parameters": {
             "type": "object",

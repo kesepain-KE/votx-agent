@@ -116,6 +116,44 @@ def _load_memory_context(user_dir: str) -> str:
         return ""
 
 
+def _load_learnings_context(user_dir: str) -> str:
+    """从 .learnings/ 目录加载最近的学习/错误/功能请求记录"""
+    import re
+    learnings_dir = os.path.join(user_dir, ".learnings")
+    if not os.path.isdir(learnings_dir):
+        return ""
+    lines: list[str] = []
+    for fname, label in [("LEARNINGS.md", "学习"), ("ERRORS.md", "错误"), ("FEATURE_REQUESTS.md", "功能请求")]:
+        fp = os.path.join(learnings_dir, fname)
+        if not os.path.exists(fp):
+            continue
+        try:
+            content = open(fp, encoding="utf-8").read()
+            entries = [e.strip() for e in content.split("\n---\n") if e.strip()]
+            real_entries = [e for e in entries if e.startswith("## [")]
+            if not real_entries:
+                continue
+            pending = sum(1 for e in real_entries if "**Status**: pending" in e)
+            lines.append(f"\n### {label} ({len(real_entries)} 条 / {pending} 待处理)")
+            for e in real_entries[:5]:
+                m = re.search(r"^## \[([^\]]+)\]\s*(.+)$", e, re.MULTILINE)
+                if m:
+                    sid = m.group(1)
+                    title = m.group(2).strip()
+                    status = "⏳" if "**Status**: pending" in e else "✅"
+                    # 提取 Summary
+                    sm = re.search(r"### Summary\n(.+)", e)
+                    summary = sm.group(1).strip()[:80] if sm else ""
+                    lines.append(f"- {status} [{sid}] {title}")
+                    if summary:
+                        lines.append(f"  {summary}")
+        except Exception:
+            pass
+    if lines:
+        lines.insert(0, "以下是过往学习记录（可调用 read_learnings 查看详情，log_learning/log_error/log_feature_request 记录新内容）：")
+    return "\n".join(lines)
+
+
 def build_system_prompt(root: str, user_dir: str) -> str:
     """组装完整 system prompt（与 main.py 保持一致）"""
     with open(os.path.join(user_dir, "self_soul.md"), encoding="utf-8") as f:
@@ -152,6 +190,10 @@ def build_system_prompt(root: str, user_dir: str) -> str:
     if mem_ctx:
         system_prompt += "\n\n## 持久记忆（跨会话保留，/clear 不清除）\n" + mem_ctx
 
+    learnings_ctx = _load_learnings_context(user_dir)
+    if learnings_ctx:
+        system_prompt += "\n\n## .learnings 过往记录\n" + learnings_ctx
+
     return system_prompt
 
 
@@ -177,16 +219,27 @@ def run_chat_turn(chat, tool_runner, provider, tools: list[dict]):
     while tool_round < MAX_TOOL_ROUNDS:
         messages = chat.build_messages()
 
-        # 流式路径：逐 chunk yield 文本，完成后再处理 tool_calls
+        # 流式路径：思考先于正文，逐 chunk yield
         if getattr(provider, "stream", False):
             import time as _time
             try:
                 full_text = ""
-                for delta in provider.chat_stream(messages, tools):
-                    full_text += delta
-                    if delta:
-                        yield {"type": "text_chunk", "content": delta}
+                full_thinking = ""
+                for item in provider.chat_stream(messages, tools):
+                    if isinstance(item, dict):
+                        if item.get("type") == "thinking_chunk":
+                            full_thinking += item["content"]
+                            yield {"type": "thinking_chunk", "content": item["content"]}
+                        elif item.get("type") == "text_chunk":
+                            full_text += item["content"]
+                            yield {"type": "text_chunk", "content": item["content"]}
+                    else:
+                        # 兼容旧版（纯字符串）
+                        full_text += str(item)
+                        yield {"type": "text_chunk", "content": item}
                 response = provider._stream_result
+                if full_thinking:
+                    yield {"type": "thinking_done"}
                 if provider.last_usage:
                     yield {"type": "usage", "data": provider.last_usage}
             except RuntimeError as e:
@@ -200,6 +253,11 @@ def run_chat_turn(chat, tool_runner, provider, tools: list[dict]):
                 yield {"type": "error", "content": str(e)}
                 chat.add_assistant_message(f"ERROR: {e}")
                 return
+
+            # 非流式下的思考内容
+            thinking_text = getattr(provider, "_stream_reasoning", "") or ""
+            if thinking_text:
+                yield {"type": "thinking", "content": thinking_text}
 
             if provider.last_usage:
                 yield {"type": "usage", "data": provider.last_usage}
@@ -242,11 +300,15 @@ def run_chat_turn(chat, tool_runner, provider, tools: list[dict]):
                 yield {"type": "deadlock_warning"}
                 _fail_streak = 0
         else:
-            reply = response.content or ""
-            chat.add_assistant_message(reply)
+            # 无 tool_calls → 这是最终回复
             if getattr(provider, "stream", False):
+                reasoning = getattr(provider._stream_result, "reasoning_content", "") or ""
+                chat.add_assistant_message(full_text, reasoning)
                 yield {"type": "text_done"}
             else:
+                reasoning = getattr(provider, "_stream_reasoning", "") or ""
+                reply = response.content or ""
+                chat.add_assistant_message(reply, reasoning)
                 yield {"type": "text", "content": reply}
             return
     else:

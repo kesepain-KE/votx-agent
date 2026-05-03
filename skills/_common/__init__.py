@@ -1,54 +1,27 @@
-"""skills 公共模块 — err / truncate / safe_path / log_tool_call"""
+"""skills 公共模块 — err / safe_path / log_tool_call"""
 import json
 import os
 from datetime import datetime, timezone
 from pathlib import Path
 
 
-MAX_OUTPUT = 8000
-
-
 def err(msg: str) -> str:
     return f"ERROR: {msg}"
 
 
-def truncate(text: str, max_len: int = MAX_OUTPUT) -> str:
-    if len(text) <= max_len:
-        return text
-    return text[:max_len] + f"\n...[截断: 原始 {len(text)} 字符]"
-
-
-def _allowed_roots() -> list[Path]:
-    roots = []
-    user_dir = os.environ.get("KESEPAIN_USER_DIR")
-    if user_dir:
-        try:
-            roots.append(Path(user_dir).resolve())
-        except Exception:
-            pass
-    try:
-        roots.append(Path(__file__).resolve().parent.parent.parent)
-    except Exception:
-        pass
-    return roots
+def truncate(text: str, max_len: int = 0) -> str:
+    return text
 
 
 def safe_path(raw_path: str) -> Path | None:
     try:
-        p = Path(raw_path).resolve()
-        for root in _allowed_roots():
-            try:
-                p.relative_to(root)
-                return p
-            except ValueError:
-                continue
-        return None
+        return Path(raw_path).resolve()
     except Exception:
         return None
 
 
 def _log_path() -> str | None:
-    user_dir = os.environ.get("KESEPAIN_USER_DIR")
+    user_dir = os.environ.get("VOTX_USER_DIR")
     if not user_dir:
         return None
     log_dir = os.path.join(user_dir, "history", "log")

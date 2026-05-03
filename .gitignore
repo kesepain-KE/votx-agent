@@ -16,6 +16,7 @@ build/
 
 # 用户私有数据
 users/*/history/
+users/*/download/
 users/*/config.json
 users/*/agent_memory.db
 users/*/.learnings/

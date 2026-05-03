@@ -19,18 +19,18 @@ _mem = None
 def _get_memory():
     """获取单例 AgentMemory 实例。
 
-    存储路径: users/<name>/agent_memory.db (由 KESEPAIN_USER_DIR 确定)
+    存储路径: users/<name>/agent_memory.db (由 VOTX_USER_DIR 确定)
     注意: 本项目覆写了 AgentMemory 的默认路径 (~/.agent-memory/memory.db)，
           改用用户目录下的 agent_memory.db，实现用户级隔离。
     """
     global _mem
     if _mem is None:
-        user_dir = os.environ.get("KESEPAIN_USER_DIR", "")
+        user_dir = os.environ.get("VOTX_USER_DIR", "")
         if user_dir:
             db_dir = Path(user_dir)
         else:
             # 回退：从 skills 位置推算
-            db_dir = Path(__file__).resolve().parent.parent.parent / "users" / "kesepain"
+            db_dir = Path(__file__).resolve().parent.parent.parent / "users" / "default"
         db_dir.mkdir(parents=True, exist_ok=True)
         _mem = AgentMemory(db_path=str(db_dir / "agent_memory.db"))
     return _mem

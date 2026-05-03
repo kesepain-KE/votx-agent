@@ -44,8 +44,11 @@ class ChatManager:
         self._trim_if_needed()
         self.messages.append({"role": "user", "content": content})
 
-    def add_assistant_message(self, content: str):
-        self.messages.append({"role": "assistant", "content": content})
+    def add_assistant_message(self, content: str, reasoning_content: str = ""):
+        msg: dict[str, Any] = {"role": "assistant", "content": content}
+        if reasoning_content:
+            msg["reasoning_content"] = reasoning_content
+        self.messages.append(msg)
 
     def add_tool_call_message(self, tool_calls):
         """将 SDK tool_calls 对象转为可序列化 dict 后追加"""
@@ -90,40 +93,47 @@ class ChatManager:
                 self.messages = []
 
     def _repair_tool_chain(self):
-        """修复历史中的断链 tool_calls：删除末尾未闭合的 assistant(tool_calls) 及其之后的消息
+        """修复历史中的 tool_calls 链断裂
 
-        OpenAI 兼容接口硬规则：assistant(tool_calls) 之后必须紧跟对应数量的 tool 消息，
-        且每个 tool 消息的 tool_call_id 必须匹配。中断/Ctrl+C 可能导致 assistant(tool_calls)
-        已落盘但 tool 结果未写入，下次启动时 Provider 直接 400。
+        两种情况都会导致 Provider 400：
+        1) assistant(tool_calls) 之后缺少对应的 tool 消息（前向断裂）
+        2) tool 消息之前缺少对应的 assistant(tool_calls)（后向断裂，孤立 tool）
         """
+        # 第一遍：收集所有 assistant(tool_calls) 声明的 tool_call_id 集合
+        valid_ids: set[str] = set()
+        for msg in self.messages:
+            if msg.get("role") == "assistant" and msg.get("tool_calls"):
+                for tc in msg["tool_calls"]:
+                    valid_ids.add(tc["id"])
+
+        # 第二遍：找到第一个孤立 tool 或未闭合 assistant(tool_calls) 的切点
         i = 0
         cut_at = None
         while i < len(self.messages):
             msg = self.messages[i]
-            if msg.get("role") == "assistant" and msg.get("tool_calls"):
+            if msg.get("role") == "tool":
+                tid = msg.get("tool_call_id", "")
+                if tid not in valid_ids:
+                    # 孤立 tool 消息：从此处切除（含）
+                    cut_at = i
+                    break
+                i += 1
+            elif msg.get("role") == "assistant" and msg.get("tool_calls"):
                 tc_list = msg["tool_calls"]
                 needed = len(tc_list)
                 expected_ids = {tc["id"] for tc in tc_list}
-                # 检查后续是否至少有 needed 条 tool 消息且 ID 匹配
                 j = i + 1
                 found = 0
-                found_ids = set()
                 while j < len(self.messages) and found < needed:
                     nxt = self.messages[j]
                     if nxt.get("role") == "tool":
                         tid = nxt.get("tool_call_id", "")
                         if tid in expected_ids:
-                            found_ids.add(tid)
                             found += 1
-                        else:
-                            # 不属于这个 tool_calls 组的 tool 消息，跳过
-                            pass
                         j += 1
                     else:
-                        # 遇到非 tool 消息，链断了
                         break
                 if found < needed:
-                    # 链不完整：从这个 assistant 开始切除
                     cut_at = i
                     break
                 i = j
@@ -133,7 +143,7 @@ class ChatManager:
         if cut_at is not None:
             dropped = len(self.messages) - cut_at
             self.messages = self.messages[:cut_at]
-            print(f"[历史修复] 检测到未闭合的 tool_calls 链，已切除末尾 {dropped} 条消息")
+            print(f"[历史修复] 检测到断裂的 tool_calls 链，已切除末尾 {dropped} 条消息")
 
     def save_history(self):
         """落盘历史消息（不含 system prompt）

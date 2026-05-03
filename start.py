@@ -1,4 +1,4 @@
-"""kesepain-Agent 启动入口
+"""votx-agent 启动入口
 
 用法:
     python start.py           # CLI 模式（选择用户 → subprocess main.py）
@@ -32,7 +32,7 @@ def main_cli():
 
     subprocess.run(
         [sys.executable, os.path.join(root, "main.py")],
-        env={**os.environ, "KESEPAIN_USER_DIR": user_dir},
+        env={**os.environ, "VOTX_USER_DIR": user_dir},
     )
 
 

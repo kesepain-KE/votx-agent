@@ -1,4 +1,4 @@
-"""文件操作工具 — 读/写/列/删，所有路径受 safe_path 沙箱保护"""
+"""文件操作工具 — 读/写/列/删"""
 import os
 from pathlib import Path
 from run.tool import register_tool
@@ -34,7 +34,7 @@ def write_file(path: str, content: str, encoding: str = "utf-8") -> str:
         p = safe_path(path)
         if p is None:
             # 回退：使用文件名的 basename 放到用户目录
-            user_dir = os.environ.get("KESEPAIN_USER_DIR", "")
+            user_dir = os.environ.get("VOTX_USER_DIR", "")
             if user_dir:
                 p = Path(user_dir) / Path(path).name
             else:
@@ -100,7 +100,7 @@ SCHEMAS = [
         "type": "function",
         "function": {
             "name": "read_file",
-            "description": "读取文件内容。支持 UTF-8 和 GBK 编码自动回退。路径受沙箱保护。",
+            "description": "读取文件内容。支持 UTF-8 和 GBK 编码自动回退。",
             "parameters": {
                 "type": "object",
                 "properties": {

@@ -4,21 +4,15 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 from run.tool import register_tool
-from skills._common import err, truncate, safe_path
+from skills._common import err, truncate
 
 
-def _learnings_dir(base_dir: str = "") -> Path | None:
-    """获取 .learnings/ 目录，默认在用户目录下"""
-    if base_dir.strip():
-        p = safe_path(base_dir.strip())
-        if p is None:
-            return None
-        d = Path(p) / ".learnings"
-    else:
-        user_dir = os.environ.get("KESEPAIN_USER_DIR")
-        if not user_dir:
-            return None
-        d = Path(user_dir) / ".learnings"
+def _learnings_dir() -> Path | None:
+    """获取用户目录下的 .learnings/ 目录"""
+    user_dir = os.environ.get("VOTX_USER_DIR")
+    if not user_dir:
+        return None
+    d = Path(user_dir) / ".learnings"
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -48,9 +42,9 @@ def _next_id(filepath: Path, prefix: str) -> str:
 def log_learning(summary: str, category: str = "correction", details: str = "",
                  suggested_action: str = "", area: str = "backend",
                  priority: str = "medium", related_files: str = "",
-                 tags: str = "", base_dir: str = "") -> str:
+                 tags: str = "") -> str:
     """记录学习到 .learnings/LEARNINGS.md"""
-    d = _learnings_dir(base_dir)
+    d = _learnings_dir()
     if d is None:
         return err("无法确定 .learnings/ 目录")
     fp = d / "LEARNINGS.md"
@@ -82,9 +76,9 @@ def log_learning(summary: str, category: str = "correction", details: str = "",
 
 def log_error(command: str, error_message: str, context: str = "",
               area: str = "backend", reproducible: str = "unknown",
-              related_files: str = "", base_dir: str = "") -> str:
+              related_files: str = "") -> str:
     """记录错误到 .learnings/ERRORS.md"""
-    d = _learnings_dir(base_dir)
+    d = _learnings_dir()
     if d is None:
         return err("无法确定 .learnings/ 目录")
     fp = d / "ERRORS.md"
@@ -113,9 +107,9 @@ def log_error(command: str, error_message: str, context: str = "",
 
 def log_feature_request(capability: str, user_context: str = "",
                         complexity: str = "medium", area: str = "backend",
-                        priority: str = "medium", base_dir: str = "") -> str:
+                        priority: str = "medium") -> str:
     """记录功能请求到 .learnings/FEATURE_REQUESTS.md"""
-    d = _learnings_dir(base_dir)
+    d = _learnings_dir()
     if d is None:
         return err("无法确定 .learnings/ 目录")
     fp = d / "FEATURE_REQUESTS.md"
@@ -141,9 +135,9 @@ def log_feature_request(capability: str, user_context: str = "",
 
 
 def read_learnings(file_name: str = "", filter_area: str = "",
-                   filter_priority: str = "", base_dir: str = "") -> str:
+                   filter_priority: str = "") -> str:
     """读取 .learnings/ 中的记录，显示待处理条目和最近记录"""
-    d = _learnings_dir(base_dir)
+    d = _learnings_dir()
     if d is None:
         return err("无法确定 .learnings/ 目录")
 
@@ -216,7 +210,6 @@ SCHEMAS = [
                     "priority": {"type": "string", "description": "优先级: low/medium/high/critical"},
                     "related_files": {"type": "string", "description": "相关文件路径"},
                     "tags": {"type": "string", "description": "逗号分隔的标签"},
-                    "base_dir": {"type": "string", "description": ".learnings/ 基础目录（可选，默认用户目录）"},
                 },
                 "required": ["summary"],
             },
@@ -236,7 +229,6 @@ SCHEMAS = [
                     "area": {"type": "string", "description": "领域: frontend/backend/infra/tests/docs/config"},
                     "reproducible": {"type": "string", "description": "是否可复现: yes/no/unknown"},
                     "related_files": {"type": "string", "description": "相关文件路径"},
-                    "base_dir": {"type": "string", "description": ".learnings/ 基础目录（可选）"},
                 },
                 "required": ["command", "error_message"],
             },
@@ -255,7 +247,6 @@ SCHEMAS = [
                     "complexity": {"type": "string", "description": "复杂度估计: simple/medium/complex"},
                     "area": {"type": "string", "description": "领域: frontend/backend/infra/tests/docs/config"},
                     "priority": {"type": "string", "description": "优先级: low/medium/high/critical"},
-                    "base_dir": {"type": "string", "description": ".learnings/ 基础目录（可选）"},
                 },
                 "required": ["capability"],
             },
@@ -275,7 +266,6 @@ SCHEMAS = [
                     "file_name": {"type": "string", "description": "文件名: LEARNINGS.md / ERRORS.md / FEATURE_REQUESTS.md（可选）"},
                     "filter_area": {"type": "string", "description": "按领域筛选: frontend/backend/infra/tests/docs/config"},
                     "filter_priority": {"type": "string", "description": "按优先级筛选: low/medium/high/critical"},
-                    "base_dir": {"type": "string", "description": ".learnings/ 基础目录（可选）"},
                 },
                 "required": [],
             },

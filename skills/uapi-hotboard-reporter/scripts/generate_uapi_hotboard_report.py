@@ -60,7 +60,7 @@ def fetch_hotboard(api_key: str, platform: str) -> dict:
     url = f"{UAPI_BASE}/hotboard/{platform}"
     req = urllib.request.Request(url)
     req.add_header("Authorization", f"Bearer {api_key}")
-    req.add_header("User-Agent", "kesepain-Agent/1.0")
+    req.add_header("User-Agent", "votx-agent/1.0")
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
             data = json.loads(resp.read().decode("utf-8"))

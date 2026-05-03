@@ -71,6 +71,7 @@ class DeepSeekProvider:
         self.stream = cfg.get("stream", core.get("output", {}).get("stream", False))
         self.timeout = cfg.get("timeout", 120)
         self.last_usage: dict | None = None
+        self._stream_reasoning: str = ""
 
     def chat(
         self, messages: list[dict], tools: list[dict] | None = None
@@ -109,7 +110,19 @@ class DeepSeekProvider:
             return msg
         else:
             self.last_usage = _extract_usage(response)
-            return response.choices[0].message
+            msg = response.choices[0].message
+            # 提取非流式下的思考内容（SDK 可能放在 model_extra 或直接作为属性）
+            reasoning = ""
+            try:
+                reasoning = getattr(msg, "reasoning_content", "") or ""
+            except Exception:
+                pass
+            if not reasoning and hasattr(msg, "model_extra"):
+                reasoning = msg.model_extra.get("reasoning_content", "") or ""
+            if reasoning and not getattr(msg, "reasoning_content", None):
+                msg.reasoning_content = reasoning  # type: ignore[attr-defined]
+            self._stream_reasoning = reasoning
+            return msg
 
     def chat_stream(self, messages, tools=None):
         """流式 LLM 调用 — yield 文本增量，完成后 self.last_usage + self._stream_result 可用
@@ -149,6 +162,7 @@ class DeepSeekProvider:
                 raise RuntimeError(f"API 错误: {e}") from e
 
         content_parts: list[str] = []
+        reasoning_parts: list[str] = []
         tool_calls_map: dict[int, dict] = {}
         usage = None
 
@@ -157,9 +171,13 @@ class DeepSeekProvider:
                 usage = _extract_usage(chunk)
                 self.last_usage = usage
             delta = chunk.choices[0].delta
+            # 思考过程先于正文输出
+            if hasattr(delta, "reasoning_content") and delta.reasoning_content:
+                reasoning_parts.append(delta.reasoning_content)
+                yield {"type": "thinking_chunk", "content": delta.reasoning_content}
             if delta.content:
                 content_parts.append(delta.content)
-                yield delta.content
+                yield {"type": "text_chunk", "content": delta.content}
             if delta.tool_calls:
                 for tc in delta.tool_calls:
                     idx = tc.index
@@ -195,19 +213,26 @@ class DeepSeekProvider:
                         "arguments": tc["function"]["arguments"],
                     },
                 ))
+        reasoning = "".join(reasoning_parts) if reasoning_parts else ""
         self._stream_result = ChatCompletionMessage(
             role="assistant", content=content or None, tool_calls=tool_calls
         )
+        if reasoning:
+            self._stream_result.reasoning_content = reasoning  # type: ignore[attr-defined]
+        self._stream_reasoning = reasoning
 
     def _collect_stream(self, response) -> tuple[ChatCompletionMessage, dict | None]:
-        """收集流式 chunk 拼接为完整 Message，同时提取 usage"""
+        """收集流式 chunk 拼接为完整 Message，同时提取 usage 和 reasoning"""
         content_parts: list[str] = []
+        reasoning_parts: list[str] = []
         tool_calls_map: dict[int, dict] = {}
         usage = None
         for chunk in response:
             if hasattr(chunk, "usage") and chunk.usage:
                 usage = _extract_usage(chunk)
             delta = chunk.choices[0].delta
+            if hasattr(delta, "reasoning_content") and delta.reasoning_content:
+                reasoning_parts.append(delta.reasoning_content)
             if delta.content:
                 content_parts.append(delta.content)
             if delta.tool_calls:
@@ -242,9 +267,14 @@ class DeepSeekProvider:
                         "arguments": tc["function"]["arguments"],
                     },
                 ))
-        return ChatCompletionMessage(
+        reasoning = "".join(reasoning_parts) if reasoning_parts else ""
+        self._stream_reasoning = reasoning
+        msg = ChatCompletionMessage(
             role="assistant", content=content or None, tool_calls=tool_calls
-        ), usage
+        )
+        if reasoning:
+            msg.reasoning_content = reasoning  # type: ignore[attr-defined]
+        return msg, usage
 
 
 def _extract_usage(response) -> dict | None:

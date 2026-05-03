@@ -1,0 +1,179 @@
+"""文件操作路由 — 上传/列出/下载/预览/删除"""
+import os
+import json
+
+from flask import Response, jsonify, request, send_file
+
+from web.server import app
+from web.session import _session
+
+
+# ---- Helpers ----
+
+def _resolve_file_dir(subdir="file"):
+    user_dir = _session.get("user_dir", "")
+    if subdir == "download":
+        d = os.path.join(user_dir, "download")
+    else:
+        d = os.path.join(user_dir, "history", "file")
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
+def _file_rel_path(name, subdir="file"):
+    user = _session.get("user_name", "")
+    if subdir == "download":
+        return os.path.join("users", user, "download", name).replace("\\", "/")
+    return os.path.join("users", user, "history", "file", name).replace("\\", "/")
+
+
+def _check_file_path(file_dir, filename):
+    target = os.path.join(file_dir, os.path.basename(filename))
+    real_dir = os.path.realpath(file_dir)
+    real_target = os.path.realpath(target)
+    if not real_target.startswith(real_dir + os.sep) and real_target != real_dir:
+        return None, jsonify({"error": "路径越权"}), 403
+    if not os.path.isfile(target):
+        return None, jsonify({"error": "文件不存在"}), 404
+    return target, None, None
+
+
+# ---- Routes ----
+
+@app.route("/api/upload", methods=["POST"])
+def api_upload():
+    chat = _session.get("chat")
+    if not chat:
+        return jsonify({"error": "未选择用户"}), 400
+
+    subdir = request.args.get("dir", "file")
+    file_dir = _resolve_file_dir(subdir)
+    os.makedirs(file_dir, exist_ok=True)
+
+    uploaded = []
+    for key in request.files:
+        f = request.files[key]
+        if f.filename:
+            safe_name = os.path.basename(f.filename)
+            if not safe_name:
+                safe_name = "unnamed"
+            dest = os.path.join(file_dir, safe_name)
+            base, ext = os.path.splitext(safe_name)
+            n = 1
+            while os.path.exists(dest):
+                dest = os.path.join(file_dir, f"{base}_{n}{ext}")
+                n += 1
+            f.save(dest)
+            uploaded.append({
+                "name": os.path.basename(dest),
+                "path": _file_rel_path(os.path.basename(dest), subdir),
+                "size": os.path.getsize(dest),
+                "mtime": os.path.getmtime(dest),
+                "dir": subdir,
+            })
+
+    return jsonify({"ok": True, "files": uploaded})
+
+
+@app.route("/api/files")
+def api_files():
+    if not _session.get("chat"):
+        return jsonify({"error": "未选择用户"}), 400
+    subdir = request.args.get("dir", "file")
+    file_dir = _resolve_file_dir(subdir)
+    files = []
+    if os.path.isdir(file_dir):
+        for name in sorted(os.listdir(file_dir)):
+            p = os.path.join(file_dir, name)
+            if os.path.isfile(p):
+                files.append({
+                    "name": name,
+                    "path": _file_rel_path(name, subdir),
+                    "size": os.path.getsize(p),
+                    "mtime": os.path.getmtime(p),
+                    "dir": subdir,
+                })
+    return jsonify(files)
+
+
+@app.route("/api/files/download/<filename>")
+def api_file_download(filename):
+    if not _session.get("chat"):
+        return jsonify({"error": "未选择用户"}), 400
+    subdir = request.args.get("dir", "file")
+    file_dir = _resolve_file_dir(subdir)
+    target, err, code = _check_file_path(file_dir, filename)
+    if err:
+        return err, code
+    return send_file(target, as_attachment=True, download_name=os.path.basename(filename))
+
+
+@app.route("/api/files/view/<filename>")
+def api_file_view(filename):
+    if not _session.get("chat"):
+        return jsonify({"error": "未选择用户"}), 400
+    subdir = request.args.get("dir", "file")
+    file_dir = _resolve_file_dir(subdir)
+    target, err, code = _check_file_path(file_dir, filename)
+    if err:
+        return err, code
+    ext = os.path.splitext(filename)[1].lower()
+    mime_map = {
+        ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+        ".gif": "image/gif", ".webp": "image/webp", ".svg": "image/svg+xml",
+        ".bmp": "image/bmp", ".ico": "image/x-icon",
+    }
+    mime = mime_map.get(ext, "application/octet-stream")
+    return Response(open(target, "rb").read(), mimetype=mime)
+
+
+@app.route("/api/files/<filename>", methods=["DELETE"])
+def api_delete_file(filename):
+    if not _session.get("chat"):
+        return jsonify({"error": "未选择用户"}), 400
+    subdir = request.args.get("dir", "file")
+    file_dir = _resolve_file_dir(subdir)
+    target, err, code = _check_file_path(file_dir, filename)
+    if err:
+        return err, code
+    try:
+        os.remove(target)
+        return jsonify({"ok": True})
+    except OSError as e:
+        return jsonify({"error": f"删除失败: {e}"}), 500
+
+
+@app.route("/api/files", methods=["DELETE"])
+def api_delete_files_batch():
+    if not _session.get("chat"):
+        return jsonify({"error": "未选择用户"}), 400
+    subdir = request.args.get("dir", "file")
+    file_dir = _resolve_file_dir(subdir)
+    real_file_dir = os.path.realpath(file_dir)
+
+    data = request.get_json(silent=True) or {}
+    names = data.get("files", None)
+
+    deleted = 0
+    if names is not None:
+        for name in names:
+            target = os.path.join(file_dir, os.path.basename(name))
+            real_target = os.path.realpath(target)
+            if real_target.startswith(real_file_dir + os.sep) and os.path.isfile(target):
+                try:
+                    os.remove(target)
+                    deleted += 1
+                except OSError:
+                    pass
+    else:
+        if os.path.isdir(file_dir):
+            for name in os.listdir(file_dir):
+                target = os.path.join(file_dir, name)
+                if os.path.isfile(target):
+                    try:
+                        os.remove(target)
+                        deleted += 1
+                    except OSError:
+                        pass
+
+    return jsonify({"ok": True, "deleted": deleted})
