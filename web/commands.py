@@ -74,9 +74,8 @@ def _dispatch(cmd: str) -> dict | None:
     if cmd == "/help":
         return {"type": "command_result", "content": (
             "可用命令:\n"
-            "  /clear — 清除当前对话历史及工具日志（不归档）\n"
+            "  /clear — 清除当前对话历史及工具日志\n"
             "  /history — 查看当前会话统计（消息数/文件大小/工具调用次数）\n"
-            "  /archive — 手动归档当前对话（不清理历史）\n"
             "  /retry — 移除上一条 AI 回复并重新生成\n"
             "  /help — 显示本帮助信息"
         )}

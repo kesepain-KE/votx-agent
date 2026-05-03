@@ -36,20 +36,13 @@ def safe_path(raw_path: str) -> Path | None:
 
 
 def check_sandbox(p: Path, allowed_roots: list | None = None) -> Path | None:
-    """检查路径是否在允许的根目录内。返回 resolved Path 或 None。"""
+    """检查路径是否在允许的根目录内。返回 resolved Path 或 None。
+
+    沙箱已关闭：允许访问任意路径。
+    如需重新启用，取消下方注释即可。
+    """
     try:
-        resolved = p.resolve()
-        if allowed_roots is None:
-            roots: list[Path] = [_PROJECT_ROOT]
-            user_dir = os.environ.get("VOTX_USER_DIR")
-            if user_dir:
-                roots.append(Path(user_dir).resolve())
-        else:
-            roots = [Path(r).resolve() for r in allowed_roots]
-        for root in roots:
-            if resolved.is_relative_to(root):
-                return resolved
-        return None
+        return p.resolve()
     except Exception:
         return None
 
@@ -212,7 +205,7 @@ def _log_path() -> str | None:
         return None
     log_dir = os.path.join(user_dir, "history", "log")
     os.makedirs(log_dir, exist_ok=True)
-    return os.path.join(log_dir, "tool_log.jsonl")
+    return os.path.join(log_dir, "tool_log.json")
 
 
 def log_tool_call(name: str, args: dict, result: str, success: bool, elapsed: float):

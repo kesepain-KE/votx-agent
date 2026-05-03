@@ -3,9 +3,8 @@
 CLI (main.py) 和 Web (web/server.py) 共用此模块。
 每个 turn 的 tool calling 循环在这里统一处理，调用方只需消费事件流。
 """
-import json
 import os
-import sqlite3
+import time as _time
 
 from run.tool import load_tool_schemas
 from skills import register_all
@@ -21,9 +20,6 @@ _TOOL_ICONS: dict[str, str] = {
     "query_hotboard": "🔥",
     "create_docx": "📝", "read_docx": "📄",
     "tavily_search": "🔍",
-    "log_learning": "🧠", "log_error": "🚨", "log_feature_request": "💡", "read_learnings": "📋",
-    "mem_remember": "💾", "mem_recall": "🔎", "mem_learn": "📚", "mem_get_lessons": "📖",
-    "mem_track_entity": "👤", "mem_get_entity": "🔍", "mem_stats": "📊",
 }
 
 
@@ -51,23 +47,6 @@ def _pick_arg(name: str, args: dict) -> str:
         return f"{area}" + (f" / {plat}" if plat else "")
     if name == "sleep":
         return f"{args.get('seconds', '')}s"
-    if name in ("log_learning", "log_feature_request"):
-        s = args.get("summary", "") or args.get("capability", "")
-        return s if len(s) <= 50 else s[:47] + "..."
-    if name == "log_error":
-        c = args.get("command", "")
-        return c if len(c) <= 50 else c[:47] + "..."
-    if name == "read_learnings":
-        return args.get("file_name", "") or args.get("filter_area", "") or "全部"
-    if name == "mem_remember":
-        c = args.get("content", "")
-        return c if len(c) <= 40 else c[:37] + "..."
-    if name in ("mem_recall",):
-        return args.get("query", "")
-    if name == "mem_track_entity":
-        return f"{args.get('name','')} ({args.get('entity_type','person')})"
-    if name == "mem_get_entity":
-        return args.get("name", "")
     return ""
 
 
@@ -86,74 +65,6 @@ def _fmt_tool_line(name: str, args: dict, elapsed: float, success: bool) -> str:
     return "".join(parts)
 
 
-def _load_memory_context(user_dir: str) -> str:
-    """从 agent-memory 数据库加载关键事实，注入 system prompt"""
-    db_path = os.path.join(user_dir, "agent_memory.db")
-    if not os.path.exists(db_path):
-        return ""
-    try:
-        conn = sqlite3.connect(db_path)
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT content, tags FROM facts
-            WHERE superseded_by IS NULL
-              AND (expires_at IS NULL OR expires_at > datetime('now'))
-            ORDER BY last_accessed DESC
-            LIMIT 20
-        """)
-        rows = cur.fetchall()
-        conn.close()
-        if not rows:
-            return ""
-        lines = ["以下是从持久记忆中加载的已知信息："]
-        for content, tags_str in rows:
-            tags = json.loads(tags_str or "[]")
-            tag_str = f" [{', '.join(tags)}]" if tags else ""
-            lines.append(f"- {content}{tag_str}")
-        lines.append("\n请在对话中直接使用这些信息，无需再次询问用户。如果用户修改了某项信息，用 mem_remember 更新并用 mem_recall 确认。")
-        return "\n".join(lines)
-    except Exception:
-        return ""
-
-
-def _load_learnings_context(user_dir: str) -> str:
-    """从 .learnings/ 目录加载最近的学习/错误/功能请求记录"""
-    import re
-    learnings_dir = os.path.join(user_dir, ".learnings")
-    if not os.path.isdir(learnings_dir):
-        return ""
-    lines: list[str] = []
-    for fname, label in [("LEARNINGS.md", "学习"), ("ERRORS.md", "错误"), ("FEATURE_REQUESTS.md", "功能请求")]:
-        fp = os.path.join(learnings_dir, fname)
-        if not os.path.exists(fp):
-            continue
-        try:
-            content = open(fp, encoding="utf-8").read()
-            entries = [e.strip() for e in content.split("\n---\n") if e.strip()]
-            real_entries = [e for e in entries if e.startswith("## [")]
-            if not real_entries:
-                continue
-            pending = sum(1 for e in real_entries if "**Status**: pending" in e)
-            lines.append(f"\n### {label} ({len(real_entries)} 条 / {pending} 待处理)")
-            for e in real_entries[:5]:
-                m = re.search(r"^## \[([^\]]+)\]\s*(.+)$", e, re.MULTILINE)
-                if m:
-                    sid = m.group(1)
-                    title = m.group(2).strip()
-                    status = "⏳" if "**Status**: pending" in e else "✅"
-                    # 提取 Summary
-                    sm = re.search(r"### Summary\n(.+)", e)
-                    summary = sm.group(1).strip()[:80] if sm else ""
-                    lines.append(f"- {status} [{sid}] {title}")
-                    if summary:
-                        lines.append(f"  {summary}")
-        except Exception:
-            pass
-    if lines:
-        lines.insert(0, "以下是过往学习记录（可调用 read_learnings 查看详情，log_learning/log_error/log_feature_request 记录新内容）：")
-    return "\n".join(lines)
-
-
 def build_system_prompt(root: str, user_dir: str) -> str:
     """组装完整 system prompt（与 main.py 保持一致）"""
     with open(os.path.join(user_dir, "self_soul.md"), encoding="utf-8") as f:
@@ -166,7 +77,7 @@ def build_system_prompt(root: str, user_dir: str) -> str:
             if content and not content.startswith("<!--"):
                 system_prompt += "\n\n" + content
 
-    agent_md = os.path.join(root, "AGENT.md")
+    agent_md = os.path.join(root, "AGENTS.md")
     if os.path.exists(agent_md):
         with open(agent_md, encoding="utf-8") as f:
             system_prompt += "\n\n" + f.read()
@@ -186,13 +97,68 @@ def build_system_prompt(root: str, user_dir: str) -> str:
                 lines.append(si["summary"])
         system_prompt += "\n".join(lines)
 
-    mem_ctx = _load_memory_context(user_dir)
-    if mem_ctx:
-        system_prompt += "\n\n## 持久记忆（跨会话保留，/clear 不清除）\n" + mem_ctx
+    # ── 自改进记忆 (HOT Tier) ──
+    si_mem = os.path.join(user_dir, "self-improving", "memory.md")
+    if os.path.exists(si_mem) and os.path.getsize(si_mem) > 0:
+        try:
+            content = open(si_mem, encoding="utf-8").read().strip()
+            if content:
+                system_prompt += "\n\n## 自改进记忆（HOT Tier — 用户偏好、模式、规则）\n" + content
+        except Exception:
+            pass
 
-    learnings_ctx = _load_learnings_context(user_dir)
-    if learnings_ctx:
-        system_prompt += "\n\n## .learnings 过往记录\n" + learnings_ctx
+    # ── 纠正记录 ──
+    si_corr = os.path.join(user_dir, "self-improving", "corrections.md")
+    if os.path.exists(si_corr) and os.path.getsize(si_corr) > 0:
+        try:
+            content = open(si_corr, encoding="utf-8").read().strip()
+            if content:
+                system_prompt += "\n\n## 纠正记录（Corrections — 过往被纠正的错误）\n" + content
+        except Exception:
+            pass
+
+    # ── 长期记忆 (mem_* 文件) ──
+    mem_dir = os.path.join(user_dir, "memory")
+    if os.path.isdir(mem_dir):
+        mem_files = sorted(
+            f for f in os.listdir(mem_dir) if f.endswith(".md") and not f.startswith(".")
+        )
+        if mem_files:
+            system_prompt += "\n\n## 长期记忆（跨会话持久化）"
+            for fn in mem_files:
+                try:
+                    c = open(os.path.join(mem_dir, fn), encoding="utf-8").read().strip()
+                    if c:
+                        # 单文件限制 2000 字符，避免 prompt 膨胀
+                        if len(c) > 2000:
+                            c = c[:2000] + "\n\n...(截断)"
+                        system_prompt += f"\n\n[{fn}]\n{c}"
+                except Exception:
+                    pass
+
+    # ── 知识图谱摘要 (Ontology) ──
+    graph_path = os.path.join(root, "memory", "ontology", "graph.jsonl")
+    if os.path.exists(graph_path):
+        try:
+            entity_count = sum(1 for _ in open(graph_path, encoding="utf-8"))
+            if entity_count > 0:
+                # 只注入摘要，不注入完整图谱（太大）
+                system_prompt += (
+                    "\n\n## 知识图谱（Ontology）\n"
+                    f"实体总数: {entity_count} 条，存储在 `memory/ontology/graph.jsonl`。\n"
+                    "使用 ontology_* 工具查询和操作。"
+                )
+        except Exception:
+            pass
+
+    session_state = os.path.join(root, "SESSION-STATE.md")
+    if os.path.exists(session_state):
+        try:
+            content = open(session_state, encoding="utf-8").read().strip()
+            if content:
+                system_prompt += "\n\n## 会话状态（SESSION-STATE.md — Hot RAM）\n" + content
+        except Exception:
+            pass
 
     return system_prompt
 
@@ -207,7 +173,7 @@ def run_chat_turn(chat, tool_runner, provider, tools: list[dict]):
         {"type": "tool_call", "name": str, "icon": str, "args": dict,
          "elapsed": float, "success": bool, "line": str}
         {"type": "text", "content": str}
-        {"type": "usage", "data": {"prompt_tokens": int, ...}}
+        {"type": "usage", "data": {"prompt_tokens": int, ..., "elapsed": int}}
         {"type": "error", "content": str}
         {"type": "max_rounds"}
         {"type": "deadlock_warning"}
@@ -215,13 +181,13 @@ def run_chat_turn(chat, tool_runner, provider, tools: list[dict]):
     tool_round = 0
     _fail_streak = 0
     _last_fail_key = ""
+    _turn_start = _time.time()
 
     while tool_round < MAX_TOOL_ROUNDS:
         messages = chat.build_messages()
 
         # 流式路径：思考先于正文，逐 chunk yield
         if getattr(provider, "stream", False):
-            import time as _time
             try:
                 full_text = ""
                 full_thinking = ""
@@ -241,7 +207,10 @@ def run_chat_turn(chat, tool_runner, provider, tools: list[dict]):
                 if full_thinking:
                     yield {"type": "thinking_done"}
                 if provider.last_usage:
-                    yield {"type": "usage", "data": provider.last_usage}
+                    _elapsed = int((_time.time() - _turn_start) * 1000)
+                    _has_tools = tool_runner.has_tool_calls(response)
+                    chat.accumulate_usage(provider.last_usage, _has_tools, _elapsed)
+                    yield {"type": "usage", "data": {**provider.last_usage, "elapsed": _elapsed}}
             except RuntimeError as e:
                 yield {"type": "error", "content": str(e)}
                 chat.add_assistant_message(f"ERROR: {e}")
@@ -260,10 +229,14 @@ def run_chat_turn(chat, tool_runner, provider, tools: list[dict]):
                 yield {"type": "thinking", "content": thinking_text}
 
             if provider.last_usage:
-                yield {"type": "usage", "data": provider.last_usage}
+                _elapsed = int((_time.time() - _turn_start) * 1000)
+                _has_tools = tool_runner.has_tool_calls(response)
+                chat.accumulate_usage(provider.last_usage, _has_tools, _elapsed)
+                yield {"type": "usage", "data": {**provider.last_usage, "elapsed": _elapsed}}
 
         if tool_runner.has_tool_calls(response):
-            chat.add_tool_call_message(response.tool_calls)
+            reasoning = getattr(response, "reasoning_content", "") or ""
+            chat.add_tool_call_message(response.tool_calls, reasoning)
             results, details = tool_runner.execute(response)
             chat.add_tool_results(results)
             tool_round += 1

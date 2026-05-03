@@ -230,13 +230,79 @@
     }
 
     .stat:hover { border-color: var(--glass-border-hover); }
+
+    /* 累计 Token 统计横向面板 */
+    .tks-row { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
+    .tks-chip { flex: 1 1 60px; min-width: 55px; padding: 6px 5px; border-radius: 10px;
+      background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border);
+      text-align: center; font-family: var(--font-mono); }
+    .tks-chip .tks-val { font-size: 12px; font-weight: 800; color: var(--text-primary);
+      line-height: 1.2; }
+    .tks-chip .tks-lbl { font-size: 9px; color: var(--text-tertiary);
+      margin-top: 1px; white-space: nowrap; }
+    .ok { color: var(--success); font-weight: 800; }
     .ok { color: var(--success); font-weight: 800; }
 
     /* Conv list */
-    .conv-list { display: grid; gap: 6px; max-height: 260px; overflow-y: auto; }
+    .conv-list { display: grid; gap: 6px; max-height: 300px; overflow-y: auto; }
+
+    .more-btn {
+      display: block; width: 100%; margin-top: 4px;
+      padding: 7px 0; border-radius: var(--r-sm);
+      border: 1px solid var(--glass-border);
+      background: rgba(255,255,255,0.03);
+      color: var(--text-secondary); cursor: pointer;
+      font-size: 12px; font-family: var(--font-sans);
+      transition: all var(--duration) var(--ease-out);
+    }
+    .more-btn:hover {
+      border-color: var(--glass-border-hover);
+      background: rgba(255,255,255,0.06);
+      color: var(--text-primary);
+    }
+
+    /* ── 对话管理二级页面 ── */
+    .conv-mgr {
+      position: absolute; inset: 0; z-index: 10;
+      display: flex; flex-direction: column; gap: 14px;
+      padding: var(--s-5);
+      background: var(--bg-root);
+      border-radius: var(--r-lg);
+      overflow: hidden;
+      animation: convMgrIn 0.25s var(--ease-out) both;
+    }
+    @keyframes convMgrIn {
+      from { transform: translateX(20px); opacity: 0; }
+      to { transform: none; opacity: 1; }
+    }
+    .conv-mgr-header {
+      display: flex; align-items: center; gap: 10px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--glass-border);
+    }
+    .conv-mgr-header h3 { font-size: 14px; font-weight: 700; flex: 1; }
+    .conv-mgr-list {
+      flex: 1; min-height: 0; overflow-y: auto; display: grid; gap: 5px;
+      align-content: start;
+    }
+    .conv-mgr-item {
+      display: flex; align-items: center; gap: 8px; min-width: 0;
+      padding: 9px 10px; border-radius: var(--r-sm);
+      border: 1px solid rgba(255,255,255,0.05);
+      background: rgba(255,255,255,0.02);
+      cursor: pointer;
+      transition: all var(--duration) var(--ease-out);
+    }
+    .conv-mgr-item:hover { background: var(--glass-bg-hover); border-color: var(--glass-border-hover); }
+    .conv-mgr-item.active { border-color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.06); }
+    .conv-mgr-item-info { flex: 1; min-width: 0; }
+    .conv-mgr-item-info b { font-size: 12px; font-weight: 600; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .conv-mgr-item-info p { font-size: 10px; color: var(--text-secondary); margin-top: 1px; }
+    .conv-mgr-item-actions { display: flex; gap: 4px; flex-shrink: 0; }
+    body[data-theme="light"] .conv-mgr { background: var(--bg-root); }
 
     .conv {
-      position: relative;
+      position: relative; min-width: 0; overflow: hidden;
       padding: 10px 66px 10px 11px;
       border-radius: var(--r-sm);
       background: rgba(255, 255, 255, 0.02);
@@ -265,9 +331,9 @@
       box-shadow: inset 0 0 0 1px rgba(0,0,0,0.04);
     }
 
-    .conv b { font-size: 12px; font-weight: 600; }
-    .conv p { font-size: 10px; color: var(--text-secondary); margin-top: 2px; }
-    .conv .ci-summary { color: var(--text-secondary); font-size: 10px; margin-top: 3px; opacity: 0.7; }
+    .conv b { font-size: 12px; font-weight: 600; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .conv p { font-size: 10px; color: var(--text-secondary); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .conv .ci-summary { color: var(--text-secondary); font-size: 10px; margin-top: 3px; opacity: 0.7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     .conv-actions {
       position: absolute; right: 6px; top: 50%;
@@ -490,14 +556,37 @@
       animation: pulse 2s ease-in-out infinite;
     }
 
+    .pulse.active {
+      background: var(--success);
+      box-shadow: 0 0 14px var(--success);
+      animation: pulseBeat 0.7s ease-in-out infinite;
+    }
+
     @keyframes pulse {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.35; }
     }
 
+    @keyframes pulseBeat {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.3; transform: scale(1.8); }
+    }
+
+    .running-tag {
+      font-size: 10px; font-weight: 600;
+      color: var(--success);
+      animation: blink 1.2s step-start infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.25; }
+    }
+
     .chat {
       padding: 18px 22px;
-      overflow-y: auto; display: flex;
+      overflow-y: auto; overflow-x: hidden;
+      display: flex;
       flex-direction: column; gap: 14px;
     }
 
@@ -522,12 +611,14 @@
       padding: 12px 15px; border-radius: 18px;
       font-size: 14px; line-height: 1.65;
       white-space: pre-wrap; word-wrap: break-word;
+      overflow-x: auto; word-break: break-word;
       background: rgba(255,255,255,0.05);
       border: 1px solid var(--glass-border);
       box-shadow: 0 8px 24px rgba(0,0,0,0.12);
     }
     .bubble-wrap {
       display: flex; flex-direction: column; gap: 3px;
+      min-width: 0;
     }
     .msg.me .bubble-wrap { align-items: flex-end; }
     .copy-msg {
@@ -563,35 +654,33 @@
       to { opacity: 1; transform: none; }
     }
 
-    .sys-msg { text-align: center; color: var(--text-secondary); font-size: 12px; padding: 6px; font-style: italic; }
+    .sys-msg { text-align: center; color: var(--text-secondary); font-size: 12px; padding: 6px; font-style: italic; white-space: pre-wrap; }
     .sys-error { color: var(--danger); font-size: 12px; padding: 6px; }
     .sys-warn { color: var(--warning); font-size: 12px; padding: 6px; }
 
-    /* Token stats */
-    .token-row {
-      margin-top: 6px; display: flex; gap: 5px; flex-wrap: wrap;
-      align-items: center; justify-content: space-between;
-      font: 10px/1.4 var(--font-mono);
-      color: var(--text-tertiary);
+    /* ── 消息底部：统计条 + 复制按钮 ── */
+    .msg-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 4px 0 0;
     }
-    .token-row .token-left { display: flex; gap: 5px; flex-wrap: wrap; }
-
-    .token-row span {
-      padding: 3px 7px; border-radius: var(--r-full);
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.06);
-      transition: background var(--duration) var(--ease-out),
-                  border-color var(--duration) var(--ease-out);
+    .live-stats {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11px;
     }
-
-    .token-row span:hover {
-      background: rgba(255,255,255,0.06);
-      border-color: rgba(255,255,255,0.14);
+    .live-stats .ls-item {
+      display: flex; align-items: center; gap: 3px;
+      white-space: nowrap; font-size: 11px;
+      padding: 3px 7px;
+      border-radius: var(--r-full);
+      background: rgba(255,255,255,0.025);
+      border: 1px solid var(--glass-border);
     }
-
-    body[data-theme="light"] .token-row span:hover {
-      background: rgba(0,0,0,0.04);
-      border-color: rgba(0,0,0,0.12);
+    .live-stats .ls-label {
+      color: var(--text-tertiary); font-size: 10px;
+    }
+    .live-stats .ls-val {
+      font-weight: 600; font-family: var(--font-mono);
+      color: var(--text-secondary); font-size: 11px;
     }
 
     /* Thinking block */
@@ -628,7 +717,11 @@
       border-radius: 14px; margin-top: 6px;
       overflow: hidden;
       transition: border-color var(--duration) var(--ease-out);
+      overflow-x: auto;
     }
+
+    .tool-call::-webkit-scrollbar { height: 4px; }
+    .tool-call::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
 
     .tool-call.open { border-color: rgba(255,255,255,0.16); }
     body[data-theme="light"] .tool-call.open { border-color: rgba(0,0,0,0.14); }
@@ -783,6 +876,20 @@
     .send-btn:active { transform: translateY(0); }
     .send-btn:disabled { opacity: 0.4; cursor: not-allowed; filter: none; transform: none; }
 
+    .send-btn.stop {
+      background: #ff3b30;
+      color: #ffffff;
+      box-shadow: 0 8px 22px rgba(255,59,48,0.35);
+    }
+
+    .send-btn.stop:hover { filter: brightness(1.1); }
+
+    body[data-theme="light"] .send-btn.stop {
+      background: #ff3b30;
+      color: #ffffff;
+      box-shadow: 0 8px 22px rgba(255,59,48,0.25);
+    }
+
     /* ========== Right Panel ========== */
     .right {
       display: grid; grid-template-rows: auto 1fr;
@@ -798,8 +905,6 @@
       font-size: 14px; font-weight: 700;
       display: flex; align-items: center; gap: 6px;
     }
-
-    /* live badge removed */
 
     .tabs {
       display: grid; grid-template-columns: repeat(4, 1fr);
@@ -1132,1126 +1237,1274 @@
   </style>
 </head>
 <body>
+{% raw %}
+<div id="app">
 <div class="app">
   <!-- Sidebar -->
-  <aside class="sidebar glass">
-    <div class="brand"><div class="logo">V</div><div><h1>votx-agent</h1><p>本地多用户 Agent 控制台</p></div></div>
-    <div class="card">
-      <div class="section-title">用户选择</div>
-      <select id="user-select"></select>
-      <button class="btn btn-primary" onclick="selectUser()">进入</button>
-      <div style="color:var(--danger);font-size:11px;margin-top:6px" id="select-err"></div>
-    </div>
-    <div>
-      <div class="section-title">状态</div>
-      <div class="stat"><span>历史消息</span><b id="stat-msg-count">—</b></div>
-      <div class="stat"><span>工具调用</span><b id="stat-tool-count">—</b></div>
-      <div class="stat"><span>会话大小</span><b id="stat-file-size">—</b></div>
-    </div>
-    <div class="section-row">
-      <div class="section-title">对话历史</div>
-      <div class="mini-actions">
-        <button class="tiny-btn" onclick="refreshConversations()">刷新</button>
-        <button class="tiny-btn danger" onclick="deleteAllConvs()">全部删除</button>
+  <aside class="sidebar glass" style="position:relative;overflow:hidden">
+    <!-- 默认侧边栏 -->
+    <div v-show="!showConvManager" style="display:flex;flex-direction:column;gap:14px;height:100%">
+      <div class="brand"><div class="logo">V</div><div><h1>votx-agent</h1><p>本地多用户 Agent 控制台</p></div></div>
+      <div class="card">
+        <div class="section-title">用户选择</div>
+        <select v-model="selectedUser"><option v-for="u in users" :key="u" :value="u">{{ u }}</option></select>
+        <button class="btn btn-primary" @click="selectUser">进入</button>
+        <div style="color:var(--danger);font-size:11px;margin-top:6px">{{ selectErr }}</div>
+      </div>
+      <div>
+        <div class="section-title">状态</div>
+        <div class="stat"><span>历史消息</span><b>{{ stats.messages }}</b></div>
+        <div class="stat"><span>工具调用</span><b>{{ stats.tools }}</b></div>
+        <div class="stat"><span>会话大小</span><b>{{ stats.size }}</b></div>
+      </div>
+      <div class="section-row">
+        <div class="section-title">对话历史</div>
+        <div class="mini-actions">
+          <button class="tiny-btn" @click="refreshConversations">刷新</button>
+          <button class="tiny-btn danger" @click="deleteAllConvs">全部删除</button>
+        </div>
+      </div>
+      <div class="conv-list">
+        <div v-if="!conversations.length" style="color:var(--text-secondary);font-size:11px;padding:4px">选择用户后加载…</div>
+        <div v-for="c in conversations.slice(0, 3)" :key="c.id" class="conv" :class="{ active: activeConv === c.id }" @click="loadConversation(c)" @contextmenu.prevent="openConvMenu($event, c)">
+          <div>
+            <b>{{ c.id === '__current__' ? '★ ' + (c.summary || '新对话') : c.label }}</b>
+            <p>{{ c.meta }}</p>
+            <p v-if="c.raw_label" class="ci-summary">{{ c.raw_label }}</p>
+          </div>
+          <div class="conv-actions">
+            <button class="icon-btn" @click.stop="renameConv($event, c)" title="重命名">✎</button>
+            <button class="icon-btn danger" @click.stop="deleteConversation(c.id)" title="删除">×</button>
+          </div>
+        </div>
+      </div>
+      <button class="more-btn" @click="openConvManager" v-if="conversations.length > 3">更多 ({{ conversations.length - 3 }})…</button>
+      <div class="section-row" style="margin-bottom:8px">
+        <div class="section-title">状态刷新</div>
+        <button class="refresh-btn" :class="{ spinning: refreshing }" title="刷新右侧栏所有数据" @click="refreshOverview">↻</button>
+      </div>
+      <div class="profile card profile-with-theme">
+        <div class="avatar">{{ profileInitial }}</div>
+        <div><b>{{ profileName }}</b><br><span style="font-size:11px;color:var(--text-secondary)">{{ profileInfo }}</span></div>
+        <button class="theme-toggle" @click="toggleTheme">{{ theme === 'light' ? '深色' : '浅色' }}</button>
       </div>
     </div>
-    <div class="conv-list" id="conv-list"><div style="color:var(--text-secondary);font-size:11px;padding:4px">选择用户后加载…</div></div>
-    <div class="section-row" style="margin-bottom:8px">
-      <div class="section-title">状态刷新</div>
-      <button class="refresh-btn" id="refresh-btn" type="button" title="刷新右侧栏所有数据" onclick="refreshOverview()">↻</button>
-    </div>
-    <div class="profile card profile-with-theme">
-      <div class="avatar" id="profile-avatar">K</div>
-      <div><b id="profile-name">未连接</b><br><span style="font-size:11px;color:var(--text-secondary)" id="profile-info">选择用户开始</span></div>
-      <button class="theme-toggle" id="theme-toggle" type="button">浅色</button>
+
+    <!-- 对话管理二级页面 -->
+    <div v-show="showConvManager" class="conv-mgr">
+      <div class="conv-mgr-header">
+        <button class="icon-btn" @click="closeConvManager" title="返回">←</button>
+        <h3>对话管理</h3>
+        <button class="tiny-btn danger" @click="deleteAllConvs">全部删除</button>
+      </div>
+      <div class="conv-mgr-list">
+        <div v-if="!conversations.length" style="color:var(--text-secondary);font-size:12px;text-align:center;padding:20px">暂无对话</div>
+        <div v-for="c in conversations" :key="c.id" class="conv-mgr-item" :class="{ active: activeConv === c.id }" @click="loadFromManager(c)">
+          <div class="conv-mgr-item-info">
+            <b>{{ c.id === '__current__' ? '★ ' + (c.summary || '新对话') : c.label }}</b>
+            <p>{{ c.meta }}</p>
+          </div>
+          <div class="conv-mgr-item-actions">
+            <button class="icon-btn" @click.stop="renameConv($event, c)" title="重命名">✎</button>
+            <button class="icon-btn danger" @click.stop="deleteConvFromManager(c.id)" title="删除">×</button>
+          </div>
+        </div>
+      </div>
     </div>
   </aside>
 
   <!-- Main Chat -->
-  <main class="main glass" id="main-panel">
-    <div class="drop-overlay" id="drop-overlay" style="position:absolute;inset:0;background:rgba(124,111,247,0.06);border:2px dashed rgba(255,255,255,0.12);border-radius:24px;display:none;align-items:center;justify-content:center;z-index:10;pointer-events:none">
+  <main class="main glass" id="main-panel"
+    @dragenter.prevent="onDragEnter"
+    @dragleave.prevent="onDragLeave"
+    @dragover.prevent
+    @drop.prevent="onDrop">
+    <div class="drop-overlay" v-show="dragging" style="position:absolute;inset:0;background:rgba(255,255,255,0.06);border:2px dashed rgba(255,255,255,0.12);border-radius:24px;display:flex;align-items:center;justify-content:center;z-index:10;pointer-events:none">
       <span style="background:rgba(255,255,255,0.06);padding:16px 32px;border-radius:16px;font-size:16px">📂 释放文件上传</span>
     </div>
     <header class="top">
-      <div><h2 id="chat-title">对话闭环与工具调用</h2><p id="main-sub">选择用户后开始对话</p></div>
+      <div><h2>{{ chatTitle }}</h2><p>{{ mainSub }}</p></div>
       <div class="top-actions">
-        <div class="model-badge"><span class="pulse" id="status-dot" style="display:none"></span><span id="model-name">—</span></div>
-        <button class="btn btn-ghost mini" onclick="saveChat()">保存</button>
-        <button class="btn btn-ghost mini" onclick="newChat()">新对话</button>
+        <div class="model-badge"><span class="pulse" :class="{ active: running }" v-show="userActive"></span><span>{{ modelName }}</span><span v-if="running" class="running-tag">运行中…</span></div>
+        <button class="btn btn-ghost mini" @click="saveChat">保存</button>
+        <button class="btn btn-ghost mini" @click="newChat">新对话</button>
       </div>
     </header>
-    <div class="chat" id="chat"></div>
+    <div class="chat" ref="chatEl">
+      <template v-for="m in messages" :key="m.id">
+        <div v-if="m.type === 'sys'" class="sys-msg">{{ m.content }}</div>
+        <div v-else-if="m.type === 'error'" class="sys-error">⚠ {{ m.content }}</div>
+        <div v-else-if="m.type === 'warn'" class="sys-warn">
+          <span v-if="m.maxRounds">⚠ {{ m.content }} <button class="btn btn-ghost small" @click="continueAfterMaxRounds">继续</button></span>
+          <span v-else>⚠ {{ m.content }}</span>
+        </div>
+        <div v-else class="msg" :class="{ me: m.role === 'user' }">
+          <div class="msg-avatar">{{ m.role === 'user' ? '你' : '🤖' }}</div>
+          <div class="bubble-wrap">
+            <!-- 图片预览 (用户消息) -->
+            <img v-for="img in (m.images || [])" :key="img.name" :src="'/api/files/view/' + encodeURIComponent(img.name) + (img.dir && img.dir !== 'file' ? '?dir=' + img.dir : '')" :alt="img.name" style="max-width:100%;max-height:260px;border-radius:12px;margin-bottom:6px;display:block" loading="lazy">
+            <!-- 思考块 -->
+            <div v-if="m.think" class="think-block" :class="{ open: m.thinkOpen }">
+              <div class="think-header" @click="m.thinkOpen = !m.thinkOpen">💭 思考过程</div>
+              <div class="think-body">{{ m.think }}</div>
+            </div>
+            <!-- 工具调用 -->
+            <div v-for="tc in (m.tools || [])" :key="tc._key" class="tool-call" :class="{ open: tc.open }" v-show="showTaskExecution">
+              <div class="tc-header" @click="tc.open = !tc.open">
+                <span>{{ tc.icon }}</span>
+                <span class="tc-name">{{ tc.name }}</span>
+                <span class="tc-param">{{ tc.param }}</span>
+                <span class="tc-time">{{ tc.time }}</span>
+                <span class="tc-status" :class="tc.success ? 'ok' : 'fail'">{{ tc.success ? 'OK' : 'FAIL' }}</span>
+              </div>
+              <div class="tc-detail"><pre>{{ tc.detail }}</pre></div>
+            </div>
+            <!-- 消息气泡 (AI 回复在最后) -->
+            <div v-if="m.streaming" class="bubble">{{ m._raw }}</div>
+            <div v-else class="bubble" v-html="formatContent(m.content)"></div>
+            <!-- 复制按钮 (用户消息) -->
+            <button v-if="m.role === 'user' && m.content" class="copy-msg" :class="{ copied: m.copied }" @click="copyMsg(m)">{{ m.copied ? '✓ 已复制' : '复制' }}</button>
+            <!-- 消息底部：统计条 + 复制 -->
+            <div v-if="m.role === 'assistant' && m.usage" class="msg-footer">
+              <div class="live-stats">
+                <span class="ls-item"><span class="ls-label">输入</span><span class="ls-val">{{ m.usage.input }}</span></span>
+                <span class="ls-item"><span class="ls-label">输出</span><span class="ls-val">{{ m.usage.output }}</span></span>
+                <span class="ls-item"><span class="ls-label">缓存命中</span><span class="ls-val">{{ m.usage.hit }}</span></span>
+                <span class="ls-item"><span class="ls-label">命中率</span><span class="ls-val">{{ m.usage.hit_rate }}</span></span>
+                <span class="ls-item"><span class="ls-label">耗时</span><span class="ls-val">{{ m.usage.time }}</span></span>
+              </div>
+              <button class="copy-msg" :class="{ copied: m.copied }" @click="copyMsg(m)">{{ m.copied ? '✓ 已复制' : '复制' }}</button>
+            </div>
+            <button v-else-if="m.role === 'assistant' && m.content" class="copy-msg" :class="{ copied: m.copied }" @click="copyMsg(m)">{{ m.copied ? '✓ 已复制' : '复制' }}</button>
+          </div>
+        </div>
+      </template>
+    </div>
     <footer class="composer">
       <div class="quick">
-        <button class="chip" data-cmd="/clear">/clear</button>
-        <button class="chip" data-cmd="/history">/history</button>
-        <button class="chip" data-cmd="/retry">/retry</button>
-        <button class="chip" data-cmd="/help">/help</button>
+        <button class="chip" v-for="cmd in commands" :key="cmd" @click="sendCommand(cmd)">{{ cmd }}</button>
       </div>
-      <div class="attach-chips" id="attach-chips" style="display:none;display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px"></div>
+      <div v-if="attachChips.length" style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px">
+        <span class="attach-chip" v-for="(f, i) in attachChips" :key="i">
+          ↑ {{ f.name }}
+          <span class="remove-file" @click="removeAttach(i)">×</span>
+        </span>
+      </div>
       <div class="input-row">
-        <input type="file" id="upload-input" multiple onchange="uploadFiles(this.files,'file')" accept="*/*" style="display:none">
-        <button class="upload-btn" onclick="document.getElementById('upload-input').click()" title="上传文件">↑</button>
-        <textarea id="user-input" placeholder="输入消息或 / 命令... (Enter 发送, Shift+Enter 换行)" autofocus rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage()}" style="resize:none;overflow-y:auto;min-height:22px;max-height:150px;line-height:1.5;border:0;background:transparent;outline:0;padding:0 8px;font-size:14px;color:var(--text-primary);font-family:var(--font-sans);width:100%"></textarea>
-        <button class="send-btn" id="send-btn" onclick="sendMessage()">发送</button>
+        <input type="file" ref="uploadInput" multiple @change="onUploadFiles" accept="*/*" style="display:none">
+        <button class="upload-btn" @click="$refs.uploadInput.click()" title="上传文件">↑</button>
+        <textarea
+          ref="textInput"
+          v-model="input"
+          :disabled="!userActive || running"
+          placeholder="输入消息或 / 命令... (Enter 发送, Shift+Enter 换行)"
+          rows="1"
+          @keydown.enter.exact.prevent="sendMessage"
+          @input="autoResize"
+          style="resize:none;overflow-y:auto;min-height:22px;max-height:150px;line-height:1.5;width:100%"
+        ></textarea>
+        <button v-if="running" class="send-btn stop" @click="stopRun">停止</button>
+        <button v-else class="send-btn" :disabled="!userActive" @click="sendMessage">发送</button>
       </div>
     </footer>
   </main>
 
   <!-- Right Panel -->
   <aside class="right glass">
-    <div class="panel-head"><h3>项目状态</h3>
+    <div class="panel-head">
+      <h3>项目状态</h3>
       <div class="tabs">
-        <button class="tab active" data-tab="overview">概览</button>
-        <button class="tab" data-tab="debug">调试</button>
-        <button class="tab" data-tab="logs">日志</button>
-        <button class="tab" data-tab="files">文件</button>
+        <button v-for="t in tabs" :key="t.id" class="tab" :class="{ active: activeTab === t.id }" @click="activeTab = t.id">{{ t.label }}</button>
       </div>
     </div>
     <div class="panel-body">
-      <div class="pane active" id="overview">
+      <!-- Overview -->
+      <div class="pane" :class="{ active: activeTab === 'overview' }">
         <div class="prompt-tabs">
-          <button class="prompt-tab active" data-prompt="system">system</button>
-          <button class="prompt-tab" data-prompt="soul">soul</button>
-          <button class="prompt-tab" data-prompt="agent">agent</button>
-          <button class="prompt-tab" data-prompt="other">其他</button>
+          <button v-for="p in promptTabs" :key="p.id" class="prompt-tab" :class="{ active: promptTab === p.id }" @click="promptTab = p.id">{{ p.label }}</button>
         </div>
-        <div class="mono" id="prompt-view">选择用户后加载 system prompt…</div>
+        <div class="mono">{{ promptData[promptTab] || '加载中…' }}</div>
       </div>
-      <div class="pane" id="debug">
+      <!-- Debug -->
+      <div class="pane" :class="{ active: activeTab === 'debug' }">
         <div class="debug-grid">
-          <div class="toggle-card"><div><b>思考开关</b><p style="color:var(--text-secondary);font-size:11px;margin-top:2px">think</p></div><div class="switch" id="switch-think" onclick="toggleConfigSwitch('think',this)"></div></div>
-          <div class="toggle-card"><div><b>流式输出开关</b><p style="color:var(--text-secondary);font-size:11px;margin-top:2px">stream</p></div><div class="switch" id="switch-stream" onclick="toggleConfigSwitch('stream',this)"></div></div>
-          <div class="item"><div class="item-top"><b>用户模型设置</b><span class="pill" id="debug-user">—</span></div>
+          <div class="toggle-card">
+            <div><b>思考开关</b><p style="color:var(--text-secondary);font-size:11px;margin-top:2px">think</p></div>
+            <div class="switch" :class="{ on: config.think }" @click="toggleConfigSwitch('think')"></div>
+          </div>
+          <div class="toggle-card">
+            <div><b>流式输出开关</b><p style="color:var(--text-secondary);font-size:11px;margin-top:2px">stream</p></div>
+            <div class="switch" :class="{ on: config.stream }" @click="toggleConfigSwitch('stream')"></div>
+          </div>
+          <div class="toggle-card">
+            <div><b>任务执行显示</b><p style="color:var(--text-secondary);font-size:11px;margin-top:2px">显示/隐藏工具调用</p></div>
+            <div class="switch" :class="{ on: showTaskExecution }" @click="showTaskExecution = !showTaskExecution"></div>
+          </div>
+          <div class="item">
+            <div class="item-top"><b>用户模型设置</b><span class="pill">{{ selectedUser || '—' }}</span></div>
             <div class="debug-grid" style="margin-top:10px">
-              <div class="form-row"><label>api 模型</label><input id="cfg-model" onchange="saveConfigField('model',this.value)"></div>
-              <div class="form-row"><label>base-url</label><input id="cfg-base-url" placeholder="https://api.deepseek.com" onchange="saveConfigField('base_url',this.value)"></div>
-              <div class="form-row"><label>key</label><div class="key-shell"><input id="cfg-key" type="password" placeholder="点击输入密钥，回车保存" readonly onclick="this.readOnly=false;this.value='';this.focus()" onkeydown="if(event.key==='Enter'){event.preventDefault();saveConfigField('api_key',this.value);this.value='';this.readOnly=true;toast('密钥已保存')}"><button class="btn btn-ghost small" onclick="var i=document.getElementById('cfg-key');i.readOnly=false;i.value='';i.focus()">填入</button></div><div class="key-hint">密钥不显示明文，回车后清空并保存</div></div>
+              <div class="form-row"><label>api 模型</label><input v-model="config.model" @change="saveConfigField('model', config.model)"></div>
+              <div class="form-row"><label>base-url</label><input v-model="config.baseUrl" @change="saveConfigField('base_url', config.baseUrl)"></div>
+              <div class="form-row"><label>key</label>
+                <div class="key-shell">
+                  <input type="password" placeholder="点击输入密钥，回车保存" v-model="config.keyDraft" @keydown.enter.prevent="saveConfigField('api_key', config.keyDraft); config.keyDraft = ''; toast('密钥已保存')">
+                  <button class="btn btn-ghost small" @click="config.keyDraft = ''; $nextTick(() => $el.querySelector('.key-shell input').focus())">填入</button>
+                </div>
+                <div class="key-hint">密钥不显示明文，回车后清空并保存</div>
+              </div>
             </div>
           </div>
           <div style="display:flex;gap:8px;margin-top:12px">
-            <button class="btn btn-primary small" style="flex:1" onclick="saveAllConfig()">保存</button>
-            <button class="btn btn-ghost small" style="flex:1" onclick="applyConfig()">应用</button>
-            <button class="btn btn-ghost small" style="flex:1" onclick="restoreConfig()">恢复</button>
+            <button class="btn btn-primary small" style="flex:1" @click="saveAllConfig">保存</button>
+            <button class="btn btn-ghost small" style="flex:1" @click="applyConfig">应用</button>
+            <button class="btn btn-ghost small" style="flex:1" @click="restoreConfig">恢复</button>
           </div>
         </div>
       </div>
-      <div class="pane" id="logs"><div class="list" id="log-list"><div style="color:var(--text-secondary);font-size:12px;padding:4px">选择用户后加载日志…</div></div></div>
-      <div class="pane" id="files">
-        <div class="file-toolbar">
-          <button class="btn btn-ghost small" onclick="loadFileList()">刷新</button>
-          <button class="btn btn-danger small" onclick="deleteAllFiles()">全部删除</button>
-          <button class="btn btn-ghost small" onclick="deleteCheckedFiles()">批量删除</button>
+      <!-- Logs -->
+      <div class="pane" :class="{ active: activeTab === 'logs' }">
+        <div class="list">
+          <div v-if="!logs.length" style="color:var(--text-secondary);font-size:12px;padding:4px">选择用户后加载日志…</div>
+          <div v-for="l in logs" :key="l._key" class="log-row" :class="{ fail: !l.success }">{{ l.text }}</div>
         </div>
-        <div class="list" id="file-list"><div style="color:var(--text-secondary);font-size:12px;padding:4px">选择用户后加载…</div></div>
+      </div>
+      <!-- Files -->
+      <div class="pane" :class="{ active: activeTab === 'files' }">
+        <div class="file-toolbar">
+          <button class="btn btn-ghost small" @click="loadFileList">刷新</button>
+          <button class="btn btn-danger small" @click="deleteAllFiles">全部删除</button>
+          <button class="btn btn-ghost small" @click="deleteCheckedFiles">批量删除</button>
+        </div>
+        <div class="list">
+          <div v-if="!files.length" style="color:var(--text-secondary);font-size:12px;padding:4px">选择用户后加载…</div>
+          <template v-for="group in fileGroups" :key="group.label">
+            <div v-if="group.files.length" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--text-tertiary);padding:6px 0 4px;border-bottom:1px solid var(--glass-border);margin-bottom:6px">{{ group.label }} ({{ group.files.length }})</div>
+            <div v-for="f in group.files" :key="f._key" class="item">
+              <div class="item-top">
+                <label class="file-select"><input class="file-check" type="checkbox" v-model="f.checked"><b>{{ f.name }}</b></label>
+                <span class="pill">{{ f.sizeStr }}{{ f.mtimeStr ? ' · ' + f.mtimeStr : '' }}</span>
+              </div>
+              <p style="color:var(--text-secondary);font-size:11px;margin-top:4px">{{ f.path }}</p>
+              <div class="file-actions">
+                <button class="btn btn-ghost small" @click="guideFile(f)">引用</button>
+                <button class="btn btn-ghost small" @click="downloadFile(f)">下载</button>
+                <button class="btn btn-danger small" @click="deleteFile(f)">删除</button>
+              </div>
+            </div>
+          </template>
+        </div>
       </div>
     </div>
   </aside>
 </div>
-<div class="ctx-menu" id="conv-menu"><button onclick="renameConvFromMenu()">重命名对话</button><button class="danger" onclick="deleteConvFromMenu()">删除对话</button></div>
-<div class="toast" id="toast"></div>
+<!-- Context menu -->
+<div class="ctx-menu" :style="{ display: menu.show ? 'block' : 'none', left: menu.x + 'px', top: menu.y + 'px' }">
+  <button @click="renameConvFromMenu">重命名对话</button>
+  <button class="danger" @click="deleteConvFromMenu">删除对话</button>
+</div>
+<!-- Toast -->
+<div class="toast" :class="{ show: toastVisible }">{{ toastText }}</div>
+</div>
 
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script>
-/* ============================================
-   votx-agent WebUI — real backend wiring
-   ============================================ */
+const { createApp } = Vue;
 
-const $ = s => document.querySelector(s);
-const chatEl = $("#chat");
-const input = $("#user-input");
-const sendBtn = $("#send-btn");
-let userActive = false;
-let currentBlock = null;
-let chunkBubble = null;
-let selectedConv = null;
-let _pendingUsage = null;
-let _thinkBlock = null;
-let currentFileDir = "file";
-
-// ---- Toast ----
-function toast(t) { const el = $("#toast"); el.textContent = t; el.classList.add("show"); setTimeout(() => el.classList.remove("show"), 2200); }
-
-// ---- Tabs ----
-document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => {
-  document.querySelectorAll(".tab,.pane").forEach(x => x.classList.remove("active"));
-  b.classList.add("active"); $("#" + b.dataset.tab).classList.add("active");
-}));
-
-// ---- Prompt tabs ----
-document.querySelectorAll(".prompt-tab").forEach(b => b.addEventListener("click", () => {
-  document.querySelectorAll(".prompt-tab").forEach(x => x.classList.remove("active"));
-  b.classList.add("active"); renderPromptPane(b.dataset.prompt);
-}));
-
-// ---- Quick chips ----
-document.querySelectorAll(".chip").forEach(chip => chip.addEventListener("click", () => {
-  if (!userActive) { toast("请先选择用户"); return; }
-  sendCommand(chip.dataset.cmd);
-}));
-
-// ---- Helpers ----
-function setInputLock(v) { sendBtn.disabled = v; input.disabled = v; if (!v) input.focus(); }
-function scrollBottom() { chatEl.scrollTop = chatEl.scrollHeight; }
-function escHtml(s) { return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
-function formatSize(n) { if (!n) return ""; if (n < 1024) return n + "B"; if (n < 1048576) return (n/1024).toFixed(1)+"KB"; return (n/1048576).toFixed(1)+"MB"; }
-function formatTime(ts) { if (!ts) return ""; const d = new Date(ts*1000), now = new Date(), diff = now - d; if (diff < 60000) return "刚刚"; if (diff < 3600000) return Math.floor(diff/60000)+"分钟前"; if (diff < 86400000) return Math.floor(diff/3600000)+"小时前"; return d.toLocaleDateString("zh-CN"); }
+// ---- 工具函数 ----
+function escHtml(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function fmtSize(n) { if (!n) return ''; if (n < 1024) return n + ' B'; if (n < 1048576) return (n / 1024).toFixed(1) + ' KB'; return (n / 1048576).toFixed(1) + ' MB'; }
+function formatNumber(n) { if (!n && n !== 0) return ''; if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M'; if (n >= 1000) return (n / 1000).toFixed(1) + 'K'; return String(n); }
+function fmtTime(ts) { if (!ts) return ''; const d = new Date(ts * 1000), now = new Date(), diff = now - d; if (diff < 60000) return '刚刚'; if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前'; if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前'; return d.toLocaleDateString('zh-CN'); }
+function fmtMs(ms) { if (!ms && ms !== 0) return ''; if (ms < 1000) return ms + 'ms'; if (ms < 60000) return (ms / 1000).toFixed(1) + 's'; return (ms / 60000).toFixed(1) + 'min'; }
+function isImageFile(name) { return /\.(png|jpe?g|gif|webp|svg|bmp|ico)$/i.test(name); }
 
 function formatContent(text) {
   let segs = [], last = 0, re = /```(\w*)\n?([\s\S]*?)```/g, m;
   while ((m = re.exec(text)) !== null) {
     if (m.index > last) segs.push({ raw: false, t: text.slice(last, m.index) });
-    segs.push({ raw: true, t: `<pre><code>${escHtml(m[2])}</code></pre>` });
+    segs.push({ raw: true, t: '<pre><code>' + escHtml(m[2]) + '</code></pre>' });
     last = m.index + m[0].length;
   }
   if (last < text.length) segs.push({ raw: false, t: text.slice(last) });
-  let out = "";
+  let out = '';
   for (const s of segs) {
     if (s.raw) { out += s.t; continue; }
     let t = escHtml(s.t);
-    t = t.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-    t = t.replace(/`([^`]+)`/g, "<code>$1</code>");
+    t = t.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    t = t.replace(/`([^`]+)`/g, '<code>$1</code>');
     out += t;
   }
   return out;
 }
 
-// ---- User Management ----
-async function loadUsers() {
-  try {
-    const r = await fetch("/api/users");
-    const users = await r.json();
-    const sel = $("#user-select");
-    sel.innerHTML = "";
-    users.forEach(u => { const o = document.createElement("option"); o.value = u; o.textContent = u; sel.appendChild(o); });
-    if (users.length) sel.value = users[0];
-  } catch(e) { $("#select-err").textContent = "加载用户列表失败: " + e.message; }
-}
+let _msgId = 1;
+function nextId() { return _msgId++; }
 
-async function selectUser() {
-  const user = $("#user-select").value;
-  if (!user) return;
-  // 自动断开上一个用户
-  if (userActive) { await fetch("/api/disconnect", { method: "POST" }); resetUI(); }
-  try {
-    const r = await fetch("/api/select-user", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({user}) });
-    const d = await r.json();
-    if (d.error) { $("#select-err").textContent = d.error; return; }
-    userActive = true;
-    $("#select-err").textContent = "";
-    $("#profile-name").textContent = d.user;
-    $("#profile-info").textContent = "已连接";
-    $("#chat-title").textContent = d.user + " · 对话";
-    $("#main-sub").textContent = "输入消息开始对话";
-    $("#status-dot").style.display = "";
-    chatEl.innerHTML = "";
-    input.disabled = false; sendBtn.disabled = false;
-    input.focus();
-    refreshConversations();
-    loadToolLogs();
-    loadFileList();
-    loadSystemPrompt();
-    loadDebugConfig();
-    updateStats();
-    $("#debug-user").textContent = d.user;
-    toast("已连接: " + d.user);
-  } catch(e) { $("#select-err").textContent = "连接失败: " + e.message; }
-}
+createApp({
+  data() {
+    return {
+      theme: 'dark',
+      users: [],
+      selectedUser: '',
+      userActive: false,
+      selectErr: '',
+      refreshing: false,
+      dragging: false,
+      dragCounter: 0,
+      running: false,
+      showTaskExecution: true,
 
-async function disconnect() {
-  if (!userActive) return;
-  await fetch("/api/disconnect", { method: "POST" });
-  resetUI();
-  toast("已断开连接，摘要已生成");
-}
+      stats: { messages: '—', tools: '—', size: '—' },
+      profileName: '未连接',
+      profileInfo: '选择用户开始',
+      chatTitle: '对话闭环与工具调用',
+      mainSub: '选择用户后开始对话',
+      modelName: '—',
 
-function resetUI() {
-  userActive = false;
-  $("#health-provider").textContent = "—";
-  $("#profile-name").textContent = "未连接";
-  $("#profile-info").textContent = "选择用户开始";
-  $("#chat-title").textContent = "对话闭环与工具调用";
-  $("#main-sub").textContent = "选择用户后开始对话";
-  $("#status-dot").style.display = "none";
-  $("#model-name").textContent = "—";
-  chatEl.innerHTML = "";
-  $("#conv-list").innerHTML = '<div style="color:var(--text-secondary);font-size:11px;padding:4px">选择用户后加载…</div>';
-  $("#log-list").innerHTML = '<div style="color:var(--text-secondary);font-size:12px;padding:4px">选择用户后加载日志…</div>';
-  $("#file-list").innerHTML = '<div style="color:var(--text-secondary);font-size:12px;padding:4px">选择用户后加载…</div>';
-  $("#prompt-view").textContent = "选择用户后加载 system prompt…";
-  systemPromptData = {};
-  document.querySelectorAll(".prompt-tab").forEach(x => x.classList.remove("active"));
-  document.querySelector(".prompt-tab[data-prompt='system']").classList.add("active");
-  input.disabled = true; sendBtn.disabled = true;
-  clearAttachChips();
-  loadUsers();
-}
+      conversations: [],
+      activeConv: '__current__',
+      showConvManager: false,
+      commands: ['/clear', '/history', '/retry', '/help'],
 
-// ---- Save / New Chat ----
-async function saveChat() {
-  if (!userActive) return;
-  try {
-    const r = await fetch("/api/command", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({command: "/archive"}) });
-    const d = await r.json();
-    toast(d.content || "已保存");
-    refreshConversations();
-  } catch(e) { toast("保存失败"); }
-}
+      messages: [],
+      input: '',
+      attachChips: [],
 
-async function newChat() {
-  if (!userActive) return;
-  try {
-    const r = await fetch("/api/command", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({command: "/clear"}) });
-    const d = await r.json();
-    chatEl.innerHTML = "";
-    $("#chat-title").textContent = ($("#profile-name").textContent || "") + " · 新对话";
-    appendSysMsg(d.content || "已创建新对话");
-    refreshConversations();
-    updateStats();
-    toast("新对话已创建");
-  } catch(e) { toast("创建失败"); }
-}
+      activeTab: 'overview',
+      tabs: [
+        { id: 'overview', label: '概览' },
+        { id: 'debug', label: '调试' },
+        { id: 'logs', label: '日志' },
+        { id: 'files', label: '文件' },
+      ],
 
-// ---- Conversations ----
-async function refreshConversations() {
-  if (!userActive) return;
-  try {
-    const r = await fetch("/api/conversations");
-    const convs = await r.json();
-    if (!Array.isArray(convs)) return;
-    const el = $("#conv-list");
-    if (!convs.length) { el.innerHTML = '<div style="color:var(--text-secondary);font-size:11px;padding:4px">暂无历史对话</div>'; return; }
-    el.innerHTML = convs.map(c => {
-      const label = c.id === "__current__" ? ("★ " + (c.summary || "新对话")) : escHtml(c.label);
-      const meta = `${c.msg_count} 条 · ${formatSize(c.size)} · ${formatTime(c.mtime)}`;
-      const rawInfo = c.raw_label ? `<p style="font-size:10px;color:var(--text-tertiary);margin-top:2px">${escHtml(c.raw_label)}</p>` : "";
-      const cls = c.id === "__current__" ? "conv active" : "conv";
-      const dispLabel = c.id === "__current__" ? (c.summary || "新对话") : (c.label || c.raw_label || "");
-      return `<div class="${cls}" oncontextmenu="openConvMenu(event,this,'${c.id}')" onclick="if(!event.target.closest('button,span[onclick]'))loadConversation('${c.id}','${escHtml(dispLabel).replace(/'/g, "\\'")}','${c.msg_count}')">
-        <div><b>${label}</b><p>${meta}</p>${rawInfo}</div>
-        <div class="conv-actions">
-          <button class="icon-btn" onclick="event.stopPropagation();renameConv(event,'${c.id}')" title="重命名">✎</button>
-          <button class="icon-btn danger" onclick="event.stopPropagation();deleteConversation('${c.id}')" title="删除">×</button>
-        </div>
-      </div>`;
-    }).join("");
-  } catch(e) {}
-}
+      promptTab: 'system',
+      promptTabs: [
+        { id: 'system', label: 'system' },
+        { id: 'soul', label: 'soul' },
+        { id: 'agent', label: 'agent' },
+        { id: 'other', label: '其他' },
+      ],
+      promptData: {
+        system: '选择用户后加载 system prompt…',
+        soul: '选择用户后加载 soul prompt…',
+        agent: '选择用户后加载 agent prompt…',
+        other: '选择用户后加载其他注入摘要…',
+      },
 
-async function loadConversation(id, displayName, msgCount) {
-  if (!userActive) return;
-  if (id === "__current__") { toast("已在当前对话"); return; }
-  if (!confirm("加载此对话将替换当前对话（已自动保存），继续？")) return;
-  try {
-    const r = await fetch("/api/load-conversation", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({id}) });
-    const d = await r.json();
-    if (d.error) { toast("加载失败: " + d.error); return; }
-    chatEl.innerHTML = "";
-    $("#chat-title").textContent = ($("#profile-name").textContent || "") + " · " + (displayName || (d.msg_count ? "历史对话" : "新对话"));
-    appendSysMsg(`已加载对话 (${d.msg_count} 条消息)`);
+      config: { think: false, stream: false, model: '', baseUrl: '', keyDraft: '' },
+      lastSavedConfig: {},
 
-    // Fetch and render messages
-    const mr = await fetch("/api/messages");
-    const msgs = await mr.json();
-    if (Array.isArray(msgs)) {
-      for (const m of msgs) {
-        const role = m.role || "";
-        const content = m.content || "";
-        const toolCalls = m.tool_calls;
-        if (role === "system") {
-          continue; // 跳过 system prompt
-        } else if (role === "user") {
-          currentBlock = null; // 新回合
-          if (content) addUserMessage(content);
-        } else if (role === "assistant") {
-          if (toolCalls) {
-            for (const tc of toolCalls) {
-              const name = tc.function?.name || "unknown";
-              let args = {};
-              try { args = JSON.parse(tc.function?.arguments || "{}"); } catch(e) {}
-              appendTool({name, icon:"🔧", args, elapsed:0, success:true});
-            }
-          }
-          if (content) appendText(content);
-        } else if (role === "tool") {
-          // 工具结果不单独显示，已合并在 tool_call 卡片中
-        }
-      }
-    }
-    currentBlock = null; chunkBubble = null;
-    refreshConversations();
-    scrollBottom();
-    toast("对话已加载");
-  } catch(e) { toast("加载失败: " + e.message); }
-}
+      logs: [],
+      files: [],
 
-async function deleteConversation(id) {
-  if (id === "__current__") { toast("不能删除当前对话"); return; }
-  if (!confirm("确认删除此对话？此操作不可撤销。")) return;
-  try {
-    const r = await fetch("/api/conversations/" + id, { method: "DELETE" });
-    const d = await r.json();
-    if (d.error) { toast(d.error); return; }
-    toast("已删除");
-    refreshConversations();
-  } catch(e) { toast("删除失败: " + e.message); }
-}
+      toastText: '',
+      toastVisible: false,
+      _toastTimer: null,
 
-async function renameConv(event, id) {
-  event.stopPropagation();
-  const conv = event.target.closest(".conv");
-  const b = conv.querySelector("b");
-  const next = prompt("输入新的对话名", b.textContent.replace("★ ", ""));
-  if (!next || !next.trim()) return;
-  if (id === "__current__") { b.textContent = "★ " + next.trim(); toast("当前对话名已更新"); return; }
-  try {
-    const r = await fetch(`/api/conversations/${id}/rename`, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({name: next.trim()}) });
-    const d = await r.json();
-    if (d.error) { toast(d.error); return; }
-    toast("已重命名");
-    refreshConversations();
-  } catch(e) { toast("重命名失败: " + e.message); }
-}
-
-function openConvMenu(event, conv, id) {
-  event.preventDefault();
-  selectedConv = {el: conv, id: id};
-  const menu = $("#conv-menu");
-  menu.style.left = event.clientX + "px";
-  menu.style.top = event.clientY + "px";
-  menu.style.display = "block";
-}
-
-document.addEventListener("click", () => { $("#conv-menu").style.display = "none"; });
-
-function renameConvFromMenu() {
-  if (!selectedConv) return;
-  renameConv({stopPropagation(){}, target: selectedConv.el.querySelector(".icon-btn")}, selectedConv.id);
-}
-
-function deleteConvFromMenu() {
-  if (!selectedConv) return;
-  deleteConversation(selectedConv.id);
-}
-
-async function deleteAllConvs() {
-  if (!confirm("删除全部归档对话？此操作不可撤销。")) return;
-  try {
-    const r = await fetch("/api/conversations", { method: "DELETE" });
-    const d = await r.json();
-    toast("已删除 " + (d.deleted || 0) + " 个对话");
-    refreshConversations();
-  } catch(e) { toast("删除失败: " + e.message); }
-}
-
-// ---- System Prompt ----
-let systemPromptData = {};
-
-async function refreshOverview() {
-  const btn = $("#refresh-btn");
-  btn.classList.add("spinning");
-  try {
-    await Promise.all([
-      updateStats(),
-      loadSystemPrompt(),
-      loadDebugConfig(),
-      loadToolLogs(),
-      loadFileList(),
-      refreshConversations(),
-    ]);
-    toast("已刷新");
-  } catch (e) { /* ignore */ }
-  setTimeout(() => btn.classList.remove("spinning"), 600);
-}
-
-async function loadSystemPrompt() {
-  if (!userActive) return;
-  try {
-    const r = await fetch("/api/system-prompt");
-    const d = await r.json();
-    if (!d.error && d.content) {
-      systemPromptData = {
-        system: d.content || "",
-        soul: d.soul || "未找到 soul 定义文件",
-        agent: d.agent || "未找到 AGENT.md",
-        other: d.other || "Skill 摘要、持久记忆等\n\n在完整 prompt 中查看…",
-      };
-      renderPromptPane("system");
-    }
-  } catch(e) {}
-}
-
-function renderPromptPane(tab) {
-  const content = systemPromptData[tab] || systemPromptData.system || "加载中…";
-  $("#prompt-view").textContent = content;
-}
-
-// ---- Commands ----
-async function sendCommand(cmd) {
-  const r = await fetch("/api/command", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({command: cmd}) });
-  const d = await r.json();
-  if (d.retry && d.content) {
-    // 真正重生成：后端已移除旧回复，前端先清理旧 UI 再发起流式请求
-    removeLastAIReply();
-    setInputLock(true);
-    currentBlock = createBlock();
-    chunkBubble = null;
-    streamChat(d.content);
-    return;
-  }
-  appendSysMsg(d.content || "命令已执行");
-  if (cmd === "/clear") { chatEl.innerHTML = ""; loadToolLogs(); updateStats(); }
-  if (cmd === "/archive" || cmd === "/summarize" || cmd === "/总结") refreshConversations();
-  scrollBottom();
-}
-
-// ---- Send Message ----
-async function sendMessage() {
-  const userText = input.value.trim();
-  if (!userText || sendBtn.disabled) return;
-
-  // 附上文件引用 - 使用相对路径
-  const chips = [...document.querySelectorAll("#attach-chips .attach-chip")];
-  const attachPaths = chips.map(c => c.dataset.path || c.dataset.file).filter(Boolean);
-  // 保存图片信息用于预览 {name, dir}
-  const imageInfos = chips.map(c => ({name: c.dataset.file, dir: c.dataset.dir || "file"})).filter(x => isImageFile(x.name));
-  let fullMsg = userText;
-  if (attachPaths.length) {
-    fullMsg = attachPaths.join("\n") + "\n" + userText;
-    clearAttachChips();
-  }
-
-  addUserMessage(fullMsg, imageInfos);
-  input.value = "";
-  setInputLock(true);
-  currentBlock = createBlock();
-  chunkBubble = null;
-
-  await streamChat(fullMsg);
-}
-
-async function streamChat(message) {
-  try {
-    const r = await fetch("/api/chat", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({message}) });
-    const ct = r.headers.get("Content-Type") || "";
-
-    if (ct.includes("application/json")) {
-      const d = await r.json();
-      if (currentBlock) { currentBlock.remove(); currentBlock = null; }
-      appendSysMsg(d.content || d.error || "");
-      setInputLock(false);
-      return;
-    }
-
-    const reader = r.body.getReader();
-    const decoder = new TextDecoder();
-    let buf = "";
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += decoder.decode(value, { stream: true });
-      const lines = buf.split("\n");
-      buf = lines.pop() || "";
-      for (const line of lines) {
-        if (line.startsWith("data: ")) {
-          const data = line.slice(6);
-          if (data === '{"type":"done"}') continue;
-          try { handleEvent(JSON.parse(data)); } catch(e) {}
-        }
-      }
-    }
-  } catch(e) { appendError("连接错误: " + e.message); }
-  setInputLock(false);
-  currentBlock = null;
-  chunkBubble = null;
-  _pendingUsage = null;
-  _thinkBlock = null;
-  scrollBottom();
-  loadToolLogs();
-  loadFileList();
-  refreshConversations();
-  updateStats();
-}
-
-function handleEvent(ev) {
-  switch (ev.type) {
-    case "tool_call": chunkBubble = null; appendTool(ev); break;
-    case "text_chunk": appendChunk(ev.content); break;
-    case "text_done":
-      if (chunkBubble) { chunkBubble.innerHTML = formatContent(chunkBubble._raw || ""); }
-      chunkBubble = null;
-      if (_pendingUsage) { appendUsage(_pendingUsage); _pendingUsage = null; }
-      break;
-    case "text": appendText(ev.content); if (_pendingUsage) { appendUsage(_pendingUsage); _pendingUsage = null; } break;
-    case "thinking_chunk": appendThinkingChunk(ev.content); break;
-    case "thinking_done": finalizeThinking(); break;
-    case "thinking": appendThinking(ev.content); break;
-    case "usage": _pendingUsage = ev.data; break;
-    case "error": chunkBubble = null; appendError(ev.content); break;
-    case "deadlock_warning": appendWarn("同命令连败 3 次，已提示 LLM 换思路"); break;
-    case "max_rounds": appendMaxRounds("已达到最大工具调用轮数"); break;
-  }
-}
-
-function appendChunk(text) {
-  if (!currentBlock) currentBlock = createBlock();
-  if (!chunkBubble) {
-    const wrap = document.createElement("div");
-    wrap.className = "bubble-wrap";
-    wrap.style.marginTop = "4px";
-    const bubble = document.createElement("div");
-    bubble.className = "bubble";
-    bubble._raw = "";
-    wrap.appendChild(bubble);
-    currentBlock.appendChild(wrap);
-    chunkBubble = bubble;
-  }
-  chunkBubble._raw += text;
-  chunkBubble.textContent += text;
-  scrollBottom();
-}
-
-function removeLastAIReply() {
-  // 移除最后一个 AI 回复在 DOM 中的所有痕迹
-  const children = [...chatEl.children];
-  // 找到最后一个用户消息的位置
-  let lastUserIdx = -1;
-  for (let i = children.length - 1; i >= 0; i--) {
-    if (children[i].classList && children[i].classList.contains("me")) { lastUserIdx = i; break; }
-  }
-  // 删除其后所有元素 (AI block, tool cards, thinking 等)
-  for (let i = children.length - 1; i > lastUserIdx; i--) {
-    children[i].remove();
-  }
-}
-
-function isImageFile(name) {
-  return /\.(png|jpe?g|gif|webp|svg|bmp|ico)$/i.test(name);
-}
-
-function addUserMessage(text, imageInfos) {
-  const d = document.createElement("div");
-  d.className = "msg me";
-  let previewHtml = "";
-  for (const img of (imageInfos || [])) {
-    if (!isImageFile(img.name)) continue;
-    const dirParam = img.dir && img.dir !== "file" ? "?dir=" + img.dir : "";
-    previewHtml += `<img src="/api/files/view/${encodeURIComponent(img.name)}${dirParam}" alt="${escHtml(img.name)}" style="max-width:100%;max-height:260px;border-radius:12px;margin-bottom:6px;display:block" loading="lazy">`;
-  }
-  d.innerHTML = `<div class="msg-avatar">你</div><div class="bubble-wrap"><div class="bubble">${previewHtml}${escHtml(text)}</div><button class="copy-msg" title="复制" onclick="copyBubble(this)">复制</button></div>`;
-  chatEl.appendChild(d);
-}
-
-function createBlock() {
-  const d = document.createElement("div");
-  d.className = "msg";
-  d.innerHTML = `<div class="msg-avatar">🤖</div><div style="flex:1;min-width:0"></div>`;
-  chatEl.appendChild(d);
-  return d.querySelector("div:last-child");
-}
-
-function appendTool(ev) {
-  const card = document.createElement("div");
-  card.className = "tool-call";
-  const timeStr = ev.elapsed ? ev.elapsed.toFixed(1) + "s" : "";
-  const shortArgs = ev.args ? JSON.stringify(ev.args).slice(0, 80) : "";
-  const statusCls = ev.success ? "ok" : "fail";
-  card.innerHTML = `<div class="tc-header" onclick="this.parentElement.classList.toggle('open')">
-    <span class="tc-name">${escHtml(ev.name)}</span>
-    <span class="tc-param">${escHtml(shortArgs)}</span>
-    <span class="tc-time">${timeStr}</span>
-    <span class="tc-status ${statusCls}">${ev.success ? "OK" : "FAIL"}</span>
-  </div>
-  <div class="tc-detail"><pre>${escHtml(JSON.stringify(ev.args||{},null,2))}</pre></div>`;
-  (currentBlock || chatEl).appendChild(card);
-}
-
-function appendText(text) {
-  if (!currentBlock) currentBlock = createBlock();
-  const wrap = document.createElement("div");
-  wrap.className = "bubble-wrap";
-  wrap.style.marginTop = "4px";
-  wrap.innerHTML = '<div class="bubble">' + formatContent(text) + '</div>';
-  currentBlock.appendChild(wrap);
-}
-
-function copyBubble(btn) {
-  const bubble = btn.parentElement.querySelector(".bubble");
-  const text = (bubble?.textContent || "").trim();
-  navigator.clipboard.writeText(text).then(() => {
-    btn.textContent = "✓ 已复制";
-    btn.classList.add("copied");
-    setTimeout(() => { btn.textContent = "复制"; btn.classList.remove("copied"); }, 1500);
-  }).catch(() => {});
-}
-
-function copyAIReply(btn) {
-  const container = btn.closest(".msg");
-  if (!container) return;
-  const bubbles = container.querySelectorAll(".bubble");
-  const text = [...bubbles].map(b => b.textContent || "").join("\n").trim();
-  navigator.clipboard.writeText(text).then(() => {
-    btn.textContent = "✓ 已复制";
-    btn.classList.add("copied");
-    setTimeout(() => { btn.textContent = "复制"; btn.classList.remove("copied"); }, 1500);
-  }).catch(() => {});
-}
-
-function appendUsage(data) {
-  const d = document.createElement("div");
-  d.className = "token-row";
-  const cached = data.cached_tokens || 0;
-  const totalK = ((data.total_tokens||0) / 1000).toFixed(1);
-  const hitRate = data.prompt_tokens ? (cached / data.prompt_tokens * 100).toFixed(1) : "0.0";
-  let html = '<div class="token-left">';
-  html += `<span>总 ${data.total_tokens||0}</span>`;
-  if (cached) html += `<span>命中 ${cached}</span>`;
-  html += `<span>命中率 ${hitRate}%</span>`;
-  html += `<span>输出 ${data.completion_tokens||0}</span>`;
-  html += `<span>耗时 ${((data.elapsed||0)/1000).toFixed(1)}s</span>`;
-  html += '</div>';
-  html += '<button class="copy-msg" title="复制" onclick="copyAIReply(this)">复制</button>';
-  d.innerHTML = html;
-  (currentBlock || chatEl).appendChild(d);
-}
-
-function appendSysMsg(text) {
-  const d = document.createElement("div");
-  d.className = "sys-msg";
-  d.textContent = text;
-  chatEl.appendChild(d);
-}
-
-function appendError(text) {
-  const d = document.createElement("div");
-  d.className = "sys-error";
-  d.textContent = "⚠ " + text;
-  (currentBlock || chatEl).appendChild(d);
-}
-
-function appendWarn(text) {
-  const d = document.createElement("div");
-  d.className = "sys-warn";
-  d.textContent = "⚠ " + text;
-  (currentBlock || chatEl).appendChild(d);
-}
-
-function appendThinking(content) {
-  const d = document.createElement("div");
-  d.className = "think-block";
-  d.innerHTML = `<div class="think-header" onclick="this.parentElement.classList.toggle('open')">💭 思考过程</div>
-    <div class="think-body">${escHtml(content)}</div>`;
-  (currentBlock || chatEl).appendChild(d);
-  scrollBottom();
-}
-
-function appendThinkingChunk(content) {
-  if (!_thinkBlock) {
-    _thinkBlock = document.createElement("div");
-    _thinkBlock.className = "think-block open";
-    _thinkBlock.innerHTML = `<div class="think-header" onclick="this.parentElement.classList.toggle('open')">💭 思考过程</div>
-      <div class="think-body"></div>`;
-    (currentBlock || chatEl).appendChild(_thinkBlock);
-  }
-  const body = _thinkBlock.querySelector(".think-body");
-  body.textContent += content;
-  scrollBottom();
-}
-
-function finalizeThinking() {
-  if (_thinkBlock) {
-    _thinkBlock.classList.remove("open");
-    _thinkBlock = null;
-    scrollBottom();
-  }
-}
-
-function appendMaxRounds(text) {
-  const d = document.createElement("div");
-  d.className = "sys-warn";
-  d.style.display = "flex";
-  d.style.alignItems = "center";
-  d.style.gap = "8px";
-  d.innerHTML = `<span>⚠ ${text}</span><button class="btn btn-ghost small" onclick="continueAfterMaxRounds()">继续</button>`;
-  (currentBlock || chatEl).appendChild(d);
-  scrollBottom();
-}
-
-async function continueAfterMaxRounds() {
-  if (!userActive) return;
-  setInputLock(true);
-  currentBlock = createBlock();
-  chunkBubble = null;
-  await streamChat("继续");
-}
-
-// ---- File Attach Chips ----
-function addAttachChip(name, path, dir) {
-  const container = $("#attach-chips");
-  container.style.display = "flex";
-  if ([...container.children].some(c => c.dataset.file === name && c.dataset.dir === (dir||"file"))) return;
-  const chip = document.createElement("span");
-  chip.className = "attach-chip";
-  chip.dataset.file = name;
-  chip.dataset.path = path || "";
-  chip.dataset.dir = dir || "file";
-  chip.innerHTML = `↑ ${escHtml(name)}<span class="remove-file" onclick="this.parentElement.remove();if(!$('#attach-chips').children.length)$('#attach-chips').style.display='none'">×</span>`;
-  container.appendChild(chip);
-}
-
-async function updateStats() {
-  if (!userActive) return;
-  try {
-    const r = await fetch("/api/stats");
-    const d = await r.json();
-    if (!d.error) {
-      $("#stat-msg-count").textContent = (d.msg_count || 0) + " 条";
-      $("#stat-tool-count").textContent = (d.tool_count || 0) + " 次";
-      $("#stat-file-size").textContent = formatSize(d.file_size || 0);
-    }
-  } catch(e) {}
-}
-
-function clearAttachChips() {
-  const container = $("#attach-chips");
-  container.innerHTML = "";
-  container.style.display = "none";
-}
-
-// ---- File Dir ----
-// currentFileDir 保留用于上传等场景，但文件列表同时显示两个目录
-
-// ---- File Upload ----
-async function uploadFiles(fileList, forceDir) {
-  if (!fileList.length || !userActive) return;
-  const uploadDir = forceDir || "file";
-  const form = new FormData();
-  for (const f of fileList) form.append("files", f);
-  try {
-    const r = await fetch("/api/upload?dir=" + uploadDir, { method: "POST", body: form });
-    const d = await r.json();
-    if (d.ok && d.files.length) {
-      for (const f of d.files) addAttachChip(f.name, f.path, f.dir || uploadDir);
-      toast("已上传: " + d.files.map(f => f.name).join(", "));
-    }
-    loadFileList();
-  } catch(e) { toast("上传失败"); }
-  document.getElementById("upload-input").value = "";
-}
-
-async function loadFileList() {
-  if (!userActive) return;
-  try {
-    // 同时加载两个目录
-    const [r1, r2] = await Promise.all([
-      fetch("/api/files?dir=file"),
-      fetch("/api/files?dir=download"),
-    ]);
-    const files1 = await r1.json();
-    const files2 = await r2.json();
-    const uploadFiles = Array.isArray(files1) ? files1 : [];
-    const downloadFiles = Array.isArray(files2) ? files2 : [];
-
-    if (!uploadFiles.length && !downloadFiles.length) {
-      $("#file-list").innerHTML = '<div style="color:var(--text-secondary);font-size:12px;padding:4px">暂无文件</div>';
-      return;
-    }
-
-    const renderDir = (files, label) => {
-      if (!files.length) return "";
-      return `<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--text-tertiary);padding:6px 0 4px;border-bottom:1px solid var(--glass-border);margin-bottom:6px">${label} (${files.length})</div>`
-        + files.map(f => {
-          const mtime = f.mtime ? formatTime(f.mtime) : "";
-          const fdir = f.dir || "file";
-          return `
-          <div class="item" data-file="${escHtml(f.path)}" data-name="${escHtml(f.name)}" data-dir="${fdir}">
-            <div class="item-top">
-              <div class="file-select"><input class="file-check" type="checkbox"><b>${escHtml(f.name)}</b></div>
-              <span class="pill">${formatSize(f.size)}${mtime ? " · "+mtime : ""}</span>
-            </div>
-            <p style="color:var(--text-secondary);font-size:11px;margin-top:4px">${escHtml(f.path)}</p>
-            <div class="file-actions">
-              <button class="btn btn-ghost small" onclick="guideFile(this)">引用</button>
-              <button class="btn btn-ghost small" onclick="downloadFile(this)">下载</button>
-              <button class="btn btn-danger small" onclick="deleteFile(this)">删除</button>
-            </div>
-          </div>`;
-        }).join("");
+      menu: { show: false, id: '', label: '', x: 0, y: 0 },
     };
+  },
 
-    $("#file-list").innerHTML = renderDir(uploadFiles, "上传文件") + renderDir(downloadFiles, "下载文件");
-  } catch(e) {}
-}
+  computed: {
+    profileInitial() { return (this.profileName || 'K').slice(0, 1).toUpperCase(); },
+    fileGroups() {
+      const upload = this.files.filter(f => f.dir === 'file');
+      const download = this.files.filter(f => f.dir === 'download');
+      const groups = [];
+      if (upload.length) groups.push({ label: '上传文件', files: upload });
+      if (download.length) groups.push({ label: '下载文件', files: download });
+      return groups;
+    },
+  },
 
-function downloadFile(btn) {
-  const item = btn.closest(".item");
-  const name = (item.dataset.name || "").split("/").pop() || item.dataset.file.split("/").pop();
-  const dir = item.dataset.dir || "file";
-  window.open("/api/files/download/" + encodeURIComponent(name) + "?dir=" + dir, "_blank");
-}
+  watch: {
+    theme(v) {
+      document.body.setAttribute('data-theme', v);
+      try { localStorage.setItem('votx-webui-theme', v); } catch (e) {}
+    },
+  },
 
-function guideFile(btn) {
-  const item = btn.closest(".item");
-  const path = item.dataset.file || "";
-  const name = item.dataset.name || path.split("/").pop();
-  const dir = item.dataset.dir || "file";
-  addAttachChip(name, path, dir);
-  input.focus();
-  toast("已引用: " + path);
-}
+  mounted() {
+    // 主题
+    try { this.theme = localStorage.getItem('votx-webui-theme') || 'dark'; } catch (e) {}
+    document.body.setAttribute('data-theme', this.theme);
 
-async function deleteFile(btn) {
-  const item = btn.closest(".item");
-  const path = item.dataset.file || "";
-  const dir = item.dataset.dir || "file";
-  try {
-    const name = path.split("/").pop();
-    const r = await fetch("/api/files/" + encodeURIComponent(name) + "?dir=" + dir, { method: "DELETE" });
-    const d = await r.json();
-    if (d.ok) { item.remove(); toast("文件已删除"); }
-    else { toast(d.error || "删除失败"); }
-  } catch(e) { toast("删除失败: " + e.message); }
-}
+    this.loadUsers();
+    this.restoreSession();
+    document.addEventListener('click', () => this.menu.show = false);
+  },
 
-async function deleteAllFiles() {
-  if (!confirm("删除全部上传和下载文件？此操作不可撤销。")) return;
-  try {
-    let total = 0;
-    for (const dir of ["file", "download"]) {
-      const r = await fetch("/api/files?dir=" + dir, { method: "DELETE" });
-      const d = await r.json();
-      total += (d.deleted || 0);
-    }
-    $("#file-list").innerHTML = '<div style="color:var(--text-secondary);font-size:12px;padding:4px">暂无文件</div>';
-    toast("已删除 " + total + " 个文件");
-  } catch(e) { toast("删除失败: " + e.message); }
-}
+  methods: {
+    // ---- Toast ----
+    toast(t) {
+      this.toastText = t;
+      this.toastVisible = true;
+      clearTimeout(this._toastTimer);
+      this._toastTimer = setTimeout(() => this.toastVisible = false, 2200);
+    },
 
-async function deleteCheckedFiles() {
-  const checked = [...document.querySelectorAll("#file-list .file-check:checked")];
-  if (!checked.length) { toast("请先勾选要删除的文件"); return; }
-  // 按目录分组分别删除
-  const groups = {};
-  for (const c of checked) {
-    const item = c.closest(".item");
-    const dir = item.dataset.dir || "file";
-    const name = item.dataset.file.split("/").pop();
-    if (name) { (groups[dir] ||= []).push(name); }
-  }
-  let total = 0;
-  try {
-    for (const [dir, names] of Object.entries(groups)) {
-      const r = await fetch("/api/files?dir=" + dir, {
-        method: "DELETE",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({files: names}),
+    // ---- Format (exposed for template) ----
+    formatContent,
+    encodeURIComponent,
+
+    // ---- Scroll ----
+    scrollBottom() {
+      this.$nextTick(() => {
+        const el = this.$refs.chatEl;
+        if (el) el.scrollTop = el.scrollHeight;
       });
-      const d = await r.json();
-      total += (d.deleted || 0);
-    }
-    checked.forEach(c => c.closest(".item").remove());
-    toast("已批量删除 " + total + " 个文件");
-  } catch(e) { toast("删除失败: " + e.message); }
-}
+    },
 
-// ---- Tool Logs ----
-async function loadToolLogs() {
-  if (!userActive) return;
-  try {
-    const r = await fetch("/api/tool-logs");
-    const logs = await r.json();
-    if (!Array.isArray(logs) || !logs.length) {
-      $("#log-list").innerHTML = '<div style="color:var(--text-secondary);font-size:12px;padding:4px">暂无工具调用日志</div>';
-      return;
-    }
-    const recent = logs.slice(-30).reverse();
-    $("#log-list").innerHTML = recent.map(l => {
-      let ts = "";
-      if (l.ts) {
-        try { const d = new Date(l.ts); if (!isNaN(d.getTime())) ts = d.toLocaleString("zh-CN"); else ts = String(l.ts).replace("T"," ").slice(0,19); } catch(e) { ts = String(l.ts).replace("T"," ").slice(0,19); }
-      }
-      const ok = l.success ? "✓" : "✗";
-      const args = JSON.stringify(l.args||{}).slice(0,80);
-      const cls = l.success ? "" : "fail";
-      return `<div class="log-row ${cls}">${ts} ${ok} ${l.tool} ${args}</div>`;
-    }).join("");
-  } catch(e) {}
-}
+    // ---- Auto resize textarea ----
+    autoResize() {
+      this.$nextTick(() => {
+        const el = this.$refs.textInput;
+        if (el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 150) + 'px'; }
+      });
+    },
 
-// ---- Debug / Config ----
-async function loadDebugConfig() {
-  if (!userActive) return;
-  try {
-    const r = await fetch("/api/config");
-    const cfg = await r.json();
-    if (cfg.error) return;
-    const p = cfg.provider || {};
-    $("#cfg-model").value = p.model || "";
-    $("#cfg-base-url").value = p.base_url || "";
-    // 重置 switch 状态
-    const thinkEl = $("#switch-think");
-    const streamEl = $("#switch-stream");
-    thinkEl.classList.toggle("on", !!p.think);
-    streamEl.classList.toggle("on", !!p.stream);
-    $("#model-name").textContent = p.model || "—";
-  } catch(e) {}
-}
+    // ---- Theme ----
+    toggleTheme() { this.theme = this.theme === 'light' ? 'dark' : 'light'; },
 
-async function saveConfigField(key, value) {
-  if (!userActive) return;
-  try {
-    const body = {};
-    body[key] = value;
-    await fetch("/api/config", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body) });
-    if (key === "model") $("#model-name").textContent = value || "—";
-    toast("已保存");
-  } catch(e) { toast("保存失败"); }
-}
+    // ---- API helpers ----
+    async api(url, opts = {}) {
+      const r = await fetch(url, opts);
+      const ct = r.headers.get('Content-Type') || '';
+      if (ct.includes('application/json')) return r.json();
+      return r;
+    },
 
-async function toggleConfigSwitch(key, el) {
-  if (!userActive) { toast("请先选择用户"); return; }
-  el.classList.toggle("on");
-  const on = el.classList.contains("on");
-  try {
-    await fetch("/api/config", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({[key]: on}) });
-    // 独立生效：切换后立即同步到provider
-    if (key === "think") $("#switch-think").classList.toggle("on", on);
-    if (key === "stream") $("#switch-stream").classList.toggle("on", on);
-    toast((on ? "已开启 " : "已关闭 ") + key);
-  } catch(e) { el.classList.toggle("on"); toast("保存失败"); }
-}
-
-// ---- Debug save/apply/restore ----
-let _lastSavedConfig = {};
-
-function snapshotConfig() {
-  _lastSavedConfig = {
-    model: $("#cfg-model").value || "",
-    base_url: $("#cfg-base-url").value || "",
-  };
-}
-
-async function saveAllConfig() {
-  if (!userActive) { toast("请先选择用户"); return; }
-  const data = {
-    model: $("#cfg-model").value,
-    base_url: $("#cfg-base-url").value,
-  };
-  try {
-    await fetch("/api/config", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(data) });
-    snapshotConfig();
-    toast("配置已保存");
-  } catch(e) { toast("保存失败"); }
-}
-
-async function applyConfig() {
-  if (!userActive) { toast("请先选择用户"); return; }
-  await loadDebugConfig();
-  snapshotConfig();
-  toast("配置已应用");
-}
-
-function restoreConfig() {
-  if (!userActive) { toast("请先选择用户"); return; }
-  if (!_lastSavedConfig.model && !_lastSavedConfig.base_url) { toast("没有可恢复的保存状态"); return; }
-  $("#cfg-model").value = _lastSavedConfig.model || "";
-  $("#cfg-base-url").value = _lastSavedConfig.base_url || "";
-  toast("已恢复到上次保存状态");
-}
-
-// 首次加载配置后拍快照
-const _origLoadDebugConfig = loadDebugConfig;
-loadDebugConfig = async function() {
-  await _origLoadDebugConfig();
-  snapshotConfig();
-};
-
-// ---- Export ----
-function exportMarkdown() {
-  if (!userActive) { toast("请先选择用户"); return; }
-  window.open("/api/export-markdown", "_blank");
-}
-
-// ---- Theme ----
-const themeBtn = $("#theme-toggle");
-function setTheme(theme) {
-  document.body.dataset.theme = theme;
-  if (themeBtn) themeBtn.textContent = theme === "dark" ? "浅色" : "深色";
-  try { localStorage.setItem("votx-webui-theme", theme); } catch(e) {}
-}
-setTheme((() => { try { return localStorage.getItem("votx-webui-theme") || "dark"; } catch(e) { return "dark"; } })());
-if (themeBtn) themeBtn.addEventListener("click", () => setTheme(document.body.dataset.theme === "dark" ? "light" : "dark"));
-
-// ---- Init ----
-input.disabled = true; sendBtn.disabled = true;
-$("#status-dot").style.display = "none";
-// textarea 自动伸缩
-input.addEventListener("input", () => { input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight, 150) + "px"; });
-loadUsers();
-
-// 页面刷新后自动恢复会话
-(async function restoreSession() {
-  try {
-    const r = await fetch("/api/session");
-    const s = await r.json();
-    if (s.active) {
-      userActive = true;
-      $("#health-provider").textContent = "ready";
-      $("#profile-name").textContent = s.user;
-      $("#profile-info").textContent = "已连接";
-      $("#chat-title").textContent = s.user + " · 对话";
-      $("#main-sub").textContent = "输入消息开始对话";
-      $("#status-dot").style.display = "";
-      $("#debug-user").textContent = s.user;
-      input.disabled = false; sendBtn.disabled = false;
-      input.focus();
-      // 恢复消息列表
+    // ---- User Management ----
+    async loadUsers() {
       try {
-        const mr = await fetch("/api/messages");
-        const msgs = await mr.json();
-        if (Array.isArray(msgs) && msgs.length) {
-          chatEl.innerHTML = "";
+        this.users = await this.api('/api/users');
+        if (this.users.length) this.selectedUser = this.users[0];
+      } catch (e) { /* ignore */ }
+    },
+
+    async selectUser() {
+      if (!this.selectedUser) return;
+      if (this.userActive) {
+        await this.api('/api/disconnect', { method: 'POST' });
+        this.resetUI();
+      }
+      try {
+        const d = await this.api('/api/select-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user: this.selectedUser }),
+        });
+        if (d.error) { this.selectErr = d.error; return; }
+        this.userActive = true;
+        this.selectErr = '';
+        this.profileName = d.user;
+        this.profileInfo = '已连接';
+        this.chatTitle = d.user + ' · 对话';
+        this.mainSub = '输入消息开始对话';
+        this.modelName = '—';
+        this.messages = [];
+        this.attachChips = [];
+
+        await Promise.all([
+          this.refreshConversations(),
+          this.loadToolLogs(),
+          this.loadFileList(),
+          this.loadSystemPrompt(),
+          this.loadDebugConfig(),
+          this.updateStats(),
+        ]);
+        this.toast('已连接: ' + d.user);
+      } catch (e) { this.selectErr = '连接失败: ' + e.message; }
+    },
+
+    resetUI() {
+      this.userActive = false;
+      this.profileName = '未连接';
+      this.profileInfo = '选择用户开始';
+      this.chatTitle = '对话闭环与工具调用';
+      this.mainSub = '选择用户后开始对话';
+      this.modelName = '—';
+      this.messages = [];
+      this.conversations = [];
+      this.showConvManager = false;
+      this.logs = [];
+      this.files = [];
+      this.promptData = {
+        system: '选择用户后加载 system prompt…',
+        soul: '选择用户后加载 soul prompt…',
+        agent: '选择用户后加载 agent prompt…',
+        other: '选择用户后加载其他注入摘要…',
+      };
+      this.promptTab = 'system';
+      this.attachChips = [];
+      this.loadUsers();
+    },
+
+    // ---- Stats ----
+    async updateStats() {
+      if (!this.userActive) return;
+      try {
+        const d = await this.api('/api/stats');
+        if (!d.error) {
+          this.stats.messages = (d.msg_count || 0) + ' 条';
+          this.stats.tools = (d.tool_count || 0) + ' 次';
+          this.stats.size = fmtSize(d.file_size || 0);
+        }
+      } catch (e) { /* ignore */ }
+    },
+
+    // ---- Conversations ----
+    async refreshConversations() {
+      if (!this.userActive) return;
+      try {
+        const convs = await this.api('/api/conversations');
+        if (!Array.isArray(convs)) return;
+        this.conversations = convs.map(c => ({
+          id: c.id,
+          summary: c.summary,
+          label: c.label || c.raw_label || '',
+          raw_label: c.raw_label,
+          meta: `${c.msg_count} 条 · ${fmtSize(c.size)} · ${fmtTime(c.mtime)}`,
+          msg_count: c.msg_count,
+        }));
+      } catch (e) { /* ignore */ }
+    },
+
+    async loadConversation(c) {
+      if (!this.userActive) return;
+      if (c.id === '__current__') { this.toast('已在当前对话'); return; }
+      if (!confirm('加载此对话将替换当前对话（已自动保存），继续？')) return;
+      try {
+        const d = await this.api('/api/load-conversation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: c.id }),
+        });
+        if (d.error) { this.toast('加载失败: ' + d.error); return; }
+        this.messages = [];
+        this.chatTitle = (this.profileName || '') + ' · ' + (c.label || (d.msg_count ? '历史对话' : '新对话'));
+        this.activeConv = c.id;
+        this.pushSysMsg('已加载对话 (' + (d.msg_count || 0) + ' 条消息)');
+
+        // 加载消息
+        const msgs = await this.api('/api/messages');
+        if (Array.isArray(msgs)) {
           for (const m of msgs) {
-            const role = m.role || "";
-            const content = m.content || "";
-            const tc = m.tool_calls;
-            if (role === "system") continue;
-            else if (role === "user") { currentBlock = null; if (content) addUserMessage(content); }
-            else if (role === "assistant") {
-              if (tc) for (const t of tc) {
-                const n = t.function?.name || "unknown";
-                let a = {};
-                try { a = JSON.parse(t.function?.arguments || "{}"); } catch(e) {}
-                appendTool({name:n, icon:"🔧", args:a, elapsed:0, success:true});
+            if (m.role === 'system') continue;
+            if (m.role === 'user') {
+              this.pushUserMsg(m.content || '', []);
+            } else if (m.role === 'assistant') {
+              const msg = this.startAssistantMsg();
+              if (m.tool_calls) {
+                for (const tc of m.tool_calls) {
+                  const name = tc.function?.name || 'unknown';
+                  let args = {};
+                  try { args = JSON.parse(tc.function?.arguments || '{}'); } catch (e) {}
+                  msg.tools.push(this.makeToolCard(name, args, 0, true));
+                }
               }
-              if (content) appendText(content);
+              if (m.content) {
+                msg.content = m.content;
+                msg._raw = '';
+                msg.streaming = false;
+              }
             }
           }
-          currentBlock = null; chunkBubble = null;
-          scrollBottom();
         }
-      } catch(e) {}
-      refreshConversations();
-      loadToolLogs();
-      loadFileList();
-      loadSystemPrompt();
-      loadDebugConfig();
-      updateStats();
-    }
-  } catch(e) {}
-})();
+        this.refreshConversations();
+        this.scrollBottom();
+        this.toast('对话已加载');
+      } catch (e) { this.toast('加载失败: ' + e.message); }
+    },
 
-// Drag-and-drop
-const mainPanel = $("#main-panel");
-const dropOverlay = $("#drop-overlay");
-let dragCounter = 0;
-mainPanel.addEventListener("dragenter", e => { e.preventDefault(); dragCounter++; dropOverlay.style.display = "flex"; });
-mainPanel.addEventListener("dragleave", e => { e.preventDefault(); dragCounter--; if (dragCounter <= 0) { dragCounter = 0; dropOverlay.style.display = "none"; } });
-mainPanel.addEventListener("dragover", e => { e.preventDefault(); });
-mainPanel.addEventListener("drop", e => {
-  e.preventDefault(); dragCounter = 0; dropOverlay.style.display = "none";
-  if (!userActive) { toast("请先选择用户"); return; }
-  if (e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files);
-});
+    openConvManager() {
+      this.showConvManager = true;
+    },
+    closeConvManager() {
+      this.showConvManager = false;
+    },
+    async loadFromManager(c) {
+      this.closeConvManager();
+      await this.loadConversation(c);
+    },
+    async deleteConvFromManager(id) {
+      await this.deleteConversation(id);
+    },
+
+    async deleteConversation(id) {
+      if (id === '__current__') { this.toast('不能删除当前对话'); return; }
+      if (!confirm('确认删除此对话？此操作不可撤销。')) return;
+      try {
+        const d = await this.api('/api/conversations/' + id, { method: 'DELETE' });
+        if (d.error) { this.toast(d.error); return; }
+        this.toast('已删除');
+        this.refreshConversations();
+      } catch (e) { this.toast('删除失败: ' + e.message); }
+    },
+
+    async renameConv(event, c) {
+      const el = event.target.closest('.conv');
+      const b = el ? el.querySelector('b') : null;
+      const next = prompt('输入新的对话名', (b ? b.textContent.replace('★ ', '') : '') || c.label);
+      if (!next || !next.trim()) return;
+      if (c.id === '__current__') {
+        const conv = this.conversations.find(x => x.id === '__current__');
+        if (conv) { conv.summary = next.trim(); conv.label = next.trim(); }
+        this.toast('当前对话名已更新');
+        return;
+      }
+      try {
+        const d = await this.api('/api/conversations/' + c.id + '/rename', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: next.trim() }),
+        });
+        if (d.error) { this.toast(d.error); return; }
+        this.toast('已重命名');
+        this.refreshConversations();
+      } catch (e) { this.toast('重命名失败: ' + e.message); }
+    },
+
+    openConvMenu(event, c) {
+      this.menu = { show: true, id: c.id, label: c.label, x: event.clientX, y: event.clientY };
+    },
+
+    renameConvFromMenu() {
+      if (!this.menu.show) return;
+      const c = this.conversations.find(x => x.id === this.menu.id);
+      if (c) this.renameConv({ stopPropagation() {}, target: { closest: () => ({ querySelector: () => ({ textContent: c.label }) }) } }, c);
+      this.menu.show = false;
+    },
+
+    deleteConvFromMenu() {
+      if (!this.menu.show) return;
+      this.deleteConversation(this.menu.id);
+      this.menu.show = false;
+    },
+
+    async deleteAllConvs() {
+      if (!confirm('删除全部归档对话？此操作不可撤销。')) return;
+      try {
+        const d = await this.api('/api/conversations', { method: 'DELETE' });
+        this.toast('已删除 ' + (d.deleted || 0) + ' 个对话');
+        this.refreshConversations();
+      } catch (e) { this.toast('删除失败: ' + e.message); }
+    },
+
+    // ---- Save / New Chat ----
+    async saveChat() {
+      if (!this.userActive) return;
+      try {
+        const d = await this.api('/api/command', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ command: '/archive' }),
+        });
+        this.toast(d.content || '已保存');
+        this.refreshConversations();
+      } catch (e) { this.toast('保存失败'); }
+    },
+
+    async newChat() {
+      if (!this.userActive) return;
+      try {
+        const d = await this.api('/api/command', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ command: '/clear' }),
+        });
+        this.messages = [];
+        this.chatTitle = (this.profileName || '') + ' · 新对话';
+        this.pushSysMsg(d.content || '已创建新对话');
+        this.refreshConversations();
+        this.updateStats();
+        this.loadToolLogs();
+        this.toast('新对话已创建');
+      } catch (e) { this.toast('创建失败'); }
+    },
+
+    // ---- Message builders ----
+    pushSysMsg(content) {
+      this.messages.push({ id: nextId(), type: 'sys', content });
+    },
+
+    pushError(content) {
+      this.messages.push({ id: nextId(), type: 'error', content });
+    },
+
+    pushWarn(content, maxRounds) {
+      this.messages.push({ id: nextId(), type: 'warn', content, maxRounds });
+    },
+
+    pushUserMsg(content, images) {
+      this.messages.push({ id: nextId(), role: 'user', content, images: images || [], type: 'msg' });
+    },
+
+    startAssistantMsg() {
+      const msg = {
+        id: nextId(),
+        role: 'assistant',
+        content: '',
+        _raw: '',
+        streaming: true,
+        think: '',
+        thinkOpen: true,
+        usage: null,
+        tools: [],
+        copied: false,
+        type: 'msg',
+      };
+      this.messages.push(msg);
+      return msg;
+    },
+
+    lastAssistantMsg() {
+      for (let i = this.messages.length - 1; i >= 0; i--) {
+        if (this.messages[i].role === 'assistant') return this.messages[i];
+      }
+      return null;
+    },
+
+    makeToolCard(name, args, elapsed, success) {
+      const param = JSON.stringify(args || {}).slice(0, 80);
+      const timeStr = elapsed ? elapsed.toFixed(1) + 's' : '';
+      return {
+        _key: nextId(),
+        name, icon: '🔧',
+        param, time: timeStr,
+        success,
+        detail: JSON.stringify(args || {}, null, 2),
+        open: false,
+      };
+    },
+
+    // ---- Commands ----
+    async sendCommand(cmd) {
+      if (!this.userActive) { this.toast('请先选择用户'); return; }
+      if (this.running) { this.toast('请先停止当前运行'); return; }
+      try {
+        const d = await this.api('/api/command', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ command: cmd }),
+        });
+        if (d.error) { this.toast(d.error); return; }
+        if (d.retry && d.content) {
+          // /retry: remove last AI reply and resend
+          this.removeLastAIReply();
+          await this.streamChat(d.content);
+          return;
+        }
+        if (cmd === '/clear') {
+          this.messages = [];
+          this.loadToolLogs();
+          this.updateStats();
+        }
+        if (cmd === '/archive' || cmd === '/summarize' || cmd === '/总结') {
+          this.refreshConversations();
+        }
+        this.pushSysMsg(d.content || '命令已执行');
+        this.scrollBottom();
+      } catch (e) { this.toast('命令失败: ' + e.message); }
+    },
+
+    removeLastAIReply() {
+      let lastUserIdx = -1;
+      for (let i = this.messages.length - 1; i >= 0; i--) {
+        if (this.messages[i].role === 'user') { lastUserIdx = i; break; }
+      }
+      if (lastUserIdx >= 0) {
+        this.messages.splice(lastUserIdx + 1);
+      }
+    },
+
+    // ---- Send Message ----
+    async sendMessage() {
+      const text = this.input.trim();
+      if (!text || !this.userActive || this.running) return;
+
+      // 组装附件路径
+      const attachPaths = this.attachChips.map(c => c.path).filter(Boolean);
+      const imageInfos = this.attachChips.filter(c => isImageFile(c.name));
+      let fullMsg = text;
+      if (attachPaths.length) {
+        fullMsg = attachPaths.join('\n') + '\n' + text;
+      }
+
+      this.pushUserMsg(fullMsg, imageInfos);
+      this.input = '';
+      this.attachChips = [];
+      this.scrollBottom();
+
+      await this.streamChat(fullMsg);
+      this.scrollBottom();
+    },
+
+    // ---- SSE Streaming ----
+    async streamChat(message) {
+      this.running = true;
+      this._abortCtrl = new AbortController();
+      const reqStart = Date.now();
+      let msg = this.startAssistantMsg();
+      let pendingUsage = null;
+
+      try {
+        const r = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message }),
+          signal: this._abortCtrl.signal,
+        });
+        const ct = r.headers.get('Content-Type') || '';
+
+        if (ct.includes('application/json')) {
+          const d = await r.json();
+          msg.streaming = false;
+          msg.content = d.content || d.error || '';
+          this.scrollBottom();
+          return;
+        }
+
+        const reader = r.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, { stream: true });
+          const lines = buf.split('\n');
+          buf = lines.pop() || '';
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const data = line.slice(6);
+            if (data === '{"type":"done"}') continue;
+            let ev;
+            try { ev = JSON.parse(data); } catch (e) { continue; }
+
+            switch (ev.type) {
+              case 'tool_call':
+                msg = this.lastAssistantMsg();
+                if (msg) msg.tools.push(this.makeToolCard(ev.name, ev.args, ev.elapsed, ev.success));
+                await this.$nextTick();
+                break;
+              case 'text_chunk':
+                msg = this.lastAssistantMsg();
+                if (msg) { msg._raw += ev.content; }
+                break;
+              case 'text_done':
+                msg = this.lastAssistantMsg();
+                if (msg) {
+                  msg.content = msg._raw;
+                  msg.streaming = false;
+                  if (pendingUsage) {
+                    pendingUsage.time = fmtMs(Date.now() - reqStart);
+                    pendingUsage.hit_rate = this.calcHitRate(pendingUsage._cached, pendingUsage._prompt);
+                    msg.usage = pendingUsage;
+                    pendingUsage = null;
+                  }
+                }
+                break;
+              case 'text':
+                msg = this.lastAssistantMsg();
+                if (msg) {
+                  msg.content = ev.content;
+                  msg.streaming = false;
+                  if (pendingUsage) {
+                    pendingUsage.time = fmtMs(Date.now() - reqStart);
+                    pendingUsage.hit_rate = this.calcHitRate(pendingUsage._cached, pendingUsage._prompt);
+                    msg.usage = pendingUsage;
+                    pendingUsage = null;
+                  }
+                }
+                break;
+              case 'thinking_chunk':
+                msg = this.lastAssistantMsg();
+                if (msg) { msg.think += ev.content; msg.thinkOpen = true; }
+                break;
+              case 'thinking_done':
+                break;
+              case 'thinking':
+                msg = this.lastAssistantMsg();
+                if (msg) { msg.think = ev.content; msg.thinkOpen = true; }
+                break;
+              case 'usage':
+                if (!pendingUsage) {
+                  pendingUsage = { _prompt: 0, _completion: 0, _cached: 0, input: '', output: '', hit: '', time: '', hit_rate: '...' };
+                }
+                pendingUsage._prompt += (ev.data.prompt_tokens || 0);
+                pendingUsage._completion += (ev.data.completion_tokens || 0);
+                pendingUsage._cached += (ev.data.cached_tokens || 0);
+                pendingUsage.input = formatNumber(pendingUsage._prompt);
+                pendingUsage.output = formatNumber(pendingUsage._completion);
+                pendingUsage.hit = formatNumber(pendingUsage._cached);
+                pendingUsage.time = fmtMs(ev.data.total_elapsed_ms || ev.data.elapsed || 0);
+                break;
+              case 'error':
+                this.pushError(ev.content);
+                break;
+              case 'deadlock_warning':
+                this.pushWarn('同命令连败 3 次，已提示 LLM 换思路');
+                break;
+              case 'max_rounds':
+                this.pushWarn('已达到最大工具调用轮数', true);
+                break;
+            }
+          }
+          await this.$nextTick();
+          this.scrollBottom();
+        }
+      } catch (e) {
+        if (e.name !== 'AbortError') {
+          this.pushError('连接错误: ' + e.message);
+        }
+      } finally {
+        this.running = false;
+        this._abortCtrl = null;
+      }
+
+      // 确保最后一条消息处于完成状态
+      msg = this.lastAssistantMsg();
+      if (msg) msg.streaming = false;
+
+      this.scrollBottom();
+      this.loadToolLogs();
+      this.loadFileList();
+      this.refreshConversations();
+      this.updateStats();
+      this.$nextTick(() => this.$refs.textInput && this.$refs.textInput.focus());
+    },
+
+    stopRun() {
+      if (this._abortCtrl) {
+        this._abortCtrl.abort();
+        this.toast('已停止运行');
+      }
+    },
+
+    async continueAfterMaxRounds() {
+      if (!this.userActive || this.running) return;
+      await this.streamChat('继续');
+    },
+
+    // ---- Copy ----
+    calcHitRate(cached, prompt) {
+      if (!prompt || prompt <= 0) return '—';
+      return (cached / prompt * 100).toFixed(1) + '%';
+    },
+    copyMsg(m) {
+      const text = (m.content || '').trim();
+      navigator.clipboard.writeText(text).then(() => {
+        m.copied = true;
+        setTimeout(() => m.copied = false, 1500);
+      }).catch(() => {});
+      this.toast('已复制');
+    },
+
+    // ---- File Attach ----
+    removeAttach(i) { this.attachChips.splice(i, 1); },
+
+    guideFile(f) {
+      this.attachChips.push({ name: f.name, path: f.path, dir: f.dir || 'file' });
+      this.$nextTick(() => this.$refs.textInput && this.$refs.textInput.focus());
+      this.toast('已引用: ' + f.path);
+    },
+
+    // ---- File Upload ----
+    onUploadFiles(e) {
+      this.uploadFiles(e.target.files);
+      e.target.value = '';
+    },
+
+    async uploadFiles(fileList, forceDir) {
+      if (!fileList.length || !this.userActive) return;
+      const uploadDir = forceDir || 'file';
+      const form = new FormData();
+      for (const f of fileList) form.append('files', f);
+      try {
+        const r = await fetch('/api/upload?dir=' + uploadDir, { method: 'POST', body: form });
+        const d = await r.json();
+        if (d.ok && d.files.length) {
+          for (const f of d.files) {
+            this.attachChips.push({ name: f.name, path: f.path, dir: f.dir || uploadDir });
+          }
+          this.toast('已上传: ' + d.files.map(f => f.name).join(', '));
+        }
+        this.loadFileList();
+      } catch (e) { this.toast('上传失败'); }
+    },
+
+    // ---- Drag & Drop ----
+    onDragEnter() { this.dragCounter++; this.dragging = true; },
+    onDragLeave() { this.dragCounter--; if (this.dragCounter <= 0) { this.dragCounter = 0; this.dragging = false; } },
+    onDrop(e) {
+      this.dragCounter = 0;
+      this.dragging = false;
+      if (!this.userActive) { this.toast('请先选择用户'); return; }
+      if (e.dataTransfer.files.length) this.uploadFiles(e.dataTransfer.files);
+    },
+
+    // ---- File List ----
+    async loadFileList() {
+      if (!this.userActive) return;
+      try {
+        const [r1, r2] = await Promise.all([
+          this.api('/api/files?dir=file'),
+          this.api('/api/files?dir=download'),
+        ]);
+        const f1 = Array.isArray(r1) ? r1 : [];
+        const f2 = Array.isArray(r2) ? r2 : [];
+        this.files = [
+          ...f1.map(f => ({ ...f, dir: 'file', _key: 'f-' + f.path, checked: false, sizeStr: fmtSize(f.size), mtimeStr: fmtTime(f.mtime) })),
+          ...f2.map(f => ({ ...f, dir: 'download', _key: 'd-' + f.path, checked: false, sizeStr: fmtSize(f.size), mtimeStr: fmtTime(f.mtime) })),
+        ];
+      } catch (e) { /* ignore */ }
+    },
+
+    downloadFile(f) {
+      window.open('/api/files/download/' + encodeURIComponent(f.name) + '?dir=' + (f.dir || 'file'), '_blank');
+    },
+
+    async deleteFile(f) {
+      try {
+        const r = await fetch('/api/files/' + encodeURIComponent(f.name) + '?dir=' + (f.dir || 'file'), { method: 'DELETE' });
+        const d = await r.json();
+        if (d.ok) {
+          this.files = this.files.filter(x => x._key !== f._key);
+          this.toast('文件已删除');
+        } else {
+          this.toast(d.error || '删除失败');
+        }
+      } catch (e) { this.toast('删除失败: ' + e.message); }
+    },
+
+    async deleteAllFiles() {
+      if (!confirm('删除全部上传和下载文件？此操作不可撤销。')) return;
+      let total = 0;
+      try {
+        for (const dir of ['file', 'download']) {
+          const d = await this.api('/api/files?dir=' + dir, { method: 'DELETE' });
+          total += (d.deleted || 0);
+        }
+        this.files = [];
+        this.toast('已删除 ' + total + ' 个文件');
+      } catch (e) { this.toast('删除失败: ' + e.message); }
+    },
+
+    async deleteCheckedFiles() {
+      const checked = this.files.filter(f => f.checked);
+      if (!checked.length) { this.toast('请先勾选要删除的文件'); return; }
+      const groups = {};
+      for (const f of checked) {
+        const dir = f.dir || 'file';
+        if (f.name) (groups[dir] = groups[dir] || []).push(f.name);
+      }
+      let total = 0;
+      try {
+        for (const [dir, names] of Object.entries(groups)) {
+          const r = await fetch('/api/files?dir=' + dir, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ files: names }),
+          });
+          const d = await r.json();
+          total += (d.deleted || 0);
+        }
+        this.files = this.files.filter(f => !f.checked);
+        this.toast('已批量删除 ' + total + ' 个文件');
+      } catch (e) { this.toast('删除失败: ' + e.message); }
+    },
+
+    // ---- Tool Logs ----
+    async loadToolLogs() {
+      if (!this.userActive) return;
+      try {
+        const logs = await this.api('/api/tool-logs');
+        if (!Array.isArray(logs) || !logs.length) {
+          this.logs = [];
+          return;
+        }
+        this.logs = logs.slice(-30).reverse().map((l, i) => {
+          let ts = '';
+          if (l.ts) {
+            try { const d = new Date(l.ts); if (!isNaN(d.getTime())) ts = d.toLocaleString('zh-CN'); else ts = String(l.ts).replace('T', ' ').slice(0, 19); } catch (e) { ts = String(l.ts).replace('T', ' ').slice(0, 19); }
+          }
+          const args = JSON.stringify(l.args || {}).slice(0, 80);
+          return {
+            _key: i,
+            text: `${ts} ${l.success ? '✓' : '✗'} ${l.tool} ${args}`,
+            success: l.success,
+          };
+        });
+      } catch (e) { /* ignore */ }
+    },
+
+    // ---- System Prompt ----
+    async loadSystemPrompt() {
+      if (!this.userActive) return;
+      try {
+        const d = await this.api('/api/system-prompt');
+        if (!d.error && d.content) {
+          this.promptData = {
+            system: d.content || '',
+            soul: d.soul || '未找到 soul 定义文件',
+            agent: d.agent || '未找到 AGENTS.md',
+            other: d.other || 'Skill 摘要、持久记忆等\n\n在完整 prompt 中查看…',
+          };
+        }
+      } catch (e) { /* ignore */ }
+    },
+
+    // ---- Config ----
+    async loadDebugConfig() {
+      if (!this.userActive) return;
+      try {
+        const cfg = await this.api('/api/config');
+        if (cfg.error) return;
+        const p = cfg.provider || {};
+        this.config.think = !!p.think;
+        this.config.stream = !!p.stream;
+        this.config.model = p.model || '';
+        this.config.baseUrl = p.base_url || '';
+        this.modelName = p.model || '—';
+        this.snapshotConfig();
+      } catch (e) { /* ignore */ }
+    },
+
+    async saveConfigField(key, value) {
+      if (!this.userActive) return;
+      try {
+        const body = {}; body[key] = value;
+        await this.api('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (key === 'model') this.modelName = value || '—';
+        this.toast('已保存');
+      } catch (e) { this.toast('保存失败'); }
+    },
+
+    async toggleConfigSwitch(key) {
+      if (!this.userActive) { this.toast('请先选择用户'); return; }
+      this.config[key] = !this.config[key];
+      try {
+        const body = {}; body[key] = this.config[key];
+        await this.api('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        this.toast((this.config[key] ? '已开启 ' : '已关闭 ') + key);
+      } catch (e) { this.config[key] = !this.config[key]; this.toast('保存失败'); }
+    },
+
+    snapshotConfig() {
+      this.lastSavedConfig = {
+        model: this.config.model,
+        baseUrl: this.config.baseUrl,
+      };
+    },
+
+    async saveAllConfig() {
+      if (!this.userActive) { this.toast('请先选择用户'); return; }
+      try {
+        await this.api('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: this.config.model, base_url: this.config.baseUrl }),
+        });
+        this.snapshotConfig();
+        this.toast('配置已保存');
+      } catch (e) { this.toast('保存失败'); }
+    },
+
+    async applyConfig() {
+      if (!this.userActive) { this.toast('请先选择用户'); return; }
+      await this.loadDebugConfig();
+      this.snapshotConfig();
+      this.toast('配置已应用');
+    },
+
+    restoreConfig() {
+      if (!this.userActive) { this.toast('请先选择用户'); return; }
+      if (!this.lastSavedConfig.model && !this.lastSavedConfig.baseUrl) { this.toast('没有可恢复的保存状态'); return; }
+      this.config.model = this.lastSavedConfig.model || '';
+      this.config.baseUrl = this.lastSavedConfig.baseUrl || '';
+      this.toast('已恢复到上次保存状态');
+    },
+
+    // ---- Overview Refresh ----
+    async refreshOverview() {
+      this.refreshing = true;
+      try {
+        await Promise.all([
+          this.updateStats(),
+          this.loadSystemPrompt(),
+          this.loadDebugConfig(),
+          this.loadToolLogs(),
+          this.loadFileList(),
+          this.refreshConversations(),
+        ]);
+        this.toast('已刷新');
+      } catch (e) { /* ignore */ }
+      setTimeout(() => this.refreshing = false, 600);
+    },
+
+    // ---- Session Restore ----
+    async restoreSession() {
+      try {
+        const s = await this.api('/api/session');
+        if (s.active) {
+          this.userActive = true;
+          this.profileName = s.user;
+          this.profileInfo = '已连接';
+          this.chatTitle = s.user + ' · 对话';
+          this.mainSub = '输入消息开始对话';
+
+          // 恢复消息
+          try {
+            const msgs = await this.api('/api/messages');
+            if (Array.isArray(msgs) && msgs.length) {
+              this.messages = [];
+              for (const m of msgs) {
+                if (m.role === 'system') continue;
+                if (m.role === 'user') {
+                  this.pushUserMsg(m.content || '', []);
+                } else if (m.role === 'assistant') {
+                  const am = this.startAssistantMsg();
+                  if (m.tool_calls) {
+                    for (const tc of m.tool_calls) {
+                      const name = tc.function?.name || 'unknown';
+                      let args = {};
+                      try { args = JSON.parse(tc.function?.arguments || '{}'); } catch (e) {}
+                      am.tools.push(this.makeToolCard(name, args, 0, true));
+                    }
+                  }
+                  if (m.content) {
+                    am.content = m.content;
+                    am.streaming = false;
+                  }
+                }
+              }
+              this.scrollBottom();
+            }
+          } catch (e) { /* ignore */ }
+
+          await Promise.all([
+            this.refreshConversations(),
+            this.loadToolLogs(),
+            this.loadFileList(),
+            this.loadSystemPrompt(),
+            this.loadDebugConfig(),
+            this.updateStats(),
+          ]);
+        }
+      } catch (e) { /* ignore */ }
+    },
+  },
+}).mount('#app');
 </script>
+{% endraw %}
 </body>
 </html>

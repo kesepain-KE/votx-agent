@@ -5,7 +5,7 @@
     },
     "tool": {
         "tool_max": 100,
-        "tool_max_per_type": 50,
+        "tool_max_per_type": 80,
         "tool_log_max": 1000,
         "enabled": {}
     },

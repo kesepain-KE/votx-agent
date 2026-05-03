@@ -23,6 +23,38 @@ class ChatManager:
         self.system_prompt = ""
         self.messages: list[dict[str, Any]] = []
 
+        # 累计 Token 统计（跨轮会话累加）
+        self.token_stats: dict[str, int] = {
+            "prompt_tokens": 0,       # 累计输入
+            "completion_tokens": 0,   # 累计输出（含思考）
+            "cached_tokens": 0,       # 累计输入缓存命中
+            "total_tokens": 0,        # 累计总量
+            "task_tokens": 0,         # 工具调用轮消耗合计
+            "rounds": 0,              # 对话轮数（用户发言次数）
+            "total_elapsed_ms": 0,    # 累计耗时（毫秒）
+        }
+
+    def accumulate_usage(self, usage: dict, is_tool_round: bool, elapsed_ms: int):
+        """累加一轮 LLM 调用的 token 消耗
+
+        Args:
+            usage: Provider 返回的 usage 字典（含 prompt_tokens 等）
+            is_tool_round: 本次调用是否包含工具调用（非最终回复）
+            elapsed_ms: 从本回合开始到现在的累计毫秒
+        """
+        if not usage:
+            return
+        s = self.token_stats
+        inc = usage.get("total_tokens", 0)
+        s["prompt_tokens"] += usage.get("prompt_tokens", 0)
+        s["completion_tokens"] += usage.get("completion_tokens", 0)
+        s["cached_tokens"] += usage.get("cached_tokens", 0)
+        s["total_tokens"] += inc
+        if is_tool_round:
+            s["task_tokens"] += inc
+        s["rounds"] += 1
+        s["total_elapsed_ms"] += elapsed_ms
+
     # ---- system prompt ----
 
     def set_system_prompt(self, prompt: str):
@@ -50,7 +82,7 @@ class ChatManager:
             msg["reasoning_content"] = reasoning_content
         self.messages.append(msg)
 
-    def add_tool_call_message(self, tool_calls):
+    def add_tool_call_message(self, tool_calls, reasoning_content: str = ""):
         """将 SDK tool_calls 对象转为可序列化 dict 后追加"""
         tc_list = []
         for tc in tool_calls:
@@ -62,11 +94,14 @@ class ChatManager:
                     "arguments": tc.function.arguments,
                 },
             })
-        self.messages.append({
+        msg: dict[str, Any] = {
             "role": "assistant",
             "content": None,
             "tool_calls": tc_list,
-        })
+        }
+        if reasoning_content:
+            msg["reasoning_content"] = reasoning_content
+        self.messages.append(msg)
 
     def add_tool_results(self, tool_outputs: list[dict[str, Any]]):
         self._trim_if_needed()
