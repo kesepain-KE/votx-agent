@@ -230,79 +230,13 @@
     }
 
     .stat:hover { border-color: var(--glass-border-hover); }
-
-    /* 累计 Token 统计横向面板 */
-    .tks-row { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
-    .tks-chip { flex: 1 1 60px; min-width: 55px; padding: 6px 5px; border-radius: 10px;
-      background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border);
-      text-align: center; font-family: var(--font-mono); }
-    .tks-chip .tks-val { font-size: 12px; font-weight: 800; color: var(--text-primary);
-      line-height: 1.2; }
-    .tks-chip .tks-lbl { font-size: 9px; color: var(--text-tertiary);
-      margin-top: 1px; white-space: nowrap; }
-    .ok { color: var(--success); font-weight: 800; }
     .ok { color: var(--success); font-weight: 800; }
 
     /* Conv list */
-    .conv-list { display: grid; gap: 6px; max-height: 300px; overflow-y: auto; }
-
-    .more-btn {
-      display: block; width: 100%; margin-top: 4px;
-      padding: 7px 0; border-radius: var(--r-sm);
-      border: 1px solid var(--glass-border);
-      background: rgba(255,255,255,0.03);
-      color: var(--text-secondary); cursor: pointer;
-      font-size: 12px; font-family: var(--font-sans);
-      transition: all var(--duration) var(--ease-out);
-    }
-    .more-btn:hover {
-      border-color: var(--glass-border-hover);
-      background: rgba(255,255,255,0.06);
-      color: var(--text-primary);
-    }
-
-    /* ── 对话管理二级页面 ── */
-    .conv-mgr {
-      position: absolute; inset: 0; z-index: 10;
-      display: flex; flex-direction: column; gap: 14px;
-      padding: var(--s-5);
-      background: var(--bg-root);
-      border-radius: var(--r-lg);
-      overflow: hidden;
-      animation: convMgrIn 0.25s var(--ease-out) both;
-    }
-    @keyframes convMgrIn {
-      from { transform: translateX(20px); opacity: 0; }
-      to { transform: none; opacity: 1; }
-    }
-    .conv-mgr-header {
-      display: flex; align-items: center; gap: 10px;
-      padding-bottom: 12px;
-      border-bottom: 1px solid var(--glass-border);
-    }
-    .conv-mgr-header h3 { font-size: 14px; font-weight: 700; flex: 1; }
-    .conv-mgr-list {
-      flex: 1; min-height: 0; overflow-y: auto; display: grid; gap: 5px;
-      align-content: start;
-    }
-    .conv-mgr-item {
-      display: flex; align-items: center; gap: 8px; min-width: 0;
-      padding: 9px 10px; border-radius: var(--r-sm);
-      border: 1px solid rgba(255,255,255,0.05);
-      background: rgba(255,255,255,0.02);
-      cursor: pointer;
-      transition: all var(--duration) var(--ease-out);
-    }
-    .conv-mgr-item:hover { background: var(--glass-bg-hover); border-color: var(--glass-border-hover); }
-    .conv-mgr-item.active { border-color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.06); }
-    .conv-mgr-item-info { flex: 1; min-width: 0; }
-    .conv-mgr-item-info b { font-size: 12px; font-weight: 600; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .conv-mgr-item-info p { font-size: 10px; color: var(--text-secondary); margin-top: 1px; }
-    .conv-mgr-item-actions { display: flex; gap: 4px; flex-shrink: 0; }
-    body[data-theme="light"] .conv-mgr { background: var(--bg-root); }
+    .conv-list { display: grid; gap: 6px; overflow-y: auto; min-height: 0; }
 
     .conv {
-      position: relative; min-width: 0; overflow: hidden;
+      position: relative;
       padding: 10px 66px 10px 11px;
       border-radius: var(--r-sm);
       background: rgba(255, 255, 255, 0.02);
@@ -311,6 +245,7 @@
       transition: background var(--duration) var(--ease-out),
                   border-color var(--duration) var(--ease-out),
                   transform var(--duration) var(--ease-out);
+      min-width: 0; overflow: hidden;
     }
 
     .conv:hover {
@@ -343,6 +278,39 @@
     }
 
     .conv:hover .conv-actions { opacity: 1; }
+
+    /* More button */
+    .more-btn {
+      width: 100%; padding: 7px 0; border-radius: var(--r-sm);
+      border: 1px solid var(--glass-border);
+      background: rgba(255,255,255,0.02);
+      color: var(--text-secondary); cursor: pointer;
+      font-size: 11px; font-family: var(--font-sans);
+      transition: all var(--duration) var(--ease-out);
+    }
+    .more-btn:hover { color: var(--text-primary); border-color: var(--glass-border-hover); background: var(--glass-bg-hover); }
+
+    /* Conv manager (二级面板) */
+    .conv-mgr {
+      position: absolute; inset: 0; z-index: 10;
+      display: flex; flex-direction: column; gap: 10px;
+      padding: var(--s-5);
+      background: var(--bg-root);
+      border-radius: var(--r-lg);
+      overflow: hidden;
+      animation: convMgrIn 0.25s var(--ease-out) both;
+    }
+    @keyframes convMgrIn { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: none; } }
+    .conv-mgr-header { display: flex; align-items: center; gap: 10px; }
+    .conv-mgr-header h3 { font-size: 14px; font-weight: 700; flex: 1; }
+    .conv-mgr-list { display: grid; gap: 6px; overflow-y: auto; min-height: 0; flex: 1; }
+    .conv-mgr-item { display: flex; align-items: center; gap: 8px; padding: 10px 11px; border-radius: var(--r-sm); border: 1px solid var(--glass-border); background: rgba(255,255,255,0.02); cursor: pointer; transition: all var(--duration) var(--ease-out); min-width: 0; }
+    .conv-mgr-item:hover { background: var(--glass-bg-hover); border-color: var(--glass-border-hover); }
+    .conv-mgr-item.active { border-color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.06); }
+    .conv-mgr-item-info { flex: 1; min-width: 0; }
+    .conv-mgr-item-info b { font-size: 12px; font-weight: 600; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .conv-mgr-item-info p { font-size: 10px; color: var(--text-secondary); margin-top: 1px; }
+    .conv-mgr-item-actions { display: flex; gap: 4px; flex-shrink: 0; }
 
     .icon-btn, .tiny-btn {
       border: 1px solid var(--glass-border);
@@ -556,37 +524,14 @@
       animation: pulse 2s ease-in-out infinite;
     }
 
-    .pulse.active {
-      background: var(--success);
-      box-shadow: 0 0 14px var(--success);
-      animation: pulseBeat 0.7s ease-in-out infinite;
-    }
-
     @keyframes pulse {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.35; }
     }
 
-    @keyframes pulseBeat {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.3; transform: scale(1.8); }
-    }
-
-    .running-tag {
-      font-size: 10px; font-weight: 600;
-      color: var(--success);
-      animation: blink 1.2s step-start infinite;
-    }
-
-    @keyframes blink {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.25; }
-    }
-
     .chat {
       padding: 18px 22px;
-      overflow-y: auto; overflow-x: hidden;
-      display: flex;
+      overflow-y: auto; display: flex;
       flex-direction: column; gap: 14px;
     }
 
@@ -611,31 +556,13 @@
       padding: 12px 15px; border-radius: 18px;
       font-size: 14px; line-height: 1.65;
       white-space: pre-wrap; word-wrap: break-word;
-      overflow-x: auto; word-break: break-word;
       background: rgba(255,255,255,0.05);
       border: 1px solid var(--glass-border);
       box-shadow: 0 8px 24px rgba(0,0,0,0.12);
     }
-    .bubble-wrap {
-      display: flex; flex-direction: column; gap: 3px;
-      min-width: 0;
-    }
+
+    .bubble-wrap { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
     .msg.me .bubble-wrap { align-items: flex-end; }
-    .copy-msg {
-      height: 22px; padding: 0 8px; border-radius: 6px;
-      border: 1px solid var(--glass-border);
-      background: var(--glass-bg);
-      color: var(--text-tertiary); cursor: pointer;
-      font-size: 11px; display: grid; place-items: center;
-      opacity: 0.4; transition: opacity 0.15s var(--ease-out);
-      font-family: var(--font-sans);
-    }
-    .copy-msg:hover {
-      opacity: 1;
-      border-color: var(--glass-border-hover);
-      color: var(--text-primary);
-    }
-    .copy-msg.copied { opacity: 1; color: var(--success); }
 
     .msg.me .bubble {
       background: rgba(255,255,255,0.88);
@@ -654,7 +581,7 @@
       to { opacity: 1; transform: none; }
     }
 
-    .sys-msg { text-align: center; color: var(--text-secondary); font-size: 12px; padding: 6px; font-style: italic; white-space: pre-wrap; }
+    .sys-msg { text-align: center; color: var(--text-secondary); font-size: 12px; padding: 6px; font-style: italic; }
     .sys-error { color: var(--danger); font-size: 12px; padding: 6px; }
     .sys-warn { color: var(--warning); font-size: 12px; padding: 6px; }
 
@@ -672,8 +599,8 @@
       white-space: nowrap; font-size: 11px;
       padding: 3px 7px;
       border-radius: var(--r-full);
-      background: rgba(255,255,255,0.025);
-      border: 1px solid var(--glass-border);
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.06);
     }
     .live-stats .ls-label {
       color: var(--text-tertiary); font-size: 10px;
@@ -682,6 +609,19 @@
       font-weight: 600; font-family: var(--font-mono);
       color: var(--text-secondary); font-size: 11px;
     }
+
+    /* Copy button */
+    .copy-msg {
+      height: 22px; padding: 0 8px; border-radius: 6px;
+      border: 1px solid var(--glass-border);
+      background: var(--glass-bg);
+      color: var(--text-tertiary); cursor: pointer;
+      font-size: 11px; display: grid; place-items: center;
+      opacity: 0.4; transition: opacity 0.15s var(--ease-out);
+      font-family: var(--font-sans);
+    }
+    .copy-msg:hover { opacity: 1; border-color: var(--glass-border-hover); color: var(--text-primary); }
+    .copy-msg.copied { opacity: 1; color: var(--success); }
 
     /* Thinking block */
     .think-block {
@@ -717,11 +657,7 @@
       border-radius: 14px; margin-top: 6px;
       overflow: hidden;
       transition: border-color var(--duration) var(--ease-out);
-      overflow-x: auto;
     }
-
-    .tool-call::-webkit-scrollbar { height: 4px; }
-    .tool-call::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
 
     .tool-call.open { border-color: rgba(255,255,255,0.16); }
     body[data-theme="light"] .tool-call.open { border-color: rgba(0,0,0,0.14); }
@@ -792,11 +728,6 @@
     }
 
     body[data-theme="light"] .chip:hover { background: rgba(0,0,0,0.03); }
-
-    .chip:focus-visible, .btn:focus-visible {
-      outline: 2px solid var(--accent);
-      outline-offset: 2px;
-    }
 
     .input-row {
       display: grid; grid-template-columns: auto 1fr auto;
@@ -876,20 +807,6 @@
     .send-btn:active { transform: translateY(0); }
     .send-btn:disabled { opacity: 0.4; cursor: not-allowed; filter: none; transform: none; }
 
-    .send-btn.stop {
-      background: #ff3b30;
-      color: #ffffff;
-      box-shadow: 0 8px 22px rgba(255,59,48,0.35);
-    }
-
-    .send-btn.stop:hover { filter: brightness(1.1); }
-
-    body[data-theme="light"] .send-btn.stop {
-      background: #ff3b30;
-      color: #ffffff;
-      box-shadow: 0 8px 22px rgba(255,59,48,0.25);
-    }
-
     /* ========== Right Panel ========== */
     .right {
       display: grid; grid-template-rows: auto 1fr;
@@ -938,9 +855,6 @@
     }
 
     .panel-body { padding: 16px; overflow-y: auto; }
-
-    .pane { display: none; }
-    .pane.active { display: block; }
 
     /* Overview: prompt tabs */
     .prompt-tabs {
@@ -1160,6 +1074,16 @@
 
     .toast.show { opacity: 1; transform: translateY(0); }
 
+    /* Drag overlay */
+    .drop-overlay {
+      position: absolute; inset: 0;
+      background: rgba(124,111,247,0.06);
+      border: 2px dashed rgba(255,255,255,0.12);
+      border-radius: 24px;
+      display: none; align-items: center; justify-content: center;
+      z-index: 10; pointer-events: none;
+    }
+
     /* Scrollbar */
     ::-webkit-scrollbar { width: 5px; height: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
@@ -1200,28 +1124,6 @@
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
     }
 
-    body::after{
-      background:
-        radial-gradient(420px 260px at 12% 0%, rgba(255,255,255,0.04), transparent 70%),
-        radial-gradient(520px 300px at 90% 12%, rgba(255,255,255,0.03), transparent 72%),
-        linear-gradient(180deg, transparent, rgba(0,0,0,0.10));
-    }
-
-    .glass::after {
-      content: "";
-      position: absolute; inset: 0; pointer-events: none; z-index: 1;
-      border-radius: inherit;
-      box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.14),
-        inset 0 0 0 1px rgba(255,255,255,0.06);
-    }
-
-    body[data-theme="light"] .glass::after {
-      box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.6),
-        inset 0 0 0 1px rgba(0,0,0,0.06);
-    }
-
     /* Responsive */
     @media (max-width: 1160px) {
       .app { grid-template-columns: 250px 1fr; }
@@ -1234,28 +1136,30 @@
       .top { align-items: flex-start; flex-direction: column; }
       .top-actions { flex-wrap: wrap; }
     }
+
+    /* Error state for user select */
+    .select-err { color: var(--danger); font-size: 11px; margin-top: 4px; }
   </style>
 </head>
 <body>
-{% raw %}
-<div id="app">
-<div class="app">
-  <!-- Sidebar -->
-  <aside class="sidebar glass" style="position:relative;overflow:hidden">
-    <!-- 默认侧边栏 -->
-    <div v-show="!showConvManager" style="display:flex;flex-direction:column;gap:14px;height:100%">
+<div id="app" class="app" v-cloak>
+  <!-- ========== Sidebar ========== -->
+  <aside class="sidebar glass">
+
+    <!-- Main sidebar content -->
+    <template v-if="!showConvManager">
       <div class="brand"><div class="logo">V</div><div><h1>votx-agent</h1><p>本地多用户 Agent 控制台</p></div></div>
       <div class="card">
         <div class="section-title">用户选择</div>
-        <select v-model="selectedUser"><option v-for="u in users" :key="u" :value="u">{{ u }}</option></select>
-        <button class="btn btn-primary" @click="selectUser">进入</button>
-        <div style="color:var(--danger);font-size:11px;margin-top:6px">{{ selectErr }}</div>
+        <select v-model="selectedUser" @change="selectErr=''" :disabled="userActive"><option v-for="u in users" :key="u" :value="u">{{ u }}</option></select>
+        <div class="select-err" v-if="selectErr">{{ selectErr }}</div>
+        <button class="btn btn-primary" @click="selectUser" :disabled="!selectedUser || userActive" style="margin-top:6px">进入</button>
       </div>
       <div>
         <div class="section-title">状态</div>
-        <div class="stat"><span>历史消息</span><b>{{ stats.messages }}</b></div>
-        <div class="stat"><span>工具调用</span><b>{{ stats.tools }}</b></div>
-        <div class="stat"><span>会话大小</span><b>{{ stats.size }}</b></div>
+        <div class="stat"><span>历史消息</span><b class="ok">{{ stats.messages }}</b></div>
+        <div class="stat"><span>工具调用</span><b class="ok">{{ stats.tools }}</b></div>
+        <div class="stat"><span>会话大小</span><b class="ok">{{ stats.size }}</b></div>
       </div>
       <div class="section-row">
         <div class="section-title">对话历史</div>
@@ -1264,14 +1168,9 @@
           <button class="tiny-btn danger" @click="deleteAllConvs">全部删除</button>
         </div>
       </div>
-      <div class="conv-list">
-        <div v-if="!conversations.length" style="color:var(--text-secondary);font-size:11px;padding:4px">选择用户后加载…</div>
+      <div class="conv-list" style="flex:1">
         <div v-for="c in conversations.slice(0, 3)" :key="c.id" class="conv" :class="{ active: activeConv === c.id }" @click="loadConversation(c)" @contextmenu.prevent="openConvMenu($event, c)">
-          <div>
-            <b>{{ c.id === '__current__' ? '★ ' + (c.summary || '新对话') : c.label }}</b>
-            <p>{{ c.meta }}</p>
-            <p v-if="c.raw_label" class="ci-summary">{{ c.raw_label }}</p>
-          </div>
+          <b>{{ c.summary || c.label || '未命名对话' }}</b><p>{{ c.meta }}</p>
           <div class="conv-actions">
             <button class="icon-btn" @click.stop="renameConv($event, c)" title="重命名">✎</button>
             <button class="icon-btn danger" @click.stop="deleteConversation(c.id)" title="删除">×</button>
@@ -1281,51 +1180,47 @@
       <button class="more-btn" @click="openConvManager" v-if="conversations.length > 3">更多 ({{ conversations.length - 3 }})…</button>
       <div class="section-row" style="margin-bottom:8px">
         <div class="section-title">状态刷新</div>
-        <button class="refresh-btn" :class="{ spinning: refreshing }" title="刷新右侧栏所有数据" @click="refreshOverview">↻</button>
+        <button class="refresh-btn" :class="{ spinning: refreshing }" @click="refreshOverview">↻</button>
       </div>
       <div class="profile card profile-with-theme">
         <div class="avatar">{{ profileInitial }}</div>
         <div><b>{{ profileName }}</b><br><span style="font-size:11px;color:var(--text-secondary)">{{ profileInfo }}</span></div>
         <button class="theme-toggle" @click="toggleTheme">{{ theme === 'light' ? '深色' : '浅色' }}</button>
       </div>
-    </div>
+    </template>
 
-    <!-- 对话管理二级页面 -->
+    <!-- Conversation manager secondary panel -->
     <div v-show="showConvManager" class="conv-mgr">
       <div class="conv-mgr-header">
         <button class="icon-btn" @click="closeConvManager" title="返回">←</button>
-        <h3>对话管理</h3>
-        <button class="tiny-btn danger" @click="deleteAllConvs">全部删除</button>
+        <h3>全部对话</h3>
+        <button class="tiny-btn" @click="deleteAllConvs">全部删除</button>
       </div>
       <div class="conv-mgr-list">
-        <div v-if="!conversations.length" style="color:var(--text-secondary);font-size:12px;text-align:center;padding:20px">暂无对话</div>
         <div v-for="c in conversations" :key="c.id" class="conv-mgr-item" :class="{ active: activeConv === c.id }" @click="loadFromManager(c)">
           <div class="conv-mgr-item-info">
-            <b>{{ c.id === '__current__' ? '★ ' + (c.summary || '新对话') : c.label }}</b>
+            <b>{{ c.summary || c.label || '未命名对话' }}</b>
             <p>{{ c.meta }}</p>
           </div>
           <div class="conv-mgr-item-actions">
             <button class="icon-btn" @click.stop="renameConv($event, c)" title="重命名">✎</button>
-            <button class="icon-btn danger" @click.stop="deleteConvFromManager(c.id)" title="删除">×</button>
+            <button class="icon-btn danger" @click.stop="deleteConversation(c.id)" title="删除">×</button>
           </div>
         </div>
       </div>
     </div>
   </aside>
 
-  <!-- Main Chat -->
+  <!-- ========== Main Chat ========== -->
   <main class="main glass" id="main-panel"
-    @dragenter.prevent="onDragEnter"
-    @dragleave.prevent="onDragLeave"
-    @dragover.prevent
-    @drop.prevent="onDrop">
-    <div class="drop-overlay" v-show="dragging" style="position:absolute;inset:0;background:rgba(255,255,255,0.06);border:2px dashed rgba(255,255,255,0.12);border-radius:24px;display:flex;align-items:center;justify-content:center;z-index:10;pointer-events:none">
+        @dragenter.prevent="onDragEnter" @dragover.prevent @dragleave.prevent="onDragLeave" @drop.prevent="onDrop">
+    <div class="drop-overlay" :style="{ display: dragging ? 'flex' : 'none' }">
       <span style="background:rgba(255,255,255,0.06);padding:16px 32px;border-radius:16px;font-size:16px">📂 释放文件上传</span>
     </div>
     <header class="top">
       <div><h2>{{ chatTitle }}</h2><p>{{ mainSub }}</p></div>
       <div class="top-actions">
-        <div class="model-badge"><span class="pulse" :class="{ active: running }" v-show="userActive"></span><span>{{ modelName }}</span><span v-if="running" class="running-tag">运行中…</span></div>
+        <div class="model-badge"><span class="pulse"></span><span>{{ modelName }}</span></div>
         <button class="btn btn-ghost mini" @click="saveChat">保存</button>
         <button class="btn btn-ghost mini" @click="newChat">新对话</button>
       </div>
@@ -1359,7 +1254,7 @@
               </div>
               <div class="tc-detail"><pre>{{ tc.detail }}</pre></div>
             </div>
-            <!-- 消息气泡 (AI 回复在最后) -->
+            <!-- 消息气泡 -->
             <div v-if="m.streaming" class="bubble">{{ m._raw }}</div>
             <div v-else class="bubble" v-html="formatContent(m.content)"></div>
             <!-- 复制按钮 (用户消息) -->
@@ -1386,72 +1281,53 @@
       </div>
       <div v-if="attachChips.length" style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px">
         <span class="attach-chip" v-for="(f, i) in attachChips" :key="i">
-          ↑ {{ f.name }}
-          <span class="remove-file" @click="removeAttach(i)">×</span>
+          ↑ {{ f.name }}<span class="remove-file" @click="removeAttach(i)">×</span>
         </span>
       </div>
       <div class="input-row">
-        <input type="file" ref="uploadInput" multiple @change="onUploadFiles" accept="*/*" style="display:none">
-        <button class="upload-btn" @click="$refs.uploadInput.click()" title="上传文件">↑</button>
+        <button class="upload-btn" @click="$refs.fileInput.click()" title="上传文件">↑</button>
+        <input type="file" ref="fileInput" multiple style="display:none" @change="onUploadFiles">
         <textarea
           ref="textInput"
           v-model="input"
-          :disabled="!userActive || running"
           placeholder="输入消息或 / 命令... (Enter 发送, Shift+Enter 换行)"
           rows="1"
           @keydown.enter.exact.prevent="sendMessage"
           @input="autoResize"
-          style="resize:none;overflow-y:auto;min-height:22px;max-height:150px;line-height:1.5;width:100%"
+          :disabled="!userActive"
+          style="resize:none;overflow-y:auto;min-height:22px;max-height:150px;line-height:1.5;border:0;background:transparent;outline:0;padding:0 8px;font-size:14px;color:var(--text-primary);font-family:var(--font-sans);width:100%"
         ></textarea>
-        <button v-if="running" class="send-btn stop" @click="stopRun">停止</button>
+        <button v-if="running" class="send-btn" @click="stopRun">停止</button>
         <button v-else class="send-btn" :disabled="!userActive" @click="sendMessage">发送</button>
       </div>
     </footer>
   </main>
 
-  <!-- Right Panel -->
+  <!-- ========== Right Panel ========== -->
   <aside class="right glass">
-    <div class="panel-head">
-      <h3>项目状态</h3>
+    <div class="panel-head"><h3>项目状态</h3>
       <div class="tabs">
         <button v-for="t in tabs" :key="t.id" class="tab" :class="{ active: activeTab === t.id }" @click="activeTab = t.id">{{ t.label }}</button>
       </div>
     </div>
     <div class="panel-body">
-      <!-- Overview -->
-      <div class="pane" :class="{ active: activeTab === 'overview' }">
+      <!-- 概览 -->
+      <div v-show="activeTab === 'overview'">
         <div class="prompt-tabs">
-          <button v-for="p in promptTabs" :key="p.id" class="prompt-tab" :class="{ active: promptTab === p.id }" @click="promptTab = p.id">{{ p.label }}</button>
+          <button v-for="pt in promptTabs" :key="pt.id" class="prompt-tab" :class="{ active: promptTab === pt.id }" @click="promptTab = pt.id">{{ pt.label }}</button>
         </div>
         <div class="mono">{{ promptData[promptTab] || '加载中…' }}</div>
       </div>
-      <!-- Debug -->
-      <div class="pane" :class="{ active: activeTab === 'debug' }">
+      <!-- 调试 -->
+      <div v-show="activeTab === 'debug'">
         <div class="debug-grid">
-          <div class="toggle-card">
-            <div><b>思考开关</b><p style="color:var(--text-secondary);font-size:11px;margin-top:2px">think</p></div>
-            <div class="switch" :class="{ on: config.think }" @click="toggleConfigSwitch('think')"></div>
-          </div>
-          <div class="toggle-card">
-            <div><b>流式输出开关</b><p style="color:var(--text-secondary);font-size:11px;margin-top:2px">stream</p></div>
-            <div class="switch" :class="{ on: config.stream }" @click="toggleConfigSwitch('stream')"></div>
-          </div>
-          <div class="toggle-card">
-            <div><b>任务执行显示</b><p style="color:var(--text-secondary);font-size:11px;margin-top:2px">显示/隐藏工具调用</p></div>
-            <div class="switch" :class="{ on: showTaskExecution }" @click="showTaskExecution = !showTaskExecution"></div>
-          </div>
-          <div class="item">
-            <div class="item-top"><b>用户模型设置</b><span class="pill">{{ selectedUser || '—' }}</span></div>
+          <div class="toggle-card"><div><b>思考开关</b><p>think</p></div><div class="switch" :class="{ on: config.think }" @click="toggleConfigSwitch('think')"></div></div>
+          <div class="toggle-card"><div><b>流式输出开关</b><p>stream</p></div><div class="switch" :class="{ on: config.stream }" @click="toggleConfigSwitch('stream')"></div></div>
+          <div class="item"><div class="item-top"><b>用户模型设置</b><span class="pill">{{ profileName }}</span></div>
             <div class="debug-grid" style="margin-top:10px">
-              <div class="form-row"><label>api 模型</label><input v-model="config.model" @change="saveConfigField('model', config.model)"></div>
-              <div class="form-row"><label>base-url</label><input v-model="config.baseUrl" @change="saveConfigField('base_url', config.baseUrl)"></div>
-              <div class="form-row"><label>key</label>
-                <div class="key-shell">
-                  <input type="password" placeholder="点击输入密钥，回车保存" v-model="config.keyDraft" @keydown.enter.prevent="saveConfigField('api_key', config.keyDraft); config.keyDraft = ''; toast('密钥已保存')">
-                  <button class="btn btn-ghost small" @click="config.keyDraft = ''; $nextTick(() => $el.querySelector('.key-shell input').focus())">填入</button>
-                </div>
-                <div class="key-hint">密钥不显示明文，回车后清空并保存</div>
-              </div>
+              <div class="form-row"><label>api 模型</label><input :value="config.model" @change="saveConfigField('model', $event.target.value)"></div>
+              <div class="form-row"><label>base-url</label><input :value="config.baseUrl" @change="saveConfigField('base_url', $event.target.value)"></div>
+              <div class="form-row"><label>key</label><div class="key-shell"><input type="password" placeholder="点击输入密钥，回车保存" :value="config.keyDraft" @keydown.enter.prevent="saveConfigField('api_key', $event.target.value); config.keyDraft=''" @input="config.keyDraft = $event.target.value"><button class="btn btn-ghost small" @click="config.keyDraft = ''; $nextTick(() => $el.querySelector('.key-shell input').focus())">填入</button></div><div class="key-hint">密钥不显示明文，回车后清空并保存</div></div>
             </div>
           </div>
           <div style="display:flex;gap:8px;margin-top:12px">
@@ -1461,56 +1337,50 @@
           </div>
         </div>
       </div>
-      <!-- Logs -->
-      <div class="pane" :class="{ active: activeTab === 'logs' }">
+      <!-- 日志 -->
+      <div v-show="activeTab === 'logs'">
         <div class="list">
-          <div v-if="!logs.length" style="color:var(--text-secondary);font-size:12px;padding:4px">选择用户后加载日志…</div>
+          <div v-if="!logs.length" style="color:var(--text-secondary);font-size:12px;padding:8px">暂无日志</div>
           <div v-for="l in logs" :key="l._key" class="log-row" :class="{ fail: !l.success }">{{ l.text }}</div>
         </div>
       </div>
-      <!-- Files -->
-      <div class="pane" :class="{ active: activeTab === 'files' }">
+      <!-- 文件 -->
+      <div v-show="activeTab === 'files'">
         <div class="file-toolbar">
           <button class="btn btn-ghost small" @click="loadFileList">刷新</button>
           <button class="btn btn-danger small" @click="deleteAllFiles">全部删除</button>
           <button class="btn btn-ghost small" @click="deleteCheckedFiles">批量删除</button>
         </div>
-        <div class="list">
-          <div v-if="!files.length" style="color:var(--text-secondary);font-size:12px;padding:4px">选择用户后加载…</div>
-          <template v-for="group in fileGroups" :key="group.label">
-            <div v-if="group.files.length" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--text-tertiary);padding:6px 0 4px;border-bottom:1px solid var(--glass-border);margin-bottom:6px">{{ group.label }} ({{ group.files.length }})</div>
-            <div v-for="f in group.files" :key="f._key" class="item">
-              <div class="item-top">
-                <label class="file-select"><input class="file-check" type="checkbox" v-model="f.checked"><b>{{ f.name }}</b></label>
-                <span class="pill">{{ f.sizeStr }}{{ f.mtimeStr ? ' · ' + f.mtimeStr : '' }}</span>
-              </div>
-              <p style="color:var(--text-secondary);font-size:11px;margin-top:4px">{{ f.path }}</p>
-              <div class="file-actions">
-                <button class="btn btn-ghost small" @click="guideFile(f)">引用</button>
-                <button class="btn btn-ghost small" @click="downloadFile(f)">下载</button>
-                <button class="btn btn-danger small" @click="deleteFile(f)">删除</button>
-              </div>
+        <template v-for="(g, gi) in fileGroups" :key="gi">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--text-tertiary);padding:6px 0 4px;border-bottom:1px solid var(--glass-border);margin-bottom:6px">{{ g.label }} ({{ g.files.length }})</div>
+          <div class="list" style="margin-bottom:12px">
+            <div class="item" v-for="f in g.files" :key="f._key">
+              <div class="item-top"><div class="file-select"><input class="file-check" type="checkbox" v-model="f.checked"><b>{{ f.name }}</b></div><span class="pill">{{ f.sizeStr }}</span></div>
+              <p>{{ f.path }}</p>
+              <div class="file-actions"><button class="btn btn-ghost small" @click="guideFile(f)">引用</button><button class="btn btn-ghost small" @click="downloadFile(f)">下载</button><button class="btn btn-danger small" @click="deleteFile(f)">删除</button></div>
             </div>
-          </template>
-        </div>
+          </div>
+        </template>
       </div>
     </div>
   </aside>
 </div>
+
 <!-- Context menu -->
 <div class="ctx-menu" :style="{ display: menu.show ? 'block' : 'none', left: menu.x + 'px', top: menu.y + 'px' }">
   <button @click="renameConvFromMenu">重命名对话</button>
   <button class="danger" @click="deleteConvFromMenu">删除对话</button>
 </div>
-<!-- Toast -->
 <div class="toast" :class="{ show: toastVisible }">{{ toastText }}</div>
-</div>
 
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script>
-const { createApp } = Vue;
+{% raw %}
+/* ============================================
+   votx-agent — Vue 3 Web UI
+   ============================================ */
 
-// ---- 工具函数 ----
+// ---- Helpers ----
 function escHtml(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 function fmtSize(n) { if (!n) return ''; if (n < 1024) return n + ' B'; if (n < 1048576) return (n / 1024).toFixed(1) + ' KB'; return (n / 1048576).toFixed(1) + ' MB'; }
 function formatNumber(n) { if (!n && n !== 0) return ''; if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M'; if (n >= 1000) return (n / 1000).toFixed(1) + 'K'; return String(n); }
@@ -1626,7 +1496,6 @@ createApp({
   },
 
   mounted() {
-    // 主题
     try { this.theme = localStorage.getItem('votx-webui-theme') || 'dark'; } catch (e) {}
     document.body.setAttribute('data-theme', this.theme);
 
@@ -1787,7 +1656,6 @@ createApp({
         this.activeConv = c.id;
         this.pushSysMsg('已加载对话 (' + (d.msg_count || 0) + ' 条消息)');
 
-        // 加载消息
         const msgs = await this.api('/api/messages');
         if (Array.isArray(msgs)) {
           for (const m of msgs) {
@@ -1844,8 +1712,8 @@ createApp({
     },
 
     async renameConv(event, c) {
-      const el = event.target.closest('.conv');
-      const b = el ? el.querySelector('b') : null;
+      const el = event.target.closest('.conv, .conv-mgr-item');
+      const b = el ? el.querySelector('b, .conv-mgr-item-info b') : null;
       const next = prompt('输入新的对话名', (b ? b.textContent.replace('★ ', '') : '') || c.label);
       if (!next || !next.trim()) return;
       if (c.id === '__current__') {
@@ -1991,7 +1859,6 @@ createApp({
         });
         if (d.error) { this.toast(d.error); return; }
         if (d.retry && d.content) {
-          // /retry: remove last AI reply and resend
           this.removeLastAIReply();
           await this.streamChat(d.content);
           return;
@@ -2024,7 +1891,6 @@ createApp({
       const text = this.input.trim();
       if (!text || !this.userActive || this.running) return;
 
-      // 组装附件路径
       const attachPaths = this.attachChips.map(c => c.path).filter(Boolean);
       const imageInfos = this.attachChips.filter(c => isImageFile(c.name));
       let fullMsg = text;
@@ -2163,7 +2029,6 @@ createApp({
         this._abortCtrl = null;
       }
 
-      // 确保最后一条消息处于完成状态
       msg = this.lastAssistantMsg();
       if (msg) msg.streaming = false;
 
@@ -2462,7 +2327,6 @@ createApp({
           this.chatTitle = s.user + ' · 对话';
           this.mainSub = '输入消息开始对话';
 
-          // 恢复消息
           try {
             const msgs = await this.api('/api/messages');
             if (Array.isArray(msgs) && msgs.length) {
@@ -2504,7 +2368,7 @@ createApp({
     },
   },
 }).mount('#app');
-</script>
 {% endraw %}
+</script>
 </body>
 </html>
