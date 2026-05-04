@@ -82,7 +82,7 @@ git diff --check                    # 空白检查
 ├── provider/openai_api.py               LLM Provider
 ├── run/                                 引擎、历史、工具注册
 ├── web/                                 Flask + 前端
-├── skills/                              20 Skill (9 工具型 + 11 指令型)
+├── skills/                              20 Skill (10 工具型 + 10 指令型)
 ├── config/soul.md                       全局人格基座
 └── users/<name>/                        用户数据（非源码）
 ```

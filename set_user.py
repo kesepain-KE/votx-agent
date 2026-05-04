@@ -24,12 +24,74 @@ MODELS = {
     "3": ("deepseek-chat", "DeepSeek Chat"),
 }
 
+# ── 默认人设模板 ───────────────────────────────
+
+DEFAULT_SOUL = """# 你的 AI 助手
+
+你是用户专属的 AI 助手。帮助解决问题、回答疑问、完成任务。
+
+## 要求
+1. 回复简洁精炼
+2. 积极回应用户的请求
+3. 使用友好的语气
+4. 不知道的事情直接说不知道，不编造
+
+## 可用工具
+你拥有文件读写、网络请求、命令执行、网络搜索等能力。根据需要使用。
+
+## 行为准则
+1. 不做危害用户系统的事
+2. 保护用户隐私，不泄露敏感信息
+3. 被纠正时立即改正，不辩解
+4. 追求高效，能一步完成的不拆两步
+"""
+
+# ── 自改进模板 ────────────────────────────────
+
+MEMORY_MD = """# Memory (HOT Tier)
+
+## Preferences
+
+## Patterns
+
+## Rules
+
+"""
+
+CORRECTIONS_MD = """# Corrections Log
+
+| Date | What I Got Wrong | Correct Answer | Status |
+|------|-----------------|----------------|--------|
+"""
+
+# ── 工具函数 ────────────────────────────────────
 
 def _ensure_dirs(user_dir: Path):
-    """创建用户目录结构"""
+    """创建完整的用户目录结构"""
+    # history 子目录
     for sub in ["chat", "log", "archive", "file"]:
         (user_dir / "history" / sub).mkdir(parents=True, exist_ok=True)
+
+    # download
     (user_dir / "download").mkdir(parents=True, exist_ok=True)
+
+    # 长期记忆
+    (user_dir / "memory").mkdir(parents=True, exist_ok=True)
+
+    # self-improving 目录 + 模板文件
+    si = user_dir / "self-improving"
+    for sub in ["projects", "domains", "archive"]:
+        (si / sub).mkdir(parents=True, exist_ok=True)
+
+    # 模板文件（不存在时才创建，避免覆盖）
+    _write_if_missing(si / "memory.md", MEMORY_MD)
+    _write_if_missing(si / "corrections.md", CORRECTIONS_MD)
+
+
+def _write_if_missing(path: Path, content: str):
+    """文件不存在时写入"""
+    if not path.exists():
+        path.write_text(content, encoding="utf-8")
 
 
 def _read_config(user_dir: Path) -> dict:
@@ -41,7 +103,9 @@ def _read_config(user_dir: Path) -> dict:
 
 def _write_config(user_dir: Path, config: dict):
     cfg_path = user_dir / "config.json"
-    cfg_path.write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8")
+    cfg_path.write_text(
+        json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
 
 
 def _read_soul(user_dir: Path) -> str:
@@ -60,10 +124,13 @@ def list_users() -> list[str]:
     if not USERS_DIR.is_dir():
         return []
     return sorted(
-        d.name for d in USERS_DIR.iterdir()
+        d.name
+        for d in USERS_DIR.iterdir()
         if d.is_dir() and (d / "config.json").exists()
     )
 
+
+# ── 交互式输入 ──────────────────────────────────
 
 def _pick_model(default: str = "") -> str:
     """选择模型"""
@@ -89,6 +156,8 @@ def _model_to_key(model: str) -> str:
             return k
     return "1"
 
+
+# ── 核心操作 ────────────────────────────────────
 
 def add_user(name: str = "") -> str | None:
     """新建用户，返回用户名"""
@@ -142,21 +211,12 @@ def add_user(name: str = "") -> str | None:
     }
     _write_config(user_dir, config)
 
-    # self_soul.md
-    soul = (
-        f"# {display_name} 的角色定义\n\n"
-        f"你是 {display_name} 的 AI 助手。帮助解决问题、回答疑问、完成任务。\n\n"
-        f"## 要求\n"
-        f"1. 回复简洁精炼\n"
-        f"2. 积极回应用户的请求\n"
-        f"3. 使用友好的语气\n\n"
-        f"## 可用工具\n"
-        f"你拥有文件读写、网络请求、命令执行、网络搜索等能力。根据需要使用。\n"
-    )
-    _write_soul(user_dir, soul)
+    # self_soul.md — 默认使用通用模板
+    _write_soul(user_dir, DEFAULT_SOUL)
 
     tag = f"模型={model}" + (f" Key=自定义" if api_key else " Key=.env")
-    print(f"\n  用户 '{name}' 创建完成 ({tag})\n  人设文件: {user_dir / 'self_soul.md'}")
+    print(f"\n  用户 '{name}' 创建完成 ({tag})")
+    print(f"  目录: {user_dir}")
     return name
 
 
@@ -167,11 +227,17 @@ def edit_user(name: str):
         print(f"  用户 '{name}' 不存在")
         return
 
+    # 确保目录结构完整（补充可能缺失的目录）
+    _ensure_dirs(user_dir)
+
     config = _read_config(user_dir)
     cfg = config.get("provider", {})
 
     print(f"\n  编辑用户: {name}")
-    print(f"  当前配置: 模型={cfg.get('model')}  think={cfg.get('think')}  stream={cfg.get('stream')}")
+    print(
+        f"  当前配置: 模型={cfg.get('model')}  "
+        f"think={cfg.get('think')}  stream={cfg.get('stream')}"
+    )
     has_key = bool(cfg.get("api_key", "").strip())
     print(f"  API Key: {'自定义' if has_key else '.env 全局'}")
 
@@ -208,7 +274,9 @@ def edit_user(name: str):
         config["provider"]["think"] = False
 
     stream_cur = cfg.get("stream", True)
-    stream_choice = input(f"  流式输出 [{'Y' if stream_cur else 'N'}]: ").strip().lower()
+    stream_choice = input(
+        f"  流式输出 [{'Y' if stream_cur else 'N'}]: "
+    ).strip().lower()
     if stream_choice in ("y", "yes"):
         config["provider"]["stream"] = True
     elif stream_choice in ("n", "no"):
@@ -217,6 +285,8 @@ def edit_user(name: str):
     _write_config(user_dir, config)
     print(f"  用户 '{name}' 已更新")
 
+
+# ── 菜单 ────────────────────────────────────────
 
 def menu():
     """交互式菜单"""
@@ -257,6 +327,8 @@ def menu():
         elif choice == "4":
             break
 
+
+# ── 入口 ────────────────────────────────────────
 
 def main():
     args = sys.argv[1:]

@@ -1,3 +1,5 @@
+<p align="center"><img src="votx-agent.png" width="160" alt="votx-agent"></p>
+
 # votx-agent
 
 [![License](https://img.shields.io/badge/license-MIT-orange)](./LICENSE)
@@ -134,8 +136,8 @@ votx-agent/
 
 | 类别 | 数量 | 说明 |
 |---|---|---|
-| 工具型 Skill | 9 个 | 注册 function calling：文件读写、HTTP 请求、Shell 执行、时间、Word 文档、视频下载、联网搜索、热榜查询 |
-| 指令型 Skill | 11 个 | 注入 system prompt 行为指南：视觉识别、文件搜索、PDF 处理、网页抓取、自改进记忆等 |
+| 工具型 Skill | 10 个 | 注册 function calling：文件读写、HTTP 请求、Shell 执行、时间、Word 文档、视频下载、联网搜索、热榜查询、长期记忆、知识图谱 |
+| 指令型 Skill | 10 个 | 注入 system prompt 行为指南：视觉识别、文件搜索、PDF 处理、网页抓取、自改进记忆等 |
 
 所有 Skill 位于 `skills/` 目录，可自行扩展。
 
