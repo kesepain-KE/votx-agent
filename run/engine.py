@@ -3,13 +3,24 @@
 CLI (main.py) 和 Web (web/server.py) 共用此模块。
 每个 turn 的 tool calling 循环在这里统一处理，调用方只需消费事件流。
 """
+import json
 import os
 import time as _time
 
 from run.tool import load_tool_schemas
 from skills import register_all
 
-MAX_TOOL_ROUNDS = 20
+
+def _load_max_tool_rounds():
+    try:
+        config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "config", "config_core.json")
+        with open(config_path, encoding="utf-8") as f:
+            config = json.load(f)
+        return config.get("tool", {}).get("tool_max_per_type", 20)
+    except Exception:
+        return 20
+
+MAX_TOOL_ROUNDS = _load_max_tool_rounds()
 
 _TOOL_ICONS: dict[str, str] = {
     "read_file": "📖", "write_file": "✏️", "list_dir": "📂", "delete_file": "🗑️",
