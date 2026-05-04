@@ -77,13 +77,17 @@ git diff --check                    # 空白检查
 ## 架构速览
 
 ```
-├── setup.py / start.py / start_web.py  入口
+├── votx.py                              入口命令 (votx [web|cli|help])
+├── setup.py / start.py / start_web.py  入口 (setup 为安装检查)
 ├── main.py                              CLI 主循环
 ├── provider/openai_api.py               LLM Provider
 ├── run/                                 引擎、历史、工具注册
 ├── web/                                 Flask + 前端
 ├── skills/                              20 Skill (10 工具型 + 10 指令型)
 ├── config/soul.md                       全局人格基座
+├── Dockerfile / docker-compose.yml       Docker 部署
+├── docker-entrypoint.sh                  Docker 入口（检测 API Key）
+├── install.sh                           原生 Ubuntu 一键安装
 └── users/<name>/                        用户数据（非源码）
 ```
 

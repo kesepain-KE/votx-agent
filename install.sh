@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+# votx-agent 一键安装脚本
+# 用法: bash install.sh
+
+set -e
+
+REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
+VENV_DIR="$REPO_DIR/.venv"
+VOTX_BIN="/usr/local/bin/votx"
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+echo -e "${GREEN}votx-agent 安装脚本${NC}"
+echo ""
+
+# ---- 1. 检查 Python ----
+echo "[1/4] 检查 Python..."
+PYTHON=$(which python3 2>/dev/null || which python 2>/dev/null || echo "")
+if [ -z "$PYTHON" ]; then
+    echo -e "${RED}错误: 未找到 Python，请先安装 Python >= 3.10${NC}"
+    exit 1
+fi
+
+PY_VER=$($PYTHON --version 2>&1 | awk '{print $2}')
+PY_MAJOR=$($PYTHON --version 2>&1 | awk '{print $2}' | cut -d. -f1)
+PY_MINOR=$($PYTHON --version 2>&1 | awk '{print $2}' | cut -d. -f2)
+
+if [ "$PY_MAJOR" -lt 3 ] || ([ "$PY_MAJOR" -eq 3 ] && [ "$PY_MINOR" -lt 10 ]); then
+    echo -e "${RED}错误: Python >= 3.10 需要，当前版本: $PY_VER${NC}"
+    exit 1
+fi
+echo "  Python $PY_VER  [OK]"
+
+# ---- 2. 创建虚拟环境 ----
+echo "[2/4] 创建虚拟环境..."
+$PYTHON -m venv "$VENV_DIR"
+echo "  .venv 已创建"
+
+# ---- 3. 安装依赖 ----
+echo "[3/4] 安装依赖..."
+"$VENV_DIR/bin/pip" install --quiet -r "$REPO_DIR/requirements.txt"
+echo "  依赖安装完成"
+
+# ---- 4. 注册 votx 命令 ----
+echo "[4/4] 注册 votx 命令..."
+
+if [ "$(id -u)" -eq 0 ] || [ -w /usr/local/bin ]; then
+    cat > "$VOTX_BIN" << ENTRY
+#!/usr/bin/env bash
+exec "$VENV_DIR/bin/python3" "$REPO_DIR/votx.py" "\$@"
+ENTRY
+    chmod +x "$VOTX_BIN"
+    echo "  /usr/local/bin/votx  [OK]"
+else
+    echo -e "  ${YELLOW}需要 sudo 写入 /usr/local/bin${NC}"
+    sudo tee "$VOTX_BIN" > /dev/null << ENTRY
+#!/usr/bin/env bash
+exec "$VENV_DIR/bin/python3" "$REPO_DIR/votx.py" "\$@"
+ENTRY
+    sudo chmod +x "$VOTX_BIN"
+    echo "  /usr/local/bin/votx  [OK]"
+fi
+
+# ---- 5. 配置 .env ----
+ENV_FILE="$REPO_DIR/.env"
+ENV_EXAMPLE="$REPO_DIR/.env.example"
+NEED_CONFIG=false
+
+if [ ! -f "$ENV_FILE" ]; then
+    NEED_CONFIG=true
+    if [ -f "$ENV_EXAMPLE" ]; then
+        cp "$ENV_EXAMPLE" "$ENV_FILE"
+    fi
+elif grep -q "sk-your-key-here" "$ENV_FILE" 2>/dev/null; then
+    NEED_CONFIG=true
+fi
+
+echo ""
+if $NEED_CONFIG; then
+    echo -e "${YELLOW}=============================================="
+    echo "  [5/5] API Key 未配置"
+    echo "=============================================="
+    echo ""
+    echo "  已从 .env.example 自动创建 .env 模板"
+    echo "  请编辑 .env 填入你的 DeepSeek API Key:"
+    echo ""
+    echo "    DEEPSEEK_API_KEY=sk-your-key-here"
+    echo ""
+    echo "  获取: https://platform.deepseek.com/api_keys"
+    echo ""
+    echo -e "==============================================${NC}"
+    echo ""
+else
+    echo "[5/5] .env 已配置  [OK]"
+fi
+
+# ---- 完成 ----
+echo ""
+echo -e "${GREEN}安装完成！${NC}"
+echo ""
+echo "使用:"
+echo "  votx       启动 Web UI"
+echo "  votx web   启动 Web UI"
+echo "  votx cli   启动终端对话"
+echo "  votx help  查看帮助"
+echo ""
+
+# 检查 PATH
+if ! echo "$PATH" | grep -q "/usr/local/bin"; then
+    echo -e "${YELLOW}注意: /usr/local/bin 不在 PATH 中，可能需要重新登录${NC}"
+fi
