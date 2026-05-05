@@ -208,6 +208,25 @@ def _log_path() -> str | None:
     return os.path.join(log_dir, "tool_log.json")
 
 
+_TOOL_LOG_MAX_CACHE = None
+
+
+def _get_tool_log_max() -> int:
+    global _TOOL_LOG_MAX_CACHE
+    if _TOOL_LOG_MAX_CACHE is not None:
+        return _TOOL_LOG_MAX_CACHE
+    try:
+        config_path = _PROJECT_ROOT / "config" / "config_core.json"
+        if config_path.exists():
+            config = json.loads(config_path.read_text(encoding="utf-8"))
+            _TOOL_LOG_MAX_CACHE = config.get("tool", {}).get("tool_log_max", 1000)
+        else:
+            _TOOL_LOG_MAX_CACHE = 1000
+    except Exception:
+        _TOOL_LOG_MAX_CACHE = 1000
+    return _TOOL_LOG_MAX_CACHE
+
+
 def log_tool_call(name: str, args: dict, result: str, success: bool, elapsed: float):
     path = _log_path()
     if not path:
@@ -240,5 +259,17 @@ def log_tool_call(name: str, args: dict, result: str, success: bool, elapsed: fl
     try:
         with open(path, "a", encoding="utf-8") as f:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+
+    # Enforce tool_log_max: 超过上限则只保留最新 N 条
+    max_lines = _get_tool_log_max()
+    try:
+        with open(path, "r+", encoding="utf-8") as f:
+            lines = f.readlines()
+            if len(lines) > max_lines:
+                f.seek(0)
+                f.truncate()
+                f.writelines(lines[-max_lines:])
     except Exception:
         pass
