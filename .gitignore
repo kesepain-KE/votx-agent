@@ -30,7 +30,6 @@ htmlcov/
 users/*/history/
 users/*/download/
 users/*/memory/
-users/*/tmp/
 users/*/config.json
 users/*/agent_memory.db
 users/*/tool_log.jsonl
@@ -66,7 +65,6 @@ desktop.ini
 # ============================================================
 # 临时文件与日志
 # ============================================================
-tmp/
 temp/
 download/
 logs/

@@ -192,6 +192,7 @@ votx-agent/
 │
 ├── skills/                     # 20 Skills, tool Skills and instruction Skills
 ├── config/                     # Global configuration and AI execution rules
+├── tmp/                        # Agent temp files (scripts, runtime artifacts, pushable)
 ├── users/                      # User data, personas, history, memory, files
 └── 开发文档/                    # Maintainer docs, local gitignored
 ```
@@ -231,7 +232,7 @@ History is saved as structured JSON. Very long sessions are automatically summar
 
 After a user is created, `users/<name>/` contains that user's independent persona, configuration, and data directories.
 
-> `.gitignore` excludes runtime data such as `users/*/history/`, `memory/`, `tmp/`, and `logs/`, private files such as `.env` and `*.key`, build caches such as `__pycache__/`, and `开发文档/`. See [`.gitignore`](./.gitignore) for details.
+> `.gitignore` excludes runtime data such as `users/*/history/`, `users/*/tmp/`, `memory/`, and `logs/`, private files such as `.env` and `*.key`, build caches such as `__pycache__/`, and `开发文档/`. The project-level `tmp/` is the agent temporary file directory and is pushable. See [`.gitignore`](./.gitignore) for details.
 
 ## Dependencies
 

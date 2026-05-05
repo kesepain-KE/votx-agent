@@ -191,6 +191,7 @@ votx-agent/
 │
 ├── skills/                   # 20 个 Skill（工具型 + 指令型）
 ├── config/                   # 全局配置与 AI 执行规则
+├── tmp/                      # 智能体临时文件（脚本、运行时产物，可推送）
 ├── users/                    # 用户数据（人设、历史、记忆、文件）
 └── 开发文档/                  # 维护者文档（本地 gitignored）
 ```
@@ -230,7 +231,7 @@ votx-agent/
 
 用户创建后，在 `users/<name>/` 下拥有独立的人设、配置和数据目录。
 
-> `.gitignore` 已排除运行时数据（`users/*/history/`、`memory/`、`tmp/`、`logs/` 等）、私密文件（`.env`、`*.key`）、构建缓存（`__pycache__/`）以及 `开发文档/`。详见 [`.gitignore`](./.gitignore)。
+> `.gitignore` 已排除运行时数据（`users/*/history/`、`users/*/tmp/`、`memory/`、`logs/` 等）、私密文件（`.env`、`*.key`）、构建缓存（`__pycache__/`）以及 `开发文档/`。`tmp/`（项目级）为智能体临时文件目录，可推送。详见 [`.gitignore`](./.gitignore)。
 
 ## 依赖
 

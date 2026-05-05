@@ -39,7 +39,6 @@ def check_deps() -> bool:
     """检查核心依赖是否已安装"""
     deps = {
         "openai": "openai",
-        "requests": "requests",
         "yt_dlp": "yt-dlp",
         "tavily": "tavily-python",
         "docx": "python-docx",
