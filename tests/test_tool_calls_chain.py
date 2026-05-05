@@ -105,6 +105,27 @@ def test_tool_call_id_mismatch_removes():
     assert len(chat.messages) == 1, f"ID 不匹配应切除，剩 1 条，实际 {len(chat.messages)}"
 
 
+def test_tool_before_assistant_removes():
+    """tool 消息出现在其匹配 assistant(tool_calls) 之前 → 从 tool 处切除
+
+    这种乱序常见于 _trim_if_needed 大量裁剪后，剩余消息以 tool 开头。
+    修复前 _repair_tool_chain 只检查 ID 是否存在于 valid_ids，
+    不检查 tool 是否在 assistant 之后，导致乱序放过，API 返回 400。
+    """
+    chat = _make_chat()
+    chat.messages = [
+        {"role": "user", "content": "hi"},
+        _tool_result("c1", "OK"),  # 在匹配的 assistant 之前！
+        _assistant_with_tool_calls(_tool_call("c1", "get_time")),
+    ]
+    chat._repair_tool_chain()
+    # tool(c1) 在 assistant(tc=[c1]) 之前 → 从 tool 处切除，只剩 user
+    assert len(chat.messages) == 1, (
+        f"tool 出现在 assistant 之前应切除，剩 1 条(user)，实际 {len(chat.messages)}"
+    )
+    assert chat.messages[0]["role"] == "user"
+
+
 def test_multi_tool_normal_chain_preserved():
     """多个 tool_calls 全部匹配 → 保留"""
     chat = _make_chat()

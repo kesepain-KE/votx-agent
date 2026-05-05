@@ -130,9 +130,11 @@ class ChatManager:
     def _repair_tool_chain(self):
         """修复历史中的 tool_calls 链断裂
 
-        两种情况都会导致 Provider 400：
+        三种情况都会导致 Provider 400：
         1) assistant(tool_calls) 之后缺少对应的 tool 消息（前向断裂）
         2) tool 消息之前缺少对应的 assistant(tool_calls)（后向断裂，孤立 tool）
+        3) tool 消息出现在其匹配的 assistant(tool_calls) 之前（乱序）
+           — 常见于 _trim_if_needed 剪切历史后，剩余消息以 tool 开头
         """
         # 第一遍：收集所有 assistant(tool_calls) 声明的 tool_call_id 集合
         valid_ids: set[str] = set()
@@ -141,20 +143,23 @@ class ChatManager:
                 for tc in msg["tool_calls"]:
                     valid_ids.add(tc["id"])
 
-        # 第二遍：找到第一个孤立 tool 或未闭合 assistant(tool_calls) 的切点
+        # 第二遍：按顺序扫描，维护"已出现过的 assistant(tc) ID"集合
+        # tool 消息不仅需要 ID 存在于 valid_ids，还必须已见过其匹配的 assistant(tc)
+        seen_tc_ids: set[str] = set()
         i = 0
         cut_at = None
         while i < len(self.messages):
             msg = self.messages[i]
             if msg.get("role") == "tool":
                 tid = msg.get("tool_call_id", "")
-                if tid not in valid_ids:
-                    # 孤立 tool 消息：从此处切除（含）
+                if tid not in valid_ids or tid not in seen_tc_ids:
                     cut_at = i
                     break
                 i += 1
             elif msg.get("role") == "assistant" and msg.get("tool_calls"):
                 tc_list = msg["tool_calls"]
+                for tc in tc_list:
+                    seen_tc_ids.add(tc["id"])
                 needed = len(tc_list)
                 expected_ids = {tc["id"] for tc in tc_list}
                 j = i + 1
