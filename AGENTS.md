@@ -78,7 +78,8 @@ git diff --check                    # 空白检查
 
 ```
 ├── votx.py                              入口命令 (votx [web|cli|help])
-├── setup.py / start.py / start_web.py  入口 (setup 为安装检查)
+├── setup.py / set_user.py              安装检查 + 用户创建（每用户独立 Key）
+├── start.py / start_web.py             入口（CLI / Web）
 ├── main.py                              CLI 主循环
 ├── provider/openai_api.py               LLM Provider
 ├── run/                                 引擎、历史、工具注册
@@ -86,8 +87,8 @@ git diff --check                    # 空白检查
 ├── skills/                              20 Skill (10 工具型 + 10 指令型)
 ├── config/soul.md                       全局人格基座
 ├── Dockerfile / docker-compose.yml       Docker 部署
-├── docker-entrypoint.sh                  Docker 入口（检测 API Key）
-├── install.sh                           原生 Ubuntu 一键安装
+├── docker-entrypoint.sh                  Docker 入口（检测用户/Key，不阻断启动）
+├── install.sh                           原生 Ubuntu 一键安装（含交互式创建用户）
 └── users/<name>/                        用户数据（非源码）
 ```
 

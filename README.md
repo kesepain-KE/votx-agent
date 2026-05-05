@@ -59,13 +59,27 @@ Github 上现有的 AI Agent 框架大多面向单用户、英文场景，交互
 ```bash
 git clone https://github.com/kesepain-KE/votx-agent.git
 cd votx-agent
-
-# 首次启动会自动创建 .env 模板并提示配置
-docker compose up
-# 编辑 .env 填入 DEEPSEEK_API_KEY 后重新启动
 docker compose up -d
-# 访问 http://localhost:1478
 ```
+
+容器启动后，选择一种方式配置 Key：
+
+**方式 A：创建用户（推荐，每用户独立 Key）**
+
+```bash
+docker exec -it votx-agent python set_user.py add
+# 交互式输入用户名、模型、API Key 等
+```
+
+**方式 B：配置全局 .env**
+
+编辑项目目录下的 `.env`，填入 Key 后重启：
+
+```bash
+docker compose restart
+```
+
+配置完成后访问 `http://localhost:1478`。
 
 ### Ubuntu 原生部署
 
@@ -73,11 +87,15 @@ docker compose up -d
 git clone https://github.com/kesepain-KE/votx-agent.git
 cd votx-agent
 bash install.sh
-# 按提示编辑 .env 填入 DEEPSEEK_API_KEY
-votx        # 启动 Web UI → http://localhost:1478
 ```
 
-`install.sh` 会完成：虚拟环境创建 → 依赖安装 → 注册 `votx` 系统命令。
+`install.sh` 会依次完成：虚拟环境创建 → 依赖安装 → 注册 `votx` 命令 → **交互式创建用户**（可当场填写独立 API Key）。
+
+安装完成后直接启动：
+
+```bash
+votx        # 启动 Web UI → http://localhost:1478
+```
 
 ### 手动安装
 
@@ -86,11 +104,11 @@ votx        # 启动 Web UI → http://localhost:1478
 ```bash
 git clone https://github.com/kesepain-KE/votx-agent.git
 cd votx-agent
-python setup.py          # 安装依赖 + 引导配置 .env
-python set_user.py       # 创建用户（至少一个）
+python setup.py          # 安装依赖 + 引导配置 .env（可选）
+python set_user.py add   # 创建用户（可在此填写独立 API Key，.env 可跳过）
 ```
 
-`setup.py` 会引导填写 API Key，写入 `.env` 文件：
+`.env` 模板参考（如果未通过 `set_user.py` 配置独立 Key）：
 
 ```bash
 DEEPSEEK_API_KEY=sk-your-key-here      # 必填
@@ -153,7 +171,7 @@ votx-agent/
 ├── requirements.txt
 ├── Dockerfile                  # Docker 镜像
 ├── docker-compose.yml          # Docker Compose 配置
-├── docker-entrypoint.sh        # Docker 入口（检测 API Key）
+├── docker-entrypoint.sh        # Docker 入口（检测用户/Key，不阻断启动）
 │
 ├── provider/                 # LLM 后端
 │   └── openai_api.py         # DeepSeek / OpenAI 兼容 Provider
