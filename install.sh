@@ -17,7 +17,7 @@ echo -e "${GREEN}votx-agent 安装脚本${NC}"
 echo ""
 
 # ---- 1. 检查 Python ----
-echo "[1/4] 检查 Python..."
+echo "[1/5] 检查 Python..."
 PYTHON=$(which python3 2>/dev/null || which python 2>/dev/null || echo "")
 if [ -z "$PYTHON" ]; then
     echo -e "${RED}错误: 未找到 Python，请先安装 Python >= 3.10${NC}"
@@ -35,17 +35,17 @@ fi
 echo "  Python $PY_VER  [OK]"
 
 # ---- 2. 创建虚拟环境 ----
-echo "[2/4] 创建虚拟环境..."
+echo "[2/5] 创建虚拟环境..."
 $PYTHON -m venv "$VENV_DIR"
 echo "  .venv 已创建"
 
 # ---- 3. 安装依赖 ----
-echo "[3/4] 安装依赖..."
+echo "[3/5] 安装依赖..."
 "$VENV_DIR/bin/pip" install --quiet -r "$REPO_DIR/requirements.txt"
 echo "  依赖安装完成"
 
 # ---- 4. 注册 votx 命令 ----
-echo "[4/4] 注册 votx 命令..."
+echo "[4/5] 注册 votx 命令..."
 
 if [ "$(id -u)" -eq 0 ] || [ -w /usr/local/bin ]; then
     cat > "$VOTX_BIN" << ENTRY
@@ -64,7 +64,7 @@ ENTRY
     echo "  /usr/local/bin/votx  [OK]"
 fi
 
-# ---- 5. 配置 .env ----
+# ---- 5. 配置 ----
 ENV_FILE="$REPO_DIR/.env"
 ENV_EXAMPLE="$REPO_DIR/.env.example"
 NEED_CONFIG=false
@@ -79,22 +79,31 @@ elif grep -q "sk-your-key-here" "$ENV_FILE" 2>/dev/null; then
 fi
 
 echo ""
-if $NEED_CONFIG; then
-    echo -e "${YELLOW}=============================================="
-    echo "  [5/5] API Key 未配置"
-    echo "=============================================="
+echo "[5/5] 创建用户..."
+echo ""
+echo -e "  votx-agent 支持两种 Key 配置方式:"
+echo "    A) 每用户独立 Key — 通过 set_user.py 创建用户，在用户配置中设置"
+echo "    B) 全局 .env Key  — 在 .env 文件中设置 DEEPSEEK_API_KEY"
+echo ""
+
+read -p "  是否现在创建用户？(Y/n): " -r CREATE_USER
+CREATE_USER=${CREATE_USER:-y}
+
+if [[ "$CREATE_USER" =~ ^[Yy] ]]; then
     echo ""
-    echo "  已从 .env.example 自动创建 .env 模板"
-    echo "  请编辑 .env 填入你的 DeepSeek API Key:"
+    "$VENV_DIR/bin/python3" "$REPO_DIR/set_user.py" add
     echo ""
-    echo "    DEEPSEEK_API_KEY=sk-your-key-here"
-    echo ""
-    echo "  获取: https://platform.deepseek.com/api_keys"
-    echo ""
-    echo -e "==============================================${NC}"
-    echo ""
+    echo -e "  ${GREEN}用户创建完成${NC}"
 else
-    echo "[5/5] .env 已配置  [OK]"
+    if $NEED_CONFIG; then
+        echo ""
+        echo -e "  ${YELLOW}.env 模板已创建，之后可编辑:${NC}"
+        echo "    DEEPSEEK_API_KEY=sk-your-key-here"
+        echo "    获取: https://platform.deepseek.com/api_keys"
+    fi
+    echo ""
+    echo "  之后可随时创建用户:"
+    echo "    python set_user.py add"
 fi
 
 # ---- 完成 ----

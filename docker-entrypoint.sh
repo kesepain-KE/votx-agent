@@ -1,35 +1,50 @@
 #!/usr/bin/env bash
 # votx-agent Docker 入口
-# 自动检测 .env 配置，未配置则引导用户
+# 支持两种 Key 配置方式:
+#   1. 每用户独立 Key: docker exec <容器> python set_user.py add
+#   2. 全局 .env Key: 在 .env 中设置 DEEPSEEK_API_KEY
+# 方式 1 优先级更高，即使用户 Key 和全局 Key 同时存在，也使用用户 Key。
 
 set -e
 
 ENV_FILE="/app/.env"
 ENV_EXAMPLE="/app/.env.example"
+USERS_DIR="/app/users"
 
-# 检查 API Key 是否已配置
-if [ -z "${DEEPSEEK_API_KEY}" ] || [ "${DEEPSEEK_API_KEY}" = "sk-your-key-here" ]; then
-    # 自动从模板创建 .env（如果不存在）
+# 检查全局 Key 是否有效
+key_valid() {
+    [ -n "${DEEPSEEK_API_KEY}" ] && [ "${DEEPSEEK_API_KEY}" != "sk-your-key-here" ]
+}
+
+# 检查是否有已配置的用户（users/<name>/config.json）
+has_users() {
+    [ -d "$USERS_DIR" ] || return 1
+    for d in "$USERS_DIR"/*/; do
+        [ -f "${d}config.json" ] && return 0
+    done
+    return 1
+}
+
+if ! key_valid; then
     if [ ! -f "$ENV_FILE" ] && [ -f "$ENV_EXAMPLE" ]; then
         cp "$ENV_EXAMPLE" "$ENV_FILE"
     fi
 
-    echo "=============================================="
-    echo "  votx-agent: API Key 未配置"
-    echo "=============================================="
-    echo ""
-    echo "  请编辑项目目录下的 .env 文件，填入你的 Key:"
-    echo ""
-    echo "    DEEPSEEK_API_KEY=sk-your-key-here"
-    echo ""
-    echo "  获取: https://platform.deepseek.com/api_keys"
-    echo ""
-    echo "  配置完成后重新启动:"
-    echo ""
-    echo "    docker compose up -d"
-    echo ""
-    echo "=============================================="
-    exit 1
+    if ! has_users; then
+        echo "=============================================="
+        echo "  votx-agent: 首次启动"
+        echo "=============================================="
+        echo ""
+        echo "  请先创建用户（每用户可有独立 API Key）:"
+        echo ""
+        echo "    docker exec -it <容器> python set_user.py add"
+        echo ""
+        echo "  或配置全局 Key（编辑 .env 后重启）:"
+        echo "    DEEPSEEK_API_KEY=sk-your-key-here"
+        echo "    获取: https://platform.deepseek.com/api_keys"
+        echo ""
+        echo "=============================================="
+    fi
 fi
 
 exec python /app/start_web.py "$@"
