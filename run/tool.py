@@ -25,8 +25,8 @@ class ToolRunner:
 
     def __init__(self, core_config: dict[str, Any], user_config: dict[str, Any] = None):
         tool_cfg = core_config.get("tool", {})
-        self.max_total = tool_cfg.get("tool_max", 50)          # 单轮总上限
-        self.max_per_tool = tool_cfg.get("tool_max_per_type", 10)  # 单工具上限
+        self.max_total = tool_cfg.get("tool_max_per_type", 80)     # 单轮总上限
+        self.max_per_tool = tool_cfg.get("tool_max_per_tool", 80)  # 单工具上限
         self.call_count = 0
         self.per_tool_count: dict[str, int] = {}
 

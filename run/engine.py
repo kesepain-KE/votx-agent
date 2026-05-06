@@ -16,9 +16,9 @@ def _load_max_tool_rounds():
         config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "config", "config_core.json")
         with open(config_path, encoding="utf-8") as f:
             config = json.load(f)
-        return config.get("tool", {}).get("tool_max_per_type", 20)
+        return config.get("tool", {}).get("tool_max_per_type", 80)
     except Exception:
-        return 20
+        return 80
 
 MAX_TOOL_ROUNDS = _load_max_tool_rounds()
 
