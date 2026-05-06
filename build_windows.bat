@@ -1,5 +1,15 @@
 @echo off
+chcp 65001 >nul
 setlocal
+
+:: 切换到脚本所在目录，无论您在哪里双击或调用，都能确保在正确的目录工作
+cd /d "%~dp0"
+
+:: 自动激活独立的构建环境（如果存在）
+if exist "build_env\Scripts\activate.bat" (
+    echo [ENV] 正在激活独立的构建环境 (build_env)...
+    call "build_env\Scripts\activate.bat"
+)
 
 echo ============================================================
 echo   votx-agent Windows 构建脚本
@@ -20,6 +30,11 @@ if %ERRORLEVEL% NEQ 0 (
 
 echo [BUILD] 正在构建 votx-agent.exe...
 echo.
+
+:: 清理 Python 运行缓存
+echo [CLEANUP] 正在清理 __pycache__ 缓存文件...
+for /d /r %%d in (__pycache__) do @if exist "%%d" rd /s /q "%%d" 2>nul
+del /s /q *.pyc 2>nul
 
 :: 清理旧构建
 rmdir /s /q build 2>nul
@@ -53,5 +68,17 @@ echo.
 echo 使用方法:
 echo   双击运行 dist\votx-agent\votx-agent.exe
 echo   或命令行: dist\votx-agent\votx-agent.exe --port=1478
+echo.
+
+:: 等待一秒确保文件句柄释放
+timeout /t 2 /nobreak >nul
+
+echo [PACKAGE] 正在打包为 zip 文件...
+powershell -Command "Compress-Archive -Path dist\votx-agent -DestinationPath dist\votx-agent-windows.zip -Force"
+
+echo [CLEANUP] 正在清理打包前的临时文件...
+rmdir /s /q dist\votx-agent 2>nul
+
+echo [SUCCESS] 打包完成！路径: dist\votx-agent-windows.zip
 echo.
 pause

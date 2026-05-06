@@ -3,7 +3,7 @@
 import os
 from pathlib import Path
 
-_root = Path(__file__).parent  # spec 文件所在即项目根
+_root = Path(SPECPATH)  # spec 文件所在即项目根
 
 # ── 收集数据目录 ──
 def _collect_tree(rel: str) -> list[tuple[str, str]]:
@@ -66,17 +66,13 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=None)
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
     [],
+    exclude_binaries=True,
     name="votx-agent",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    upx_exclude=[],
-    runtime_tmpdir=None,
     console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,
@@ -84,4 +80,15 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     icon=str(_root / "votx-agent.png") if (_root / "votx-agent.png").is_file() else None,
+)
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    name="votx-agent",
 )
