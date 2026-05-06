@@ -15,7 +15,11 @@ import os
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).parent
+try:
+    from paths import get_project_root
+    ROOT = Path(get_project_root())
+except Exception:
+    ROOT = Path(__file__).parent
 USERS_DIR = ROOT / "users"
 
 MODELS = {
