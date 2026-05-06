@@ -118,6 +118,16 @@ python setup.py          # Install dependencies and optionally guide .env config
 python set_user.py add   # Create a user and optionally enter a per-user API key
 ```
 
+### Windows Build (PyInstaller)
+
+If you wish to package this project as a standalone executable directory on Windows, use the provided build script:
+
+```cmd
+build_windows.bat
+```
+
+The script will automatically check for and install `pyinstaller`, and then bundle the project. After the build completes, find the `votx-agent.exe` application inside the `dist\votx-agent\` directory. Double-click it to start the Web UI (you can also pass startup parameters like `--port=1478` via command line).
+
 `.env` template (fallback only, `config.json` takes priority):
 
 ```bash

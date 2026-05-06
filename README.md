@@ -117,6 +117,16 @@ python setup.py          # 安装依赖 + 引导配置 .env（可选）
 python set_user.py add   # 创建用户（可在此填写独立 API Key，.env 可跳过）
 ```
 
+### Windows 打包构建 (PyInstaller)
+
+如果你希望在 Windows 下将本项目打包为单个独立目录的可执行应用，可以使用提供的构建脚本：
+
+```cmd
+build_windows.bat
+```
+
+脚本将自动检查并安装 `pyinstaller`，然后执行打包。打包完成后，你可以在 `dist\votx-agent\` 目录中找到 `votx-agent.exe` 程序，双击即可运行 Web UI（也可通过命令行附加 `--port=1478` 等参数启动）。
+
 `.env` 模板参考（兜底，`config.json` 优先）：
 
 ```bash
