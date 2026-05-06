@@ -1,9 +1,12 @@
 """工具执行 - 注册 / 权限 / 限流 / 日志"""
 import json
 import time as _time
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 from skills._common import err, log_tool_call
+
+if TYPE_CHECKING:
+    from provider.schema import ProviderResponse
 
 # 全局工具注册表  {name: (schema, handler)}
 TOOL_REGISTRY: dict[str, Any] = {}
@@ -60,29 +63,37 @@ class ToolRunner:
 
     # ---- 工具调用 ----
 
-    def has_tool_calls(self, message: Any) -> bool:
-        return hasattr(message, "tool_calls") and bool(message.tool_calls)
+    def has_tool_calls(self, response: Any) -> bool:
+        """检查响应是否包含工具调用（适配 ProviderResponse 和旧 SDK 对象）"""
+        if hasattr(response, "has_tool_calls"):
+            return response.has_tool_calls
+        return hasattr(response, "tool_calls") and bool(response.tool_calls)
 
-    def execute(self, message: Any) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    def execute(self, response: Any) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         """执行所有 tool_calls，返回 (tool result 消息列表, 调用详情列表)"""
         results: list[dict[str, Any]] = []
         details: list[dict[str, Any]] = []
-        for tc in message.tool_calls:
-            name = tc.function.name
+        for tc in response.tool_calls:
+            # 适配 ProviderResponse.ToolCall (统一格式) 和旧 SDK 对象
+            if hasattr(tc, "name"):
+                name = tc.name
+                args = tc.input
+                tc_id = tc.id
+            else:
+                name = tc.function.name
+                try:
+                    args = json.loads(tc.function.arguments)
+                except json.JSONDecodeError:
+                    args = {}
+                tc_id = tc.id
 
             # 限流 / 权限
             limit_err = self._check_limit(name)
             if limit_err:
-                results.append(_tool_msg(tc.id, limit_err))
+                results.append(_tool_msg(tc_id, limit_err))
                 details.append({"name": name, "args": {}, "elapsed": 0, "success": False})
                 log_tool_call(name, {}, limit_err, False, 0)
                 continue
-
-            # 解析参数
-            try:
-                args = json.loads(tc.function.arguments)
-            except json.JSONDecodeError:
-                args = {}
 
             # 执行
             t0 = _time.perf_counter()
@@ -103,7 +114,7 @@ class ToolRunner:
             elapsed = _time.perf_counter() - t0
 
             self._count(name)
-            results.append(_tool_msg(tc.id, output))
+            results.append(_tool_msg(tc_id, output))
             details.append({"name": name, "args": args, "elapsed": elapsed, "success": success})
             log_tool_call(name, args, output, success, elapsed)
 

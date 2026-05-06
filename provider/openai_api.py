@@ -1,22 +1,37 @@
-"""LLM Provider - OpenAI 兼容接口封装"""
+"""LLM Provider - OpenAI 兼容接口封装 (Chat Completions API)
+
+支持 OpenAI 兼容 API (DeepSeek 等)，提供:
+- 自动重试 (超时/连接错误，最多 2 次)
+- 流式和非流式两种调用路径
+- 多来源 API Key 加载 (用户配置 > DEEPSEEK_API_KEY > OPENAI_API_KEY)
+- Token 用量统计 (含缓存命中)
+- 思考模式 (reasoning_effort) 控制
+
+实现 BaseProvider 接口，返回统一 ProviderResponse。
+"""
+import json
 import os
 import time as _time
 from pathlib import Path
-from typing import Any
+from typing import Any, Generator
 
 # 修复 Windows SSL_CERT_FILE 指向不存在文件导致的 httpx 崩溃
+# 某些 Python 发行版设置了无效的 SSL_CERT_FILE 环境变量，httpx 检测到后会崩溃
 if "SSL_CERT_FILE" in os.environ and not os.path.isfile(os.environ["SSL_CERT_FILE"]):
     del os.environ["SSL_CERT_FILE"]
 
 from openai import OpenAI, APIError, APITimeoutError, APIConnectionError
 from openai.types.chat import ChatCompletionMessage
 
+from provider.base import BaseProvider
+from provider.schema import ProviderResponse, ToolCall
+
 # 加载 .env（不依赖 python-dotenv）
 def _load_dotenv():
-    """手动解析 .env 文件，写入 os.environ"""
+    """手动解析 .env 文件，写入 os.environ (不依赖 python-dotenv)"""
     for candidate in [
-        Path(__file__).resolve().parent.parent / ".env",  # 项目根
-        Path.cwd() / ".env",
+        Path(__file__).resolve().parent.parent / ".env",  # 项目根目录
+        Path.cwd() / ".env",                               # 当前工作目录
     ]:
         try:
             if candidate.is_file():
@@ -39,8 +54,8 @@ MAX_RETRIES = 2
 RETRY_DELAY = 1.0
 
 
-class DeepSeekProvider:
-    """LLM Provider - 支持 OpenAI 兼容接口"""
+class DeepSeekProvider(BaseProvider):
+    """LLM Provider - 支持 OpenAI 兼容接口 (Chat Completions API)"""
 
     def __init__(self, user_config: dict, core_config: dict | None = None):
         core = core_config or {}
@@ -71,12 +86,19 @@ class DeepSeekProvider:
         self.stream = cfg.get("stream", core.get("output", {}).get("stream", False))
         self.timeout = cfg.get("timeout", 120)
         self.last_usage: dict | None = None
-        self._stream_reasoning: str = ""
+        self.last_response: ProviderResponse | None = None
 
-    def chat(
+    # ── BaseProvider 接口 ──
+
+    def respond(
         self, messages: list[dict], tools: list[dict] | None = None
-    ) -> ChatCompletionMessage:
-        """发送消息，支持超时 + 重试"""
+    ) -> ProviderResponse:
+        """发送消息，支持超时 + 重试。返回统一 ProviderResponse。
+
+        重试策略:
+        - APITimeoutError / APIConnectionError: 指数退避重试 (1s, 2s)
+        - APIError (4xx/5xx): 直接抛出，不重试 (避免重复扣费)
+        """
         kwargs: dict[str, Any] = {
             "model": self.model,
             "messages": messages,
@@ -107,11 +129,9 @@ class DeepSeekProvider:
         if self.stream:
             msg, usage = self._collect_stream(response)
             self.last_usage = usage
-            return msg
         else:
             self.last_usage = _extract_usage(response)
             msg = response.choices[0].message
-            # 提取非流式下的思考内容（SDK 可能放在 model_extra 或直接作为属性）
             reasoning = ""
             try:
                 reasoning = getattr(msg, "reasoning_content", "") or ""
@@ -121,17 +141,21 @@ class DeepSeekProvider:
                 reasoning = msg.model_extra.get("reasoning_content", "") or ""
             if reasoning and not getattr(msg, "reasoning_content", None):
                 msg.reasoning_content = reasoning  # type: ignore[attr-defined]
-            self._stream_reasoning = reasoning
-            return msg
 
-    def chat_stream(self, messages, tools=None):
-        """流式 LLM 调用 — yield 文本增量，完成后 self.last_usage + self._stream_result 可用
+        result = _to_provider_response(msg)
+        self.last_response = result
+        return result
+
+    def respond_stream(
+        self, messages: list[dict], tools: list[dict] | None = None
+    ) -> Generator[dict, None, None]:
+        """流式 LLM 调用 — 逐 chunk yield，完成后 self.last_response 可用。
 
         用法:
-            for delta_text in provider.chat_stream(messages, tools):
-                ...  # delta_text 是 str，可能为空字符串
-            # 流结束后:
-            msg = provider._stream_result  # ChatCompletionMessage（含 tool_calls）
+            for event in provider.respond_stream(messages, tools):
+                if event["type"] == "thinking_chunk":  ...
+                if event["type"] == "text_chunk":       ...
+            response = provider.last_response  # ProviderResponse
             usage = provider.last_usage
         """
         kwargs: dict[str, Any] = {
@@ -171,7 +195,6 @@ class DeepSeekProvider:
                 usage = _extract_usage(chunk)
                 self.last_usage = usage
             delta = chunk.choices[0].delta
-            # 思考过程先于正文输出
             if hasattr(delta, "reasoning_content") and delta.reasoning_content:
                 reasoning_parts.append(delta.reasoning_content)
                 yield {"type": "thinking_chunk", "content": delta.reasoning_content}
@@ -214,12 +237,15 @@ class DeepSeekProvider:
                     },
                 ))
         reasoning = "".join(reasoning_parts) if reasoning_parts else ""
-        self._stream_result = ChatCompletionMessage(
+        msg = ChatCompletionMessage(
             role="assistant", content=content or None, tool_calls=tool_calls
         )
         if reasoning:
-            self._stream_result.reasoning_content = reasoning  # type: ignore[attr-defined]
-        self._stream_reasoning = reasoning
+            msg.reasoning_content = reasoning  # type: ignore[attr-defined]
+
+        result = _to_provider_response(msg)
+        self.last_response = result
+        return result
 
     def _collect_stream(self, response) -> tuple[ChatCompletionMessage, dict | None]:
         """收集流式 chunk 拼接为完整 Message，同时提取 usage 和 reasoning"""
@@ -230,6 +256,8 @@ class DeepSeekProvider:
         for chunk in response:
             if hasattr(chunk, "usage") and chunk.usage:
                 usage = _extract_usage(chunk)
+            if not chunk.choices:
+                continue
             delta = chunk.choices[0].delta
             if hasattr(delta, "reasoning_content") and delta.reasoning_content:
                 reasoning_parts.append(delta.reasoning_content)
@@ -268,13 +296,38 @@ class DeepSeekProvider:
                     },
                 ))
         reasoning = "".join(reasoning_parts) if reasoning_parts else ""
-        self._stream_reasoning = reasoning
         msg = ChatCompletionMessage(
             role="assistant", content=content or None, tool_calls=tool_calls
         )
         if reasoning:
             msg.reasoning_content = reasoning  # type: ignore[attr-defined]
         return msg, usage
+
+
+def _to_provider_response(msg: ChatCompletionMessage) -> ProviderResponse:
+    """将 ChatCompletionMessage 转为统一 ProviderResponse"""
+    tool_calls = []
+    if msg.tool_calls:
+        for tc in msg.tool_calls:
+            try:
+                args = json.loads(tc.function.arguments)
+            except (json.JSONDecodeError, AttributeError):
+                args = {}
+            tool_calls.append(ToolCall(id=tc.id, name=tc.function.name, input=args))
+    reasoning = ""
+    try:
+        reasoning = getattr(msg, "reasoning_content", "") or ""
+    except Exception:
+        pass
+    if not reasoning and hasattr(msg, "model_extra"):
+        reasoning = (msg.model_extra or {}).get("reasoning_content", "") or ""
+    finish_reason = ""
+    return ProviderResponse(
+        text=msg.content or "",
+        reasoning=reasoning,
+        tool_calls=tool_calls,
+        finish_reason=finish_reason,
+    )
 
 
 def _extract_usage(response) -> dict | None:

@@ -6,7 +6,7 @@ import traceback
 from flask import jsonify, request
 
 from web.server import app
-from web.session import _session
+from web.session import _session, _init_session
 
 
 @app.route("/api/config")
@@ -33,6 +33,7 @@ def api_update_config():
     data = request.get_json() or {}
     user_dir = _session["user_dir"]
     config_path = os.path.join(user_dir, "config.json")
+    user_name = _session["user_name"]
 
     try:
         with open(config_path, encoding="utf-8") as f:
@@ -40,33 +41,33 @@ def api_update_config():
 
         provider = config.setdefault("provider", {})
 
-        if "model" in data:
-            provider["model"] = data["model"]
-        if "think" in data:
-            provider["think"] = bool(data["think"])
-        if "stream" in data:
-            provider["stream"] = bool(data["stream"])
-        if "base_url" in data:
-            provider["base_url"] = data["base_url"]
-        if "api_key" in data:
-            provider["api_key"] = data["api_key"]
+        # Provider 字段白名单
+        allowed = {"type", "api_style", "model", "api_key", "base_url", "think", "stream",
+                   "timeout", "max_tokens", "thinking"}
+        for key in allowed & data.keys():
+            provider[key] = data[key]
 
         with open(config_path, "w", encoding="utf-8") as f:
             json.dump(config, f, ensure_ascii=False, indent=2)
 
-        # 同步更新内存中的 provider
-        provider_obj = _session.get("provider")
-        if provider_obj:
-            if "model" in data:
-                provider_obj.model = data["model"]
-            if "think" in data:
-                provider_obj.think = bool(data["think"])
-            if "stream" in data:
-                provider_obj.stream = bool(data["stream"])
-            if "base_url" in data:
-                provider_obj.base_url = data["base_url"]
-            if "api_key" in data:
-                provider_obj.api_key = data["api_key"]
+        # 关键字段变更 → 重建 Provider（切换协议 / api_style / 换 key / 换地址）
+        critical = {"type", "api_style", "api_key", "base_url"}
+        if critical & data.keys():
+            from provider.factory import create_provider
+            try:
+                new_provider = create_provider(
+                    config, _session.get("core_config")
+                )
+                _session["provider"] = new_provider
+                _session["user_config"] = config
+            except Exception as e:
+                return jsonify({"error": f"Provider 重建失败: {e}"}), 400
+        else:
+            # 非关键字段直接更新内存属性
+            provider_obj = _session.get("provider")
+            if provider_obj:
+                for key in allowed & data.keys():
+                    setattr(provider_obj, key, data[key])
 
         return jsonify({"ok": True})
     except Exception as e:

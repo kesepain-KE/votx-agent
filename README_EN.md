@@ -4,13 +4,13 @@
 
 [![License](https://img.shields.io/badge/license-MIT-orange)](./LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
-[![DeepSeek](https://img.shields.io/badge/LLM-DeepSeek-brightgreen)](https://platform.deepseek.com/)
+[![Multi-LLM](https://img.shields.io/badge/LLM-OpenAI%20%7C%20Anthropic-brightgreen)]()
 [![Flask](https://img.shields.io/badge/web-Flask%20%2B%20Vue%203-lightgrey)](https://flask.palletsprojects.com/)
 [![Docker](https://img.shields.io/badge/docker-ready-blue)](https://www.docker.com/)
 
 [中文](./README.md) | English
 
-A multi-user AI Agent framework with role personas, tool calling, persistent memory, and a self-learning loop. It provides both CLI and Web UI clients that share the same conversation engine.
+A multi-user AI Agent framework with role personas, tool calling, persistent memory, and a self-learning loop. Supports dual LLM protocols (OpenAI + Anthropic), multi-vendor access, with both CLI and Web UI sharing the same conversation engine.
 
 ## Table of Contents
 
@@ -35,6 +35,8 @@ A multi-user AI Agent framework with role personas, tool calling, persistent mem
 
 Most AI Agent frameworks on GitHub are built for single-user, English-first scenarios, and their interaction model often stops at a CLI or API. votx-agent is designed for Chinese users and provides:
 
+- **Dual protocol support**: OpenAI protocol (Responses API / Chat Completions) and Anthropic protocol (Messages API) with a unified internal format
+- **Multi-vendor access**: DeepSeek / Anthropic / Azure / SiliconFlow / Groq / Xiaomi Mimo — switch by changing `base_url`
 - **Multi-user isolation**: each user has an independent persona (`self_soul.md`), conversation history, long-term memory, tool logs, and file space
 - **Dual client support**: Vue 3 Web UI and CLI terminal share the same `run/engine.py` conversation engine with consistent behavior
 - **Self-learning**: failed tool calls are automatically recorded as lessons and injected as rules before future conversations
@@ -50,7 +52,12 @@ Most AI Agent frameworks on GitHub are built for single-user, English-first scen
 
 ### Get an API Key
 
-Register on the [DeepSeek Open Platform](https://platform.deepseek.com/api_keys) to obtain an API key. Free quota is available.
+Any of the following providers is supported (configure via the Web debug panel or `config.json`):
+
+- [DeepSeek](https://platform.deepseek.com/api_keys) — free quota available
+- [Anthropic Claude](https://console.anthropic.com/) — Messages API
+- [OpenAI](https://platform.openai.com/) — Responses API / Chat Completions
+- Other OpenAI-compatible providers (SiliconFlow, Groq, Xiaomi Mimo, etc.)
 
 Optional services:
 
@@ -111,14 +118,19 @@ python setup.py          # Install dependencies and optionally guide .env config
 python set_user.py add   # Create a user and optionally enter a per-user API key
 ```
 
-`.env` template, only needed when no per-user key is configured through `set_user.py`:
+`.env` template (fallback only, `config.json` takes priority):
 
 ```bash
-DEEPSEEK_API_KEY=***      # Required
+# OpenAI protocol fallback, config.json api_key takes priority
+DEEPSEEK_API_KEY=sk-your-key-here
 # DEEPSEEK_BASE_URL=https://api.deepseek.com
-# UAPI_API_KEY=***        # Optional
-# TAVILY_API_KEY=***      # Optional
-# HTTP_TIMEOUT=15
+
+# Anthropic protocol fallback
+# ANTHROPIC_API_KEY=sk-ant-your-key-here
+
+# Optional tool keys
+# UAPI_API_KEY=***
+# TAVILY_API_KEY=***
 ```
 
 ## Usage
@@ -178,8 +190,13 @@ votx-agent/
 ├── docker-compose.yml          # Docker Compose configuration
 ├── docker-entrypoint.sh        # Docker entrypoint, checks users/keys without blocking startup
 │
-├── provider/                   # LLM backend
-│   └── openai_api.py           # DeepSeek / OpenAI-compatible provider
+├── provider/                   # Multi-LLM backend, unified ProviderResponse format
+│   ├── schema.py               # Unified data structures: ToolCall / ProviderResponse
+│   ├── base.py                 # Abstract BaseProvider interface
+│   ├── factory.py              # create_provider() factory
+│   ├── responses_api.py        # OpenAI Responses API + Chat Completions fallback
+│   ├── openai_api.py           # OpenAI Chat Completions API
+│   └── anthropic_adapter.py    # Anthropic Messages API adapter
 │
 ├── run/                        # Conversation engine shared by CLI and Web
 │   ├── engine.py               # System prompt building and tool_calls loop
@@ -213,9 +230,10 @@ All Skills are located in the `skills/` directory and can be extended as needed.
 **Conversation flow**
 
 ```text
-User input → Build system prompt → LLM reasoning → Parse tool_calls
-  → Execute tools → Return results → Continue reasoning
-  → No tool_calls or round limit reached, 20 rounds → Save history
+User input → build_system_prompt() → create_provider(config)
+  → respond_stream(messages, tools) → ProviderResponse
+  → Parse tool_calls → Execute tools → Return results → Continue reasoning
+  → No tool_calls or round limit reached (20 rounds) → Save history
 ```
 
 - The system prompt is dynamically assembled from the user's persona, Skill catalog, self-improvement memory, long-term memory, and other components
@@ -234,11 +252,35 @@ History is saved as structured JSON. Very long sessions are automatically summar
 
 After a user is created, `users/<name>/` contains that user's independent persona, configuration, and data directories.
 
+### Provider config (`users/<name>/config.json`)
+
+```json
+{
+  "provider": {
+    "type": "openai",
+    "api_style": "chat",
+    "model": "deepseek-v4-pro",
+    "api_key": "sk-xxx",
+    "base_url": "https://api.deepseek.com",
+    "think": true,
+    "stream": true
+  }
+}
+```
+
+- `type`: `"openai"` (OpenAI protocol) or `"anthropic"` (Anthropic protocol)
+- `api_style`: `"responses"` (Responses API) or `"chat"` (Chat Completions), OpenAI protocol only
+- Changes take effect immediately after clicking "Save" in the Web panel. No restart required.
+
+### Priority
+
+`config.json` > `.env` environment variables. `.env` serves as a global fallback only.
+
 > `.gitignore` excludes runtime data such as `users/*/history/`, `users/*/tmp/`, `memory/`, and `logs/`, private files such as `.env` and `*.key`, build caches such as `__pycache__/`, and `开发文档/`. The project-level `tmp/` is the agent temporary file directory and is pushable. See [`.gitignore`](./.gitignore) for details.
 
 ## Dependencies
 
-- Python 3.10+ · Flask ≥ 3.0 · openai ≥ 1.0
+- Python 3.10+ · Flask ≥ 3.0 · openai ≥ 1.0 · anthropic ≥ 0.30
 - requests · yt-dlp · python-docx · pyyaml, and more
 
 See [requirements.txt](./requirements.txt) for the full list.
@@ -255,7 +297,8 @@ Maintainer docs in `开发文档/` are gitignored and not included in the public
 
 ## Related Projects
 
-- [DeepSeek API](https://platform.deepseek.com/) — default LLM backend
+- [OpenAI Responses API](https://platform.openai.com/docs/guides/responses) — primary protocol, auto-fallback to Chat Completions
+- [Anthropic Messages API](https://docs.anthropic.com/) — native extended thinking support
 - [standard-readme](https://github.com/RichardLitt/standard-readme) — English README standard
 - [ChineseREADME](https://sunyctf.github.io/ChineseREADME/) — reference for this Chinese README
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp) — video download engine

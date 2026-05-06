@@ -1,4 +1,7 @@
-"""对话管理路由 — 归档列表/加载/删除/重命名"""
+"""对话管理路由 — 归档列表/加载/删除/重命名
+
+所有路径操作包含 realpath 越权检查，防止路径遍历攻击。
+"""
 import json
 import os
 import traceback
@@ -133,6 +136,7 @@ def api_delete_conversation(conv_id):
     user_dir = _session["user_dir"]
     archive_path = os.path.join(user_dir, "history", "archive", conv_id)
 
+    # 路径越权防护: 防止 ../../ 等路径遍历攻击
     real_archive = os.path.realpath(os.path.join(user_dir, "history", "archive"))
     real_path = os.path.realpath(archive_path)
     if not real_path.startswith(real_archive + os.sep) and real_path != real_archive:

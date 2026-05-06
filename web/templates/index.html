@@ -611,14 +611,15 @@
       padding: 12px 15px; border-radius: 18px;
       font-size: 14px; line-height: 1.65;
       white-space: pre-wrap; word-wrap: break-word;
-      overflow-x: auto; word-break: break-word;
+      overflow-x: auto; overflow-wrap: anywhere;
+      max-width: 100%;
       background: rgba(255,255,255,0.05);
       border: 1px solid var(--glass-border);
       box-shadow: 0 8px 24px rgba(0,0,0,0.12);
     }
     .bubble-wrap {
       display: flex; flex-direction: column; gap: 3px;
-      min-width: 0;
+      min-width: 0; max-width: 100%; overflow: hidden;
     }
     .msg.me .bubble-wrap { align-items: flex-end; }
     .copy-msg {
@@ -1443,14 +1444,25 @@
           <div class="item">
             <div class="item-top"><b>用户模型设置</b><span class="pill">{{ selectedUser || '—' }}</span></div>
             <div class="debug-grid" style="margin-top:10px">
+              <div class="form-row"><label>接口协议</label>
+                <select v-model="config.type" @change="saveConfigField('type', config.type)">
+                  <option value="openai">OpenAI 协议 (Chat Completions)</option>
+                  <option value="anthropic">Anthropic 协议 (Messages)</option>
+                </select>
+              </div>
               <div class="form-row"><label>api 模型</label><input v-model="config.model" @change="saveConfigField('model', config.model)"></div>
-              <div class="form-row"><label>base-url</label><input v-model="config.baseUrl" @change="saveConfigField('base_url', config.baseUrl)"></div>
+              <div class="form-row" v-if="config.type !== 'anthropic'"><label>base-url</label><input v-model="config.baseUrl" @change="saveConfigField('base_url', config.baseUrl)"></div>
+              <div class="form-row" v-if="config.type !== 'anthropic'"><label>api 风格</label>
+                <select v-model="config.apiStyle" @change="saveConfigField('api_style', config.apiStyle)">
+                  <option value="responses">Responses API (完整推理，较慢)</option>
+                  <option value="chat">Chat Completions API (流式，较快)</option>
+                </select>
+              </div>
               <div class="form-row"><label>key</label>
                 <div class="key-shell">
-                  <input type="password" placeholder="点击输入密钥，回车保存" v-model="config.keyDraft" @keydown.enter.prevent="saveConfigField('api_key', config.keyDraft); config.keyDraft = ''; toast('密钥已保存')">
-                  <button class="btn btn-ghost small" @click="config.keyDraft = ''; $nextTick(() => $el.querySelector('.key-shell input').focus())">填入</button>
+                  <input type="password" placeholder="输入密钥，回车或点保存生效" v-model="config.keyDraft" @keydown.enter.prevent="saveConfigField('api_key', config.keyDraft); config.keyDraft = ''; toast('密钥已保存')">
                 </div>
-                <div class="key-hint">密钥不显示明文，回车后清空并保存</div>
+                <div class="key-hint">密钥不显示明文，回车或点「保存」生效</div>
               </div>
             </div>
           </div>
@@ -1458,6 +1470,7 @@
             <button class="btn btn-primary small" style="flex:1" @click="saveAllConfig">保存</button>
             <button class="btn btn-ghost small" style="flex:1" @click="applyConfig">应用</button>
             <button class="btn btn-ghost small" style="flex:1" @click="restoreConfig">恢复</button>
+            <button class="btn btn-ghost small" style="flex:1" @click="reloadAgent">🔄 重载</button>
           </div>
         </div>
       </div>
@@ -1592,7 +1605,7 @@ createApp({
         other: '选择用户后加载其他注入摘要…',
       },
 
-      config: { think: false, stream: false, model: '', baseUrl: '', keyDraft: '' },
+      config: { type: 'openai', apiStyle: 'chat', think: false, stream: false, model: '', baseUrl: '', keyDraft: '' },
       lastSavedConfig: {},
 
       logs: [],
@@ -1812,7 +1825,7 @@ createApp({
             }
           }
         }
-        this.refreshConversations();
+        this.refreshOverview();
         this.scrollBottom();
         this.toast('对话已加载');
       } catch (e) { this.toast('加载失败: ' + e.message); }
@@ -1839,7 +1852,7 @@ createApp({
         const d = await this.api('/api/conversations/' + id, { method: 'DELETE' });
         if (d.error) { this.toast(d.error); return; }
         this.toast('已删除');
-        this.refreshConversations();
+        this.refreshOverview();
       } catch (e) { this.toast('删除失败: ' + e.message); }
     },
 
@@ -1862,7 +1875,7 @@ createApp({
         });
         if (d.error) { this.toast(d.error); return; }
         this.toast('已重命名');
-        this.refreshConversations();
+        this.refreshOverview();
       } catch (e) { this.toast('重命名失败: ' + e.message); }
     },
 
@@ -1888,7 +1901,7 @@ createApp({
       try {
         const d = await this.api('/api/conversations', { method: 'DELETE' });
         this.toast('已删除 ' + (d.deleted || 0) + ' 个对话');
-        this.refreshConversations();
+        this.refreshOverview();
       } catch (e) { this.toast('删除失败: ' + e.message); }
     },
 
@@ -1902,7 +1915,7 @@ createApp({
           body: JSON.stringify({ command: '/archive' }),
         });
         this.toast(d.content || '已保存');
-        this.refreshConversations();
+        this.refreshOverview();
       } catch (e) { this.toast('保存失败'); }
     },
 
@@ -1917,9 +1930,7 @@ createApp({
         this.messages = [];
         this.chatTitle = (this.profileName || '') + ' · 新对话';
         this.pushSysMsg(d.content || '已创建新对话');
-        this.refreshConversations();
-        this.updateStats();
-        this.loadToolLogs();
+        this.refreshOverview();
         this.toast('新对话已创建');
       } catch (e) { this.toast('创建失败'); }
     },
@@ -1998,12 +2009,8 @@ createApp({
         }
         if (cmd === '/clear') {
           this.messages = [];
-          this.loadToolLogs();
-          this.updateStats();
         }
-        if (cmd === '/archive' || cmd === '/summarize' || cmd === '/总结') {
-          this.refreshConversations();
-        }
+        this.refreshOverview();
         this.pushSysMsg(d.content || '命令已执行');
         this.scrollBottom();
       } catch (e) { this.toast('命令失败: ' + e.message); }
@@ -2168,10 +2175,7 @@ createApp({
       if (msg) msg.streaming = false;
 
       this.scrollBottom();
-      this.loadToolLogs();
-      this.loadFileList();
-      this.refreshConversations();
-      this.updateStats();
+      this.refreshOverview();
       this.$nextTick(() => this.$refs.textInput && this.$refs.textInput.focus());
     },
 
@@ -2362,6 +2366,10 @@ createApp({
         const cfg = await this.api('/api/config');
         if (cfg.error) return;
         const p = cfg.provider || {};
+        // 统一旧 type 值 → 'openai'
+        const rawType = p.type || 'openai';
+        this.config.type = (rawType === 'anthropic') ? 'anthropic' : 'openai';
+        this.config.apiStyle = p.api_style || 'chat';
         this.config.think = !!p.think;
         this.config.stream = !!p.stream;
         this.config.model = p.model || '';
@@ -2401,6 +2409,8 @@ createApp({
 
     snapshotConfig() {
       this.lastSavedConfig = {
+        type: this.config.type,
+        apiStyle: this.config.apiStyle,
         model: this.config.model,
         baseUrl: this.config.baseUrl,
       };
@@ -2412,9 +2422,10 @@ createApp({
         await this.api('/api/config', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model: this.config.model, base_url: this.config.baseUrl }),
+          body: JSON.stringify({ type: this.config.type, api_style: this.config.apiStyle, model: this.config.model, base_url: this.config.baseUrl, api_key: this.config.keyDraft }),
         });
         this.snapshotConfig();
+        this.config.keyDraft = '';
         this.toast('配置已保存');
       } catch (e) { this.toast('保存失败'); }
     },
@@ -2426,9 +2437,23 @@ createApp({
       this.toast('配置已应用');
     },
 
+    async reloadAgent() {
+      if (!this.userActive) { this.toast('请先选择用户'); return; }
+      try {
+        const r = await this.api('/api/reload', { method: 'POST' });
+        if (r.ok) {
+          this.toast('已重载: ' + (r.reloaded || []).join(', '));
+        } else if (r.error) {
+          this.toast(r.error);
+        }
+      } catch (e) { this.toast('重载失败'); }
+    },
+
     restoreConfig() {
       if (!this.userActive) { this.toast('请先选择用户'); return; }
-      if (!this.lastSavedConfig.model && !this.lastSavedConfig.baseUrl) { this.toast('没有可恢复的保存状态'); return; }
+      if (!this.lastSavedConfig.model && !this.lastSavedConfig.baseUrl && !this.lastSavedConfig.type) { this.toast('没有可恢复的保存状态'); return; }
+      this.config.type = this.lastSavedConfig.type || 'openai';
+      this.config.apiStyle = this.lastSavedConfig.apiStyle || '';
       this.config.model = this.lastSavedConfig.model || '';
       this.config.baseUrl = this.lastSavedConfig.baseUrl || '';
       this.toast('已恢复到上次保存状态');

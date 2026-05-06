@@ -49,8 +49,8 @@ def generate_summary(provider, messages: list[dict]) -> str:
     ]
 
     try:
-        response = provider.chat(prompt, tools=None)
-        summary = response.content.strip()
+        response = provider.respond(prompt, tools=None)
+        summary = response.text.strip()
         summary = re.sub(r'^["\'\`「]|["\'\`」]$', '', summary).strip()
         summary = re.sub(r'^(摘要[：:]?\s*)', '', summary)
         return summary[:50]

@@ -4,7 +4,7 @@
 
 [![License](https://img.shields.io/badge/license-MIT-orange)](./LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
-[![DeepSeek](https://img.shields.io/badge/LLM-DeepSeek-brightgreen)](https://platform.deepseek.com/)
+[![Multi-LLM](https://img.shields.io/badge/LLM-OpenAI%20%7C%20Anthropic-brightgreen)](https://platform.deepseek.com/)
 [![Flask](https://img.shields.io/badge/web-Flask%20%2B%20Vue%203-lightgrey)](https://flask.palletsprojects.com/)
 [![Docker](https://img.shields.io/badge/docker-ready-blue)](https://www.docker.com/)
 
@@ -35,6 +35,8 @@
 
 Github 上现有的 AI Agent 框架大多面向单用户、英文场景，交互停留在命令行或 API。votx-agent 面向中文用户，提供：
 
+- **双协议支持**：OpenAI 协议（Responses API / Chat Completions）和 Anthropic 协议（Messages API），统一内部格式
+- **多厂商接入**：DeepSeek / Anthropic / Azure / 硅基流动 / Groq / 小米 mimo 等，改 base_url 即切
 - **多用户隔离**：每个用户独立人设（`self_soul.md`）、对话历史、长期记忆、工具日志和文件空间
 - **双端支持**：Vue 3 Web UI + CLI 终端，共用 `run/engine.py` 对话引擎，行为完全一致
 - **自学习**：工具调用失败自动记录教训，下次对话前注入为规则，越用越聪明
@@ -50,7 +52,12 @@ Github 上现有的 AI Agent 框架大多面向单用户、英文场景，交互
 
 ### 获取 API Key
 
-注册 [DeepSeek 开放平台](https://platform.deepseek.com/api_keys) 获取 API Key（免费额度可用）。
+支持以下任意厂商（通过 Web 调试面板或 `config.json` 切换）：
+
+- [DeepSeek](https://platform.deepseek.com/api_keys) — 免费额度可用
+- [Anthropic Claude](https://console.anthropic.com/) — Messages API
+- [OpenAI](https://platform.openai.com/) — Responses API / Chat Completions
+- 其他兼容 OpenAI 协议的厂商（硅基流动、Groq、小米 mimo 等）
 
 可选：
 - [Tavily Search](https://tavily.com/) —— 联网搜索 Skill 需要
@@ -110,14 +117,19 @@ python setup.py          # 安装依赖 + 引导配置 .env（可选）
 python set_user.py add   # 创建用户（可在此填写独立 API Key，.env 可跳过）
 ```
 
-`.env` 模板参考（如果未通过 `set_user.py` 配置独立 Key）：
+`.env` 模板参考（兜底，`config.json` 优先）：
 
 ```bash
-DEEPSEEK_API_KEY=sk-your-key-here      # 必填
+# OpenAI 协议（兜底，Web/CLI 中 config.json 的 api_key 优先）
+DEEPSEEK_API_KEY=sk-your-key-here
 # DEEPSEEK_BASE_URL=https://api.deepseek.com
-# UAPI_API_KEY=your-uapi-key            # 可选
-# TAVILY_API_KEY=your-tavily-key        # 可选
-# HTTP_TIMEOUT=15
+
+# Anthropic 协议（兜底）
+# ANTHROPIC_API_KEY=sk-ant-your-key-here
+
+# 可选工具 Key
+# UAPI_API_KEY=your-uapi-key
+# TAVILY_API_KEY=your-tavily-key
 ```
 
 ## 用法
@@ -177,8 +189,13 @@ votx-agent/
 ├── docker-compose.yml          # Docker Compose 配置
 ├── docker-entrypoint.sh        # Docker 入口（检测用户/Key，不阻断启动）
 │
-├── provider/                 # LLM 后端
-│   └── openai_api.py         # DeepSeek / OpenAI 兼容 Provider
+├── provider/                 # 多 LLM 后端（统一 ProviderResponse 格式）
+│   ├── schema.py             # 统一数据结构 ToolCall / ProviderResponse
+│   ├── base.py               # BaseProvider 抽象接口
+│   ├── factory.py            # create_provider() 工厂
+│   ├── responses_api.py      # OpenAI Responses API + Chat Completions 回退
+│   ├── openai_api.py         # OpenAI Chat Completions API
+│   └── anthropic_adapter.py  # Anthropic Messages API 适配
 │
 ├── run/                      # 对话引擎（CLI & Web 共用）
 │   ├── engine.py             # system prompt 构建 + tool_calls 循环
@@ -212,8 +229,9 @@ votx-agent/
 **对话流程**
 
 ```
-用户输入 → 构建 system prompt → LLM 推理 → 解析 tool_calls
-  → 执行工具 → 结果回传 → 继续推理
+用户输入 → build_system_prompt() → create_provider(config)
+  → respond_stream(messages, tools) → ProviderResponse
+  → 解析 tool_calls → 执行工具 → 结果回传 → 继续推理
   → 无 tool_calls 或达到上限（20 轮）→ 保存历史
 ```
 
@@ -233,11 +251,35 @@ votx-agent/
 
 用户创建后，在 `users/<name>/` 下拥有独立的人设、配置和数据目录。
 
+### Provider 配置（`users/<name>/config.json`）
+
+```json
+{
+  "provider": {
+    "type": "openai",
+    "api_style": "chat",
+    "model": "deepseek-v4-pro",
+    "api_key": "sk-xxx",
+    "base_url": "https://api.deepseek.com",
+    "think": true,
+    "stream": true
+  }
+}
+```
+
+- `type`: `"openai"`（OpenAI 协议）或 `"anthropic"`（Anthropic 协议）
+- `api_style`: `"responses"`（Responses API）或 `"chat"`（Chat Completions），仅 OpenAI 协议有效
+- 修改后 Web 面板点"保存"即生效，无需重启
+
+### 配置优先级
+
+`config.json` > `.env` 环境变量。`.env` 仅做全局兜底。
+
 > `.gitignore` 已排除运行时数据（`users/*/history/`、`users/*/tmp/`、`memory/`、`logs/` 等）、私密文件（`.env`、`*.key`）、构建缓存（`__pycache__/`）以及 `开发文档/`。`tmp/`（项目级）为智能体临时文件目录，可推送。详见 [`.gitignore`](./.gitignore)。
 
 ## 依赖
 
-- Python 3.10+ · Flask ≥ 3.0 · openai ≥ 1.0
+- Python 3.10+ · Flask ≥ 3.0 · openai ≥ 1.0 · anthropic ≥ 0.30
 - requests · yt-dlp · python-docx · pyyaml 等
 
 完整清单见 [requirements.txt](./requirements.txt)。
@@ -254,7 +296,8 @@ pytest                     # 运行测试
 
 ## 相关项目
 
-- [DeepSeek API](https://platform.deepseek.com/) —— 默认 LLM 后端
+- [OpenAI Responses API](https://platform.openai.com/docs/guides/responses) —— 优先协议，自动回退 Chat Completions
+- [Anthropic Messages API](https://docs.anthropic.com/) —— 扩展思维原生支持
 - [standard-readme](https://github.com/RichardLitt/standard-readme) —— 英文 README 标准
 - [ChineseREADME](https://sunyctf.github.io/ChineseREADME/) —— 本文档参考的中文标准
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp) —— 视频下载引擎

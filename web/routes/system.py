@@ -1,9 +1,10 @@
-"""系统信息路由 — messages/system-prompt/export-markdown/stats/tool-logs"""
+"""系统信息路由 — messages/system-prompt/export-markdown/stats/tool-logs/reload"""
 import json
 import os
 import re
+import traceback
 
-from flask import Response, jsonify
+from flask import Response, jsonify, request
 
 from web.server import app
 from web.session import _session, _root
@@ -44,11 +45,11 @@ def api_system_prompt():
         with open(agent_md, encoding="utf-8") as f:
             agent = f.read()
 
-    # 每次请求重建 system prompt（学习记录和记忆可能已变更）
+    # 每次请求重建 system prompt — 自改进记忆/纠正记录可能已被其他会话更新
     try:
         from run.engine import build_system_prompt
         full = build_system_prompt(root, user_dir)
-        chat.set_system_prompt(full)
+        chat.set_system_prompt(full)  # 同步更新内存中的 prompt
     except Exception:
         full = chat.system_prompt
 
@@ -273,3 +274,53 @@ def api_tool_logs():
             pass
 
     return jsonify(logs)
+
+
+@app.route("/api/reload", methods=["POST"])
+def api_reload_dynamic():
+    """动态重载 system prompt + tools + ToolRunner，无需重启或重选用户"""
+    if not _session.get("chat"):
+        return jsonify({"error": "未选择用户"}), 400
+
+    user_dir = _session["user_dir"]
+    root = _session["root"]
+    chat = _session["chat"]
+    user_config = _session.get("user_config", {})
+    core_config = _session.get("core_config", {})
+
+    result = {"ok": True, "reloaded": []}
+    warnings = []
+
+    # 1. 重载 TOOL_REGISTRY + tool schemas
+    try:
+        from run.tool import TOOL_REGISTRY, load_tool_schemas
+        import skills
+        TOOL_REGISTRY.clear()
+        skills.register_all()
+        tools = load_tool_schemas()
+        _session["tools"] = tools
+        result["reloaded"].append(f"tools ({len(tools)})")
+    except Exception as e:
+        warnings.append(f"tools: {e}")
+
+    # 2. 重建 system prompt
+    try:
+        from run.engine import build_system_prompt
+        new_prompt = build_system_prompt(root, user_dir)
+        chat.set_system_prompt(new_prompt)
+        result["reloaded"].append("system_prompt")
+    except Exception as e:
+        warnings.append(f"system_prompt: {e}")
+
+    # 3. 重建 ToolRunner
+    try:
+        from run.tool import ToolRunner
+        _session["tool_runner"] = ToolRunner(core_config, user_config)
+        result["reloaded"].append("tool_runner")
+    except Exception as e:
+        warnings.append(f"tool_runner: {e}")
+
+    if warnings:
+        result["warnings"] = warnings
+
+    return jsonify(result)

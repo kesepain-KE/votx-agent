@@ -175,23 +175,29 @@ def build_system_prompt(root: str, user_dir: str) -> str:
 
 
 def run_chat_turn(chat, tool_runner, provider, tools: list[dict]):
-    """执行一轮对话的工具调用循环，生成事件 dict。
+    """执行一轮对话的工具调用循环，生成事件 dict (生成器模式)。
 
-    chat.add_user_message() 必须在调用前完成，
-    tool_runner.reset_count() 必须在调用前完成。
+    调用方必须先调用 chat.add_user_message() 和 tool_runner.reset_count()。
+
+    循环逻辑:
+    1. 发送 messages + tools → LLM 返回 response
+    2. 如果 response 含 tool_calls → 执行工具 → 将结果追加到消息 → 回到步骤 1
+    3. 如果 response 无 tool_calls → 这是最终文本回复 → 结束
+    4. 达到 MAX_TOOL_ROUNDS → 强制终止，防止无限循环
 
     Yields:
         {"type": "tool_call", "name": str, "icon": str, "args": dict,
          "elapsed": float, "success": bool, "line": str}
-        {"type": "text", "content": str}
+        {"type": "text", "content": str} / {"type": "text_chunk", "content": str}
+        {"type": "thinking_chunk"/"thinking"/"thinking_done"}
         {"type": "usage", "data": {"prompt_tokens": int, ..., "elapsed": int}}
         {"type": "error", "content": str}
         {"type": "max_rounds"}
         {"type": "deadlock_warning"}
     """
     tool_round = 0
-    _fail_streak = 0
-    _last_fail_key = ""
+    _fail_streak = 0        # 连续失败计数器
+    _last_fail_key = ""      # 上次失败的工具+参数签名
     _turn_start = _time.time()
 
     while tool_round < MAX_TOOL_ROUNDS:
@@ -202,7 +208,7 @@ def run_chat_turn(chat, tool_runner, provider, tools: list[dict]):
             try:
                 full_text = ""
                 full_thinking = ""
-                for item in provider.chat_stream(messages, tools):
+                for item in provider.respond_stream(messages, tools):
                     if isinstance(item, dict):
                         if item.get("type") == "thinking_chunk":
                             full_thinking += item["content"]
@@ -214,7 +220,7 @@ def run_chat_turn(chat, tool_runner, provider, tools: list[dict]):
                         # 兼容旧版（纯字符串）
                         full_text += str(item)
                         yield {"type": "text_chunk", "content": item}
-                response = provider._stream_result
+                response = provider.last_response
                 if full_thinking:
                     yield {"type": "thinking_done"}
                 if provider.last_usage:
@@ -228,14 +234,14 @@ def run_chat_turn(chat, tool_runner, provider, tools: list[dict]):
                 return
         else:
             try:
-                response = provider.chat(messages, tools)
+                response = provider.respond(messages, tools)
             except RuntimeError as e:
                 yield {"type": "error", "content": str(e)}
                 chat.add_assistant_message(f"ERROR: {e}")
                 return
 
             # 非流式下的思考内容
-            thinking_text = getattr(provider, "_stream_reasoning", "") or ""
+            thinking_text = response.reasoning
             if thinking_text:
                 yield {"type": "thinking", "content": thinking_text}
 
@@ -246,7 +252,7 @@ def run_chat_turn(chat, tool_runner, provider, tools: list[dict]):
                 yield {"type": "usage", "data": {**provider.last_usage, "elapsed": _elapsed}}
 
         if tool_runner.has_tool_calls(response):
-            reasoning = getattr(response, "reasoning_content", "") or ""
+            reasoning = response.reasoning
             chat.add_tool_call_message(response.tool_calls, reasoning)
             results, details = tool_runner.execute(response)
             chat.add_tool_results(results)
@@ -286,12 +292,12 @@ def run_chat_turn(chat, tool_runner, provider, tools: list[dict]):
         else:
             # 无 tool_calls → 这是最终回复
             if getattr(provider, "stream", False):
-                reasoning = getattr(provider._stream_result, "reasoning_content", "") or ""
+                reasoning = provider.last_response.reasoning if provider.last_response else ""
                 chat.add_assistant_message(full_text, reasoning)
                 yield {"type": "text_done"}
             else:
-                reasoning = getattr(provider, "_stream_reasoning", "") or ""
-                reply = response.content or ""
+                reasoning = response.reasoning
+                reply = response.text
                 chat.add_assistant_message(reply, reasoning)
                 yield {"type": "text", "content": reply}
             return

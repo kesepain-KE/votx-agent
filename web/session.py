@@ -12,7 +12,7 @@ _session: dict = {}
 
 def _init_session(user_name: str) -> dict:
     """初始化用户会话，返回会话状态"""
-    from provider.openai_api import DeepSeekProvider
+    from provider.factory import create_provider
     from run.chat import ChatManager
     from run.engine import build_system_prompt
     from run.tool import ToolRunner, load_tool_schemas
@@ -29,7 +29,7 @@ def _init_session(user_name: str) -> dict:
         with open(os.path.join(user_dir, "config.json"), encoding="utf-8") as f:
             user_config = json.load(f)
 
-        provider = DeepSeekProvider(user_config, core_config)
+        provider = create_provider(user_config, core_config)
         tool_runner = ToolRunner(core_config, user_config)
         system_prompt = build_system_prompt(root, user_dir)
         tools = load_tool_schemas()

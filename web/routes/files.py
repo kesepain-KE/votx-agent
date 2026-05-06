@@ -28,9 +28,15 @@ def _file_rel_path(name, subdir="file"):
 
 
 def _check_file_path(file_dir, filename):
+    """校验文件路径安全性，防止路径遍历攻击。
+
+    os.path.basename 剥离目录部分 → realpath 解析符号链接 → 检查是否在允许目录内。
+    返回 (target_path, error_response, status_code) 三元组。
+    """
     target = os.path.join(file_dir, os.path.basename(filename))
     real_dir = os.path.realpath(file_dir)
     real_target = os.path.realpath(target)
+    # 越权检查: 确保解析后的真实路径仍在允许的目录内
     if not real_target.startswith(real_dir + os.sep) and real_target != real_dir:
         return None, jsonify({"error": "路径越权"}), 403
     if not os.path.isfile(target):
@@ -60,6 +66,7 @@ def api_upload():
             dest = os.path.join(file_dir, safe_name)
             base, ext = os.path.splitext(safe_name)
             n = 1
+            # 重名处理: 文件名已存在时追加 _1, _2 区分
             while os.path.exists(dest):
                 dest = os.path.join(file_dir, f"{base}_{n}{ext}")
                 n += 1

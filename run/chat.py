@@ -83,17 +83,29 @@ class ChatManager:
         self.messages.append(msg)
 
     def add_tool_call_message(self, tool_calls, reasoning_content: str = ""):
-        """将 SDK tool_calls 对象转为可序列化 dict 后追加"""
+        """将 tool_calls 转为可序列化 dict 后追加（适配统一 ToolCall 和旧 SDK 对象）"""
         tc_list = []
         for tc in tool_calls:
-            tc_list.append({
-                "id": tc.id,
-                "type": "function",
-                "function": {
-                    "name": tc.function.name,
-                    "arguments": tc.function.arguments,
-                },
-            })
+            if hasattr(tc, "name"):
+                # 统一 ToolCall 格式 (input 是 dict，需序列化回 JSON 字符串存储)
+                tc_list.append({
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {
+                        "name": tc.name,
+                        "arguments": json.dumps(tc.input, ensure_ascii=False),
+                    },
+                })
+            else:
+                # 旧 SDK 对象 (ChatCompletionMessageToolCall)
+                tc_list.append({
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {
+                        "name": tc.function.name,
+                        "arguments": tc.function.arguments,
+                    },
+                })
         msg: dict[str, Any] = {
             "role": "assistant",
             "content": None,
