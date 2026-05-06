@@ -3,8 +3,10 @@ import json
 import os
 import traceback
 
-# 项目根目录（用于构造路径）
-_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+from paths import get_project_root
+
+# 项目根目录（dev / PyInstaller 通用）
+_root = get_project_root()
 
 # 会话状态
 _session: dict = {}

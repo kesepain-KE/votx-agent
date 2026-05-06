@@ -10,12 +10,13 @@ if "SSL_CERT_FILE" in os.environ and not os.path.isfile(os.environ["SSL_CERT_FIL
 
 from flask import Flask, jsonify
 
-# 确保项目根在 path
-_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# 项目根路径（dev / PyInstaller 通用）
+from paths import get_project_root
+_root = get_project_root()
 if _root not in sys.path:
     sys.path.insert(0, _root)
 
-app = Flask(__name__, template_folder=os.path.join(os.path.dirname(__file__), "templates"))
+app = Flask(__name__, template_folder=os.path.join(_root, "web", "templates"))
 
 
 # ---- Error Handlers ----

@@ -4,11 +4,12 @@
     python start_web.py              # 默认端口 1478，冲突自动轮询
     python start_web.py --port=8080  # 自定义端口
 """
+import os
 import socket
 import sys
-import os
 
-_root = os.path.dirname(os.path.abspath(__file__))
+from paths import get_project_root
+_root = get_project_root()
 sys.path.insert(0, _root)
 
 port = 1478

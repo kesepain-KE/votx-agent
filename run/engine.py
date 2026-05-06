@@ -13,7 +13,8 @@ from skills import register_all
 
 def _load_max_tool_rounds():
     try:
-        config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "config", "config_core.json")
+        from paths import get_project_root
+        config_path = os.path.join(get_project_root(), "config", "config_core.json")
         with open(config_path, encoding="utf-8") as f:
             config = json.load(f)
         return config.get("tool", {}).get("tool_max_per_type", 80)

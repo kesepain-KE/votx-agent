@@ -26,8 +26,13 @@ from provider.schema import ProviderResponse, ToolCall
 
 # 加载 .env
 def _load_dotenv():
+    try:
+        from paths import get_project_root
+        root = Path(get_project_root())
+    except Exception:
+        root = Path(__file__).resolve().parent.parent
     for candidate in [
-        Path(__file__).resolve().parent.parent / ".env",
+        root / ".env",
         Path.cwd() / ".env",
     ]:
         try:

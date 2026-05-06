@@ -9,7 +9,8 @@ import os
 import subprocess
 import sys
 
-root = os.path.dirname(__file__)
+from paths import get_project_root
+root = get_project_root()
 
 
 def main_cli():

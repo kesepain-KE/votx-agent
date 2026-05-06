@@ -29,9 +29,14 @@ from provider.schema import ProviderResponse, ToolCall
 # 加载 .env（不依赖 python-dotenv）
 def _load_dotenv():
     """手动解析 .env 文件，写入 os.environ (不依赖 python-dotenv)"""
+    try:
+        from paths import get_project_root
+        root = Path(get_project_root())
+    except Exception:
+        root = Path(__file__).resolve().parent.parent
     for candidate in [
-        Path(__file__).resolve().parent.parent / ".env",  # 项目根目录
-        Path.cwd() / ".env",                               # 当前工作目录
+        root / ".env",
+        Path.cwd() / ".env",
     ]:
         try:
             if candidate.is_file():

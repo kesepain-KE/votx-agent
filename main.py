@@ -18,7 +18,8 @@ def main():
         print("错误: 未指定用户目录")
         sys.exit(1)
 
-    root = os.path.dirname(__file__)
+    from paths import get_project_root
+    root = get_project_root()
 
     # 加载配置
     with open(os.path.join(root, "config", "config_core.json"), encoding="utf-8") as f:
