@@ -163,6 +163,8 @@ Assistant: Today's hotboard has been saved to hotboard.txt, 50 items in total.
 [Token: input 2100 (cache hit 1950) | output 180 | total 2280]
 ```
 
+![Web UI Screenshot](votx-agent-web-UI.png)
+
 ## Project Structure
 
 ```text
