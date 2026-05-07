@@ -199,38 +199,38 @@ votx-agent/
 ├── docker-compose.yml          # Docker Compose 配置
 ├── docker-entrypoint.sh        # Docker 入口（检测用户/Key，不阻断启动）
 │
-├── provider/                 # 多 LLM 后端（统一 ProviderResponse 格式）
-│   ├── schema.py             # 统一数据结构 ToolCall / ProviderResponse
-│   ├── base.py               # BaseProvider 抽象接口
-│   ├── factory.py            # create_provider() 工厂
-│   ├── responses_api.py      # OpenAI Responses API + Chat Completions 回退
-│   ├── openai_api.py         # OpenAI Chat Completions API
-│   └── anthropic_adapter.py  # Anthropic Messages API 适配
+├── provider/                   # 多 LLM 后端（统一 ProviderResponse 格式）
+│   ├── schema.py               # 统一数据结构 ToolCall / ProviderResponse
+│   ├── base.py                 # BaseProvider 抽象接口
+│   ├── factory.py              # create_provider() 工厂
+│   ├── responses_api.py        # OpenAI Responses API + Chat Completions 回退
+│   ├── openai_api.py           # OpenAI Chat Completions API
+│   └── anthropic_adapter.py    # Anthropic Messages API 适配
 │
-├── run/                      # 对话引擎（CLI & Web 共用）
-│   ├── engine.py             # system prompt 构建 + tool_calls 循环
-│   ├── chat.py               # 对话历史、归档管理
-│   ├── tool.py               # 工具注册与执行
-│   └── summarize.py          # 摘要生成与归档索引
+├── run/                        # 对话引擎（CLI & Web 共用）
+│   ├── engine.py               # system prompt 构建 + tool_calls 循环
+│   ├── chat.py                 # 对话历史、归档管理
+│   ├── tool.py                 # 工具注册与执行
+│   └── summarize.py            # 摘要生成与归档索引
 │
-├── web/                      # Web UI
-│   ├── server.py             # Flask + SSE 事件流
-│   ├── routes/               # API 路由
-│   └── templates/index.html  # Vue 3 单页前端
+├── web/                        # Web UI
+│   ├── server.py               # Flask + SSE 事件流
+│   ├── routes/                 # API 路由
+│   └── templates/index.html    # Vue 3 单页前端
 │
-├── skills/                   # 20 个 Skill（工具型 + 指令型）
-├── config/                   # 全局配置与 AI 执行规则
-├── tmp/                      # 智能体临时文件（脚本、运行时产物，可推送）
-├── users/                    # 用户数据（人设、历史、记忆、文件）
-└── 开发文档/                  # 维护者文档（本地 gitignored）
+├── skills/                     # 27 个 Skill（工具型 + 指令型）
+├── config/                     # 全局配置与 AI 执行规则
+├── tmp/                        # 智能体临时文件（脚本、运行时产物，可推送）
+├── users/                      # 用户数据（人设、历史、记忆、文件）
+└── 开发文档/                    # 维护者文档（本地 gitignored）
 ```
 
 ## Skill 与工具
 
 | 类别 | 数量 | 说明 |
 |---|---|---|
-| 工具型 Skill | 10 个 | 注册 function calling：文件读写、HTTP 请求、Shell 执行、时间、Word 文档、视频下载、联网搜索、热榜查询、长期记忆、知识图谱 |
-| 指令型 Skill | 10 个 | 注入 system prompt 行为指南：视觉识别、文件搜索、PDF 处理、网页抓取、自改进记忆等 |
+| 工具型 Skill | 12 个 | 注册 function calling：文件读写、HTTP 请求、Shell 执行、时间、Word 文档、视频下载、联网搜索、热榜查询、长期记忆、知识图谱、通用识图、Markdown 转换 |
+| 指令型 Skill | 15 个 | 注入 system prompt 行为指南：视觉识别、文件搜索、PDF 处理、网页抓取、自改进记忆、OpenCLI 适配器编写与自动修复、浏览器自动化、智能搜索路由等 |
 
 所有 Skill 位于 `skills/` 目录，可自行扩展。
 

@@ -219,7 +219,7 @@ votx-agent/
 │   ├── routes/                 # API routes
 │   └── templates/index.html    # Vue 3 single-page frontend
 │
-├── skills/                     # 20 Skills, tool Skills and instruction Skills
+├── skills/                     # 27 Skills, tool Skills and instruction Skills
 ├── config/                     # Global configuration and AI execution rules
 ├── tmp/                        # Agent temp files (scripts, runtime artifacts, pushable)
 ├── users/                      # User data, personas, history, memory, files
@@ -230,8 +230,8 @@ votx-agent/
 
 | Category | Count | Description |
 |---|---:|---|
-| Tool Skills | 10 | Register function calling tools: file read/write, HTTP requests, shell execution, time, Word documents, video download, web search, hotboard query, long-term memory, and ontology |
-| Instruction Skills | 10 | Inject system prompt behavior guides: vision recognition, file search, PDF processing, web content fetching, self-improvement memory, and more |
+| Tool Skills | 12 | Register function calling tools: file read/write, HTTP requests, shell execution, time, Word documents, video download, web search, hotboard query, long-term memory, ontology, universal vision, and Markdown conversion |
+| Instruction Skills | 15 | Inject system prompt behavior guides: vision recognition, file search, PDF processing, web content fetching, self-improvement memory, OpenCLI adapter authoring & auto-fix, browser automation, smart search routing, and more |
 
 All Skills are located in the `skills/` directory and can be extended as needed.
 

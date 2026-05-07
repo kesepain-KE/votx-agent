@@ -47,7 +47,7 @@ Skill 摘要                    ← 渐进披露，~600 tokens
 │   ├── server.py                        Flask + SSE 事件流
 │   ├── routes/                          API 路由（config / system / reload）
 │   └── templates/index.html            Vue 3 单页前端
-├── skills/                              20 Skill (10 工具型 + 10 指令型)
+├── skills/                              27 Skill (12 工具型 + 15 指令型)
 ├── config/soul.md                       全局人格基座
 ├── tmp/                                  智能体临时文件（脚本/运行时产物，可推送）
 │
@@ -204,7 +204,7 @@ api_key 在 Web 面板回车或点保存时写入（含在 `saveAllConfig` body 
 
 **自改进 Skill：** `skills/self-improving/SKILL.md`，指导我进行分层记忆（HOT/WARM/COLD）、自我反思、记录纠正。
 
-当前技能清单：`download-anything`, `file-search`, `file`, `find-skills`, `multi-user-long-term-memory`, `network`, `ontology`, `pdf-tools`, `self-improving`, `shell`, `skill-creator`, `skill-vetter`, `tavily-search`, `time`, `uapi-hotboard-reporter`, `video-download`, `vision`, `web-content-fetcher`, `web-tools-guide`, `word-docx`
+当前技能清单：`download-anything`, `file-search`, `file`, `find-skills`, `multi-user-long-term-memory`, `network`, `ontology`, `opencli-adapter-author`, `opencli-autofix`, `opencli-browser`, `opencli-usage`, `pdf-tools`, `self-improving`, `shell`, `skill-creator`, `skill-vetter`, `smart-search`, `tavily-search`, `time`, `uapi-hotboard-reporter`, `video-download`, `vision-universal`, `vision`, `web-content-fetcher`, `web-tools-guide`, `word-docx`
 
 ## 我的工具选择
 
@@ -274,3 +274,36 @@ python -X utf8 -c "import os, shutil; root='<项目根绝对路径>'; \
 
 确认：没扩大改动范围、没覆盖无关改动、文档已同步。
 同命令连败 3 次 → 提示用户换思路。
+
+## 可用 Skill 目录（详细指令用 read_file 读取 SKILL.md）
+
+### 工具型 Skill（可 function call）
+- **file** (🔧 工具型): 文件操作工具集 — 读取、写入、列出目录、删除文件。所有操作限制在用户目录和项目目录的沙箱内。当 Agent 需要读写文件、浏览目录或删除文件时使用。
+- **markdown-converter** (🔧 工具型): 
+- **multi-user-long-term-memory** (🔧 工具型): 
+- **network** (🔧 工具型): HTTP 网络请求工具 — GET/POST。内置 SSRF 防护（拦截内网/回环地址，DNS 二次解析校验）。当 Agent 需要访问外部 API 或网页时使用。
+- **ontology** (🔧 工具型): 
+- **shell** (🔧 工具型): Shell scripting reference — Bash syntax, redirections, process substitution, signal handling, debugging techniques. Use when writing shell scripts, troubleshooting Bash behavior, or automating system tasks.
+- **tavily-search** (🔧 工具型): Tavily 网络搜索 — 专为 AI Agent 设计的搜索引擎，返回结构化结果（标题、URL、摘要）。当 Agent 需要搜索最新信息、查资料时使用。
+- **time** (🔧 工具型): 时间工具 — 获取当前 UTC/本地时间、可控延时。当 Agent 需要知道当前时间或等待时使用。
+- **uapi-hotboard-reporter** (🔧 工具型): UAPI 全网热榜查询 — 抓取多平台热搜并生成报告。支持视频区、新闻区和科技区，可按平台和关键词筛选。Agent 查询热搜、热榜、热点话题时使用。
+- **video-download** (🔧 工具型): 使用 yt-dlp 下载视频。用户提到下载视频、B站、YouTube、抖音等平台的视频时使用。支持指定输出目录、文件名、格式选择。
+- **vision-universal** (🔧 工具型): 通用识图工具 - 支持本地图片和远程URL，兼容所有OpenAI格式的多模态API（包括MiMo、GPT-4o等）
+- **word-docx** (🔧 工具型): Word 文档工具 — 创建和读取 .docx 文件。支持标题、正文、表格。当 Agent 需要生成 Word 文档或读取 .docx 文件内容时使用。
+
+### 指令型 Skill（正文引导）
+- **download-anything** (📋 指令型): >
+- **file-search** (📋 指令型): Fast file-name and content search using `fd` and `rg` (ripgrep).
+- **find-skills** (📋 指令型): Helps users discover and install agent skills when they ask questions like "how do I do X", "find a skill for X", "is there a skill that can...", or express interest in extending capabilities. This skill should be used when the user is looking for functionality that might exist as an installable skill.
+- **opencli-adapter-author** (📋 指令型): OpenCLI 适配器编写技能 — 从零到通过 verify 的完整流程。用于为新站点编写 adapter 或给已有站点添加新命令。覆盖站点侦察、API 发现、字段解码、adapter 编写、验证全流程。触发词：写 adapter、新建 opencli 命令、opencli adapter、站点适配。
+- **opencli-autofix** (📋 指令型): OpenCLI 适配器自动修复技能。当 opencli 命令因网站 DOM/API/响应格式变化而失败时，自动诊断、修复 adapter 并重试。触发词：opencli 报错、adapter 坏了、修复 opencli、autofix。
+- **opencli-browser** (📋 指令型): 通过 opencli 驱动真实 Chrome 窗口的浏览器自动化技能。用于检查页面、填写表单、点击登录流程、提取数据。覆盖选择器优先的目标契约、复合表单字段、网络捕获等。触发词：opencli browser、浏览器自动化、网页操作、页面交互。
+- **opencli-usage** (📋 指令型): OpenCLI 顶层使用指南。当 Agent 需要了解 opencli 能做什么、如何发现适配器、通用标志和输出格式时使用。触发词：opencli 能做什么、opencli 命令怎么用、opencli list。
+- **pdf-tools** (📋 指令型): View, extract, edit, and manipulate PDF files. Supports text extraction, text editing (overlay and replacement), merging, splitting, rotating pages, and getting PDF metadata. Use when working with PDF documents for reading content, adding/editing text, reorganizing pages, combining files, or extracting information.
+- **Self-Improving + Proactive Agent** (📋 指令型): Self-reflection + Self-criticism + Self-learning + Self-organizing memory.
+- **skill-creator** (📋 指令型): Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Claude's capabilities with specialized knowledge, workflows, or tool integrations.
+- **skill-vetter** (📋 指令型): Security-first skill vetting for AI agents. Use before installing any skill from ClawdHub, GitHub, or other sources. Checks for red flags, permission scope, and suspicious patterns.
+- **smart-search** (📋 指令型): 基于 OpenCLI 命令的智能搜索路由器。当用户想要搜索、查询、查找信息时，自动路由到最佳的 opencli 搜索源（AI 源 + 专用源）。触发词：搜索、查一下、找资料、opencli 搜索。
+- **vision** (📋 指令型): 图像识别与分析。使用 OpenAI 多模态模型分析图片内容。支持本地文件（base64）和远程 URL、多图片、detail 参数。
+- **web-content-fetcher** (📋 指令型): 网页内容获取工具 | 当 http_get 无法获取内容时（空白、403、CAPTCHA），使用替代服务获取网页 Markdown。通过 http_get 调用 r.jina.ai / markdown.new / defuddle.md 等第三方转码服务。触发词：获取网页内容、网页转markdown、内容抓取、fetch webpage、bypass cloudflare
+- **web-tools-guide** (📋 指令型): 网页获取决策指南 — 当前项目可用的网页获取路径：1) tavily_search（搜索信息）2) http_get（直接获取网页内容）3) web-content-fetcher 技能（r.jina.ai 等转码服务兜底）。当用户要求搜索、查资料、获取网页内容时读取本指南，按决策流程选择最佳路径。
