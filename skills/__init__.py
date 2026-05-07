@@ -34,7 +34,7 @@ def _parse_skill_md(path: Path) -> tuple[str, str]:
     return path.parent.name, text.strip()
 
 
-def register_all() -> list[dict]:
+def register_all(force_reload: bool = False, clear_registry: bool = True) -> list[dict]:
     """扫描 SKILL.md → 加载 tool.py（如有）→ 返回指令 Skill 列表
 
     Returns:
@@ -43,6 +43,10 @@ def register_all() -> list[dict]:
     """
     import sys
     skills_dir = Path(__file__).parent
+
+    if clear_registry:
+        from run.tool import clear_tool_registry
+        clear_tool_registry()
 
     # 把每个 skill 目录加入 sys.path（供 skill 内部 import scripts.xxx 等）
     for skmd in sorted(skills_dir.glob("**/SKILL.md")):
@@ -69,6 +73,10 @@ def register_all() -> list[dict]:
             # 有 tool.py → 注册工具
             mod_name = "skills." + str(rel).replace("/", "_").replace("\\", "_").replace("-", "_") + "_tool"
             try:
+                if force_reload:
+                    # 清理旧的模块缓存，避免 Python 模块缓存导致旧代码未刷新
+                    if mod_name in sys.modules:
+                        del sys.modules[mod_name]
                 spec = importlib.util.spec_from_file_location(mod_name, str(tool_file.resolve()))
                 if spec is None or spec.loader is None:
                     print(f"[Skill] 加载失败: {rel}/tool.py — spec 无效")

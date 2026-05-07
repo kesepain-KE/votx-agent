@@ -4,15 +4,20 @@ import os
 import re
 import traceback
 
-from flask import Response, jsonify, request
+from flask import Response, jsonify, request, session as flask_session
 
 from web.server import app
-from web.session import _session, _root
+from web.session import _root, get_session, get_active_user
+from run.prompt_cache import invalidate_prompt_cache
 
 
 @app.route("/api/messages")
 def api_messages():
-    chat = _session.get("chat")
+    user_name = flask_session.get("user_name") or get_active_user()
+    session_data = get_session(user_name)
+    if not session_data:
+        return jsonify({"error": "未选择用户"}), 400
+    chat = session_data.get("chat")
     if not chat:
         return jsonify({"error": "未选择用户"}), 400
     return jsonify(chat.messages)
@@ -20,12 +25,16 @@ def api_messages():
 
 @app.route("/api/system-prompt")
 def api_system_prompt():
-    chat = _session.get("chat")
+    user_name = flask_session.get("user_name") or get_active_user()
+    session_data = get_session(user_name)
+    if not session_data:
+        return jsonify({"error": "未选择用户"}), 400
+    chat = session_data.get("chat")
     if not chat:
         return jsonify({"error": "未选择用户"}), 400
 
-    user_dir = _session.get("user_dir", "")
-    root = _session.get("root", _root)
+    user_dir = session_data.get("user_dir", "")
+    root = session_data.get("root", _root)
 
     soul = ""
     soul_path = os.path.join(user_dir, "self_soul.md")
@@ -160,15 +169,19 @@ def api_system_prompt():
 
 @app.route("/api/export-markdown")
 def api_export_markdown():
-    chat = _session.get("chat")
+    user_name = flask_session.get("user_name") or get_active_user()
+    session_data = get_session(user_name)
+    if not session_data:
+        return jsonify({"error": "未选择用户"}), 400
+    chat = session_data.get("chat")
     if not chat:
         return jsonify({"error": "未选择用户"}), 400
 
     lines = ["# votx-agent 对话导出", ""]
-    user_name = _session.get("user_name", "unknown")
+    user_name_val = session_data.get("user_name", "unknown")
     from datetime import datetime, timezone
     lines.append("**用户**: {}  |  **导出时间**: {}".format(
-        user_name,
+        user_name_val,
         datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     ))
     lines.append("")
@@ -224,9 +237,11 @@ def api_export_markdown():
 
 @app.route("/api/stats")
 def api_stats():
-    if not _session.get("chat"):
+    user_name = flask_session.get("user_name") or get_active_user()
+    session_data = get_session(user_name)
+    if not session_data or not session_data.get("chat"):
         return jsonify({"error": "未选择用户"}), 400
-    chat = _session["chat"]
+    chat = session_data["chat"]
     tool_count = 0
     if os.path.exists(chat.tool_log_path):
         try:
@@ -254,24 +269,27 @@ def api_stats():
 
 @app.route("/api/tool-logs")
 def api_tool_logs():
-    if not _session.get("chat"):
+    user_name = flask_session.get("user_name") or get_active_user()
+    session_data = get_session(user_name)
+    if not session_data or not session_data.get("chat"):
         return jsonify({"error": "未选择用户"}), 400
-    user_dir = _session["user_dir"]
-    log_path = os.path.join(user_dir, "history", "log", "tool_log.json")
-
+    user_dir = session_data["user_dir"]
     logs = []
-    if os.path.exists(log_path):
-        try:
-            with open(log_path, encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if line:
-                        try:
-                            logs.append(json.loads(line))
-                        except json.JSONDecodeError:
-                            pass
-        except Exception:
-            pass
+    new_log_path = os.path.join(user_dir, "history", "log", "tool_log.jsonl")
+    old_log_path = os.path.join(user_dir, "history", "log", "tool_log.json")
+    for log_path in (new_log_path, old_log_path):
+        if os.path.exists(log_path):
+            try:
+                with open(log_path, encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line:
+                            try:
+                                logs.append(json.loads(line))
+                            except json.JSONDecodeError:
+                                pass
+            except Exception:
+                pass
 
     return jsonify(logs)
 
@@ -279,14 +297,16 @@ def api_tool_logs():
 @app.route("/api/reload", methods=["POST"])
 def api_reload_dynamic():
     """动态重载 system prompt + tools + ToolRunner，无需重启或重选用户"""
-    if not _session.get("chat"):
+    user_name = flask_session.get("user_name") or get_active_user()
+    session_data = get_session(user_name)
+    if not session_data or not session_data.get("chat"):
         return jsonify({"error": "未选择用户"}), 400
 
-    user_dir = _session["user_dir"]
-    root = _session["root"]
-    chat = _session["chat"]
-    user_config = _session.get("user_config", {})
-    core_config = _session.get("core_config", {})
+    user_dir = session_data["user_dir"]
+    root = session_data["root"]
+    chat = session_data["chat"]
+    user_config = session_data.get("user_config", {})
+    core_config = session_data.get("core_config", {})
 
     result = {"ok": True, "reloaded": []}
     warnings = []
@@ -298,13 +318,14 @@ def api_reload_dynamic():
         TOOL_REGISTRY.clear()
         skills.register_all()
         tools = load_tool_schemas()
-        _session["tools"] = tools
+        session_data["tools"] = tools
         result["reloaded"].append(f"tools ({len(tools)})")
     except Exception as e:
         warnings.append(f"tools: {e}")
 
     # 2. 重建 system prompt
     try:
+        invalidate_prompt_cache(user_dir)
         from run.engine import build_system_prompt
         new_prompt = build_system_prompt(root, user_dir)
         chat.set_system_prompt(new_prompt)
@@ -315,7 +336,7 @@ def api_reload_dynamic():
     # 3. 重建 ToolRunner
     try:
         from run.tool import ToolRunner
-        _session["tool_runner"] = ToolRunner(core_config, user_config)
+        session_data["tool_runner"] = ToolRunner(core_config, user_config)
         result["reloaded"].append("tool_runner")
     except Exception as e:
         warnings.append(f"tool_runner: {e}")

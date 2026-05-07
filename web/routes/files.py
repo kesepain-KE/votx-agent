@@ -2,16 +2,16 @@
 import os
 import json
 
-from flask import Response, jsonify, request, send_file
+from flask import Response, jsonify, request, send_file, session as flask_session
 
 from web.server import app
-from web.session import _session
+from web.session import get_session, get_active_user
 
 
 # ---- Helpers ----
 
-def _resolve_file_dir(subdir="file"):
-    user_dir = _session.get("user_dir", "")
+def _resolve_file_dir(session_data, subdir="file"):
+    user_dir = session_data.get("user_dir", "")
     if subdir == "download":
         d = os.path.join(user_dir, "download")
     else:
@@ -20,8 +20,8 @@ def _resolve_file_dir(subdir="file"):
     return d
 
 
-def _file_rel_path(name, subdir="file"):
-    user = _session.get("user_name", "")
+def _file_rel_path(session_data, name, subdir="file"):
+    user = session_data.get("user_name", "")
     if subdir == "download":
         return os.path.join("users", user, "download", name).replace("\\", "/")
     return os.path.join("users", user, "history", "file", name).replace("\\", "/")
@@ -48,12 +48,16 @@ def _check_file_path(file_dir, filename):
 
 @app.route("/api/upload", methods=["POST"])
 def api_upload():
-    chat = _session.get("chat")
+    user_name = flask_session.get("user_name") or get_active_user()
+    session_data = get_session(user_name)
+    if not session_data:
+        return jsonify({"error": "未选择用户"}), 400
+    chat = session_data.get("chat")
     if not chat:
         return jsonify({"error": "未选择用户"}), 400
 
     subdir = request.args.get("dir", "file")
-    file_dir = _resolve_file_dir(subdir)
+    file_dir = _resolve_file_dir(session_data, subdir)
     os.makedirs(file_dir, exist_ok=True)
 
     uploaded = []
@@ -73,7 +77,7 @@ def api_upload():
             f.save(dest)
             uploaded.append({
                 "name": os.path.basename(dest),
-                "path": _file_rel_path(os.path.basename(dest), subdir),
+                "path": _file_rel_path(session_data, os.path.basename(dest), subdir),
                 "size": os.path.getsize(dest),
                 "mtime": os.path.getmtime(dest),
                 "dir": subdir,
@@ -84,10 +88,12 @@ def api_upload():
 
 @app.route("/api/files")
 def api_files():
-    if not _session.get("chat"):
+    user_name = flask_session.get("user_name") or get_active_user()
+    session_data = get_session(user_name)
+    if not session_data or not session_data.get("chat"):
         return jsonify({"error": "未选择用户"}), 400
     subdir = request.args.get("dir", "file")
-    file_dir = _resolve_file_dir(subdir)
+    file_dir = _resolve_file_dir(session_data, subdir)
     files = []
     if os.path.isdir(file_dir):
         for name in sorted(os.listdir(file_dir)):
@@ -95,7 +101,7 @@ def api_files():
             if os.path.isfile(p):
                 files.append({
                     "name": name,
-                    "path": _file_rel_path(name, subdir),
+                    "path": _file_rel_path(session_data, name, subdir),
                     "size": os.path.getsize(p),
                     "mtime": os.path.getmtime(p),
                     "dir": subdir,
@@ -105,10 +111,12 @@ def api_files():
 
 @app.route("/api/files/download/<filename>")
 def api_file_download(filename):
-    if not _session.get("chat"):
+    user_name = flask_session.get("user_name") or get_active_user()
+    session_data = get_session(user_name)
+    if not session_data or not session_data.get("chat"):
         return jsonify({"error": "未选择用户"}), 400
     subdir = request.args.get("dir", "file")
-    file_dir = _resolve_file_dir(subdir)
+    file_dir = _resolve_file_dir(session_data, subdir)
     target, err, code = _check_file_path(file_dir, filename)
     if err:
         return err, code
@@ -117,10 +125,12 @@ def api_file_download(filename):
 
 @app.route("/api/files/view/<filename>")
 def api_file_view(filename):
-    if not _session.get("chat"):
+    user_name = flask_session.get("user_name") or get_active_user()
+    session_data = get_session(user_name)
+    if not session_data or not session_data.get("chat"):
         return jsonify({"error": "未选择用户"}), 400
     subdir = request.args.get("dir", "file")
-    file_dir = _resolve_file_dir(subdir)
+    file_dir = _resolve_file_dir(session_data, subdir)
     target, err, code = _check_file_path(file_dir, filename)
     if err:
         return err, code
@@ -136,10 +146,12 @@ def api_file_view(filename):
 
 @app.route("/api/files/<filename>", methods=["DELETE"])
 def api_delete_file(filename):
-    if not _session.get("chat"):
+    user_name = flask_session.get("user_name") or get_active_user()
+    session_data = get_session(user_name)
+    if not session_data or not session_data.get("chat"):
         return jsonify({"error": "未选择用户"}), 400
     subdir = request.args.get("dir", "file")
-    file_dir = _resolve_file_dir(subdir)
+    file_dir = _resolve_file_dir(session_data, subdir)
     target, err, code = _check_file_path(file_dir, filename)
     if err:
         return err, code
@@ -152,10 +164,12 @@ def api_delete_file(filename):
 
 @app.route("/api/files", methods=["DELETE"])
 def api_delete_files_batch():
-    if not _session.get("chat"):
+    user_name = flask_session.get("user_name") or get_active_user()
+    session_data = get_session(user_name)
+    if not session_data or not session_data.get("chat"):
         return jsonify({"error": "未选择用户"}), 400
     subdir = request.args.get("dir", "file")
-    file_dir = _resolve_file_dir(subdir)
+    file_dir = _resolve_file_dir(session_data, subdir)
     real_file_dir = os.path.realpath(file_dir)
 
     data = request.get_json(silent=True) or {}

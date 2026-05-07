@@ -3,18 +3,20 @@ import json
 import os
 import traceback
 
-from flask import jsonify, request
+from flask import jsonify, request, session as flask_session
 
 from web.server import app
-from web.session import _session, _init_session
+from web.session import get_session, get_active_user
 
 
 @app.route("/api/config")
 def api_get_config():
-    if not _session.get("chat"):
+    user_name = flask_session.get("user_name") or get_active_user()
+    session_data = get_session(user_name)
+    if not session_data or not session_data.get("chat"):
         return jsonify({"error": "未选择用户"}), 400
 
-    user_dir = _session["user_dir"]
+    user_dir = session_data["user_dir"]
     config_path = os.path.join(user_dir, "config.json")
 
     try:
@@ -27,13 +29,15 @@ def api_get_config():
 
 @app.route("/api/config", methods=["POST"])
 def api_update_config():
-    if not _session.get("chat"):
+    user_name = flask_session.get("user_name") or get_active_user()
+    session_data = get_session(user_name)
+    if not session_data or not session_data.get("chat"):
         return jsonify({"error": "未选择用户"}), 400
 
     data = request.get_json() or {}
-    user_dir = _session["user_dir"]
+    user_dir = session_data["user_dir"]
     config_path = os.path.join(user_dir, "config.json")
-    user_name = _session["user_name"]
+    user_name_val = session_data["user_name"]
 
     try:
         with open(config_path, encoding="utf-8") as f:
@@ -56,15 +60,15 @@ def api_update_config():
             from provider.factory import create_provider
             try:
                 new_provider = create_provider(
-                    config, _session.get("core_config")
+                    config, session_data.get("core_config")
                 )
-                _session["provider"] = new_provider
-                _session["user_config"] = config
+                session_data["provider"] = new_provider
+                session_data["user_config"] = config
             except Exception as e:
                 return jsonify({"error": f"Provider 重建失败: {e}"}), 400
         else:
             # 非关键字段直接更新内存属性
-            provider_obj = _session.get("provider")
+            provider_obj = session_data.get("provider")
             if provider_obj:
                 for key in allowed & data.keys():
                     setattr(provider_obj, key, data[key])

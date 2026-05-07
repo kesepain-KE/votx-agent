@@ -5,6 +5,8 @@ import os
 from datetime import datetime, timezone
 from typing import Any
 
+from run.io_utils import atomic_write_json, append_jsonl, read_json_safe, atomic_write_gzip, atomic_write_text
+
 
 class ChatManager:
     """管理对话消息列表和历史记录"""
@@ -18,7 +20,7 @@ class ChatManager:
         log_file = user_hist.get("log", "chat_log.json")
         self.data_path = os.path.join(user_dir, "history", "chat", data_file)
         self.log_path = os.path.join(user_dir, "history", "log", log_file)
-        self.tool_log_path = os.path.join(user_dir, "history", "log", "tool_log.json")
+        self.tool_log_path = os.path.join(user_dir, "history", "log", "tool_log.jsonl")
         self.archive_dir = os.path.join(user_dir, "history", "archive")
         self.system_prompt = ""
         self.messages: list[dict[str, Any]] = []
@@ -121,23 +123,42 @@ class ChatManager:
 
     # ---- 持久化 ----
 
+    @staticmethod
+    def read_history_file(path: str) -> list[dict[str, Any]]:
+        """从 .json 或 .json.gz 读取消息列表"""
+        if path.endswith(".gz"):
+            import gzip
+            with gzip.open(path, "rb") as f:
+                data = json.loads(f.read().decode("utf-8"))
+        else:
+            with open(path, encoding="utf-8") as f:
+                data = json.load(f)
+        if not isinstance(data, list):
+            raise ValueError("历史文件格式错误：不是数组")
+        return data
+
+    def load_messages(self, messages: list[dict[str, Any]]) -> int:
+        """替换当前消息列表并修复 tool_calls 链，返回消息数"""
+        self.messages = list(messages)
+        self._repair_tool_chain()
+        return len(self.messages)
+
     def load_history(self):
         """从 JSON 文件恢复历史消息（损坏时自动修复 + tool_calls 链完整性检查）"""
-        if os.path.exists(self.data_path):
+        data = read_json_safe(self.data_path, default=None)
+        if data is not None and isinstance(data, list):
+            self.messages = data
+            self._repair_tool_chain()
+        elif data is None and os.path.exists(self.data_path):
+            # 文件存在但损坏，备份并重置
+            corrupt_path = self.data_path + ".corrupt"
             try:
-                with open(self.data_path, encoding="utf-8") as f:
-                    data = json.load(f)
-                if isinstance(data, list):
-                    self.messages = data
-                    self._repair_tool_chain()
-            except (json.JSONDecodeError, Exception):
-                # 损坏时备份并重置
-                corrupt_path = self.data_path + ".corrupt"
-                try:
-                    os.rename(self.data_path, corrupt_path)
-                except Exception:
-                    pass
-                self.messages = []
+                os.rename(self.data_path, corrupt_path)
+            except Exception:
+                pass
+            self.messages = []
+        else:
+            self.messages = []
 
     def _repair_tool_chain(self):
         """修复历史中的 tool_calls 链断裂
@@ -204,9 +225,7 @@ class ChatManager:
         下次启动时 Provider 因断链而报 400 错误。
         """
         self._close_tool_chain()
-        os.makedirs(os.path.dirname(self.data_path), exist_ok=True)
-        with open(self.data_path, "w", encoding="utf-8") as f:
-            json.dump(self.messages, f, ensure_ascii=False, indent=2)
+        atomic_write_json(self.data_path, self.messages, indent=2)
 
     def _close_tool_chain(self):
         """如果最后一条消息是未闭合的 assistant(tool_calls)，补上 tool 错误消息"""
@@ -226,9 +245,7 @@ class ChatManager:
 
     def save_log(self, full_messages: list[dict[str, Any]]):
         """落盘完整日志（含 system prompt + 本次响应）"""
-        os.makedirs(os.path.dirname(self.log_path), exist_ok=True)
-        with open(self.log_path, "w", encoding="utf-8") as f:
-            json.dump(full_messages, f, ensure_ascii=False, indent=2)
+        atomic_write_json(self.log_path, full_messages, indent=2)
 
     # ---- 历史压缩归档 ----
 
@@ -308,16 +325,14 @@ class ChatManager:
         try:
             os.makedirs(self.archive_dir, exist_ok=True)
             ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S_%f")
-            payload = json.dumps(old_messages, ensure_ascii=False, indent=2).encode("utf-8")
+            text = json.dumps(old_messages, ensure_ascii=False, indent=2)
 
             if self.zip_history:
                 archive_path = os.path.join(self.archive_dir, f"history_{ts}.json.gz")
-                with gzip.open(archive_path, "wb", compresslevel=6) as f:
-                    f.write(payload)
+                atomic_write_gzip(archive_path, text)
             else:
                 archive_path = os.path.join(self.archive_dir, f"history_{ts}.json")
-                with open(archive_path, "wb") as f:
-                    f.write(payload)
+                atomic_write_text(archive_path, text)
         except Exception:
             pass  # 归档失败不影响主流程
 
@@ -335,15 +350,17 @@ class ChatManager:
                 os.remove(self.data_path)
         except Exception:
             pass
-        # 同时清空工具日志
+        # 同时清空工具日志（新旧格式）
         tl_count = 0
-        try:
-            if os.path.exists(self.tool_log_path):
-                with open(self.tool_log_path, encoding="utf-8") as f:
-                    tl_count = sum(1 for _ in f)
-                os.remove(self.tool_log_path)
-        except Exception:
-            pass
+        old_log_path = os.path.join(os.path.dirname(self.tool_log_path), "tool_log.json")
+        for log_path in (self.tool_log_path, old_log_path):
+            try:
+                if os.path.exists(log_path):
+                    with open(log_path, encoding="utf-8") as f:
+                        tl_count += sum(1 for _ in f)
+                    os.remove(log_path)
+            except Exception:
+                pass
         extra = f"，{tl_count} 条工具日志已清空" if tl_count else ""
         return f"已清除 {count} 条历史消息（归档备份已保存）{extra}。"
 
@@ -363,14 +380,16 @@ class ChatManager:
             size = os.path.getsize(self.data_path) if os.path.exists(self.data_path) else 0
         except OSError:
             size = 0
-        # 工具日志条数
+        # 工具日志条数（新旧格式合并统计）
         tool_log_count = 0
-        try:
-            if os.path.exists(self.tool_log_path):
-                with open(self.tool_log_path, encoding="utf-8") as f:
-                    tool_log_count = sum(1 for _ in f)
-        except Exception:
-            pass
+        old_log_path = os.path.join(os.path.dirname(self.tool_log_path), "tool_log.json")
+        for log_path in (self.tool_log_path, old_log_path):
+            try:
+                if os.path.exists(log_path):
+                    with open(log_path, encoding="utf-8") as f:
+                        tool_log_count += sum(1 for _ in f)
+            except Exception:
+                pass
         # 归档文件数（含 .json 和 .json.gz）
         archive_count = 0
         if os.path.isdir(self.archive_dir):

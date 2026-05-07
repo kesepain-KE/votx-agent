@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse as _urlparse
 
+from run.io_utils import append_jsonl
+
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 # skills/_common/__init__.py → skills/_common → skills → 项目根
 
@@ -205,7 +207,7 @@ def _log_path() -> str | None:
         return None
     log_dir = os.path.join(user_dir, "history", "log")
     os.makedirs(log_dir, exist_ok=True)
-    return os.path.join(log_dir, "tool_log.json")
+    return os.path.join(log_dir, "tool_log.jsonl")
 
 
 _TOOL_LOG_MAX_CACHE = None
@@ -257,8 +259,7 @@ def log_tool_call(name: str, args: dict, result: str, success: bool, elapsed: fl
         "elapsed": round(elapsed, 3),
     }
     try:
-        with open(path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        append_jsonl(path, entry)
     except Exception:
         pass
 

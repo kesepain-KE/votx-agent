@@ -4,7 +4,7 @@
 
 [![License](https://img.shields.io/badge/license-MIT-orange)](./LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
-[![Multi-LLM](https://img.shields.io/badge/LLM-OpenAI%20%7C%20Anthropic-brightgreen)]()
+[![Multi-LLM](https://img.shields.io/badge/LLM-OpenAI%20%7C%20Anthropic-brightgreen)](https://platform.deepseek.com/)
 [![Flask](https://img.shields.io/badge/web-Flask%20%2B%20Vue%203-lightgrey)](https://flask.palletsprojects.com/)
 [![Docker](https://img.shields.io/badge/docker-ready-blue)](https://www.docker.com/)
 
@@ -168,12 +168,14 @@ Open `http://localhost:1478` in your browser and select a user from the left sid
 | Command | Environment | Description |
 |---|---|---|
 | `/clear` | CLI + Web | Clear the current conversation and tool logs |
-| `/history` | CLI + Web | View session statistics |
+| `/history` `/stats` | CLI + Web | View session statistics |
+| `/archive` | CLI + Web | Manually archive current conversation (without clearing) |
+| `/summarize` `/summary` | CLI + Web | Generate conversation summary and store in index |
 | `/retry` | CLI + Web | Revoke the previous AI response and regenerate |
 | `/help` | CLI + Web | Show help information |
 | `/exit` `/quit` `/q` | CLI only | Exit and automatically save history |
 
-The Web client also provides conversation archives, Markdown export, and tool-call log viewing.
+The Web client also provides: multi-user session isolation, conversation list, read-only archive preview, continue from history, conversation rename & delete, Markdown export, and tool-call log viewing.
 
 ### Conversation Example
 
@@ -212,11 +214,15 @@ votx-agent/
 │   ├── engine.py               # System prompt building and tool_calls loop
 │   ├── chat.py                 # Conversation history and archive management
 │   ├── tool.py                 # Tool registration and execution
-│   └── summarize.py            # Summary generation and archive index
+│   ├── summarize.py            # Summary generation and archive index
+│   ├── io_utils.py             # Atomic writes, JSONL, safe file I/O
+│   └── prompt_cache.py         # System prompt cache and invalidation
 │
 ├── web/                        # Web UI
 │   ├── server.py               # Flask + SSE event stream
-│   ├── routes/                 # API routes
+│   ├── session.py              # Multi-user session isolation (sharded by user_name)
+│   ├── routes/                 # API routes (chat / config / conversations / files / system)
+│   │   └── conversations.py    # Conversation list, archive preview, continue from history, rename, delete
 │   └── templates/index.html    # Vue 3 single-page frontend
 │
 ├── skills/                     # 27 Skills, tool Skills and instruction Skills
@@ -243,7 +249,7 @@ All Skills are located in the `skills/` directory and can be extended as needed.
 User input → build_system_prompt() → create_provider(config)
   → respond_stream(messages, tools) → ProviderResponse
   → Parse tool_calls → Execute tools → Return results → Continue reasoning
-  → No tool_calls or round limit reached (20 rounds) → Save history
+  → No tool_calls or configurable round limit reached (default 80) → Save history
 ```
 
 - The system prompt is dynamically assembled from the user's persona, Skill catalog, self-improvement memory, long-term memory, and other components
@@ -280,7 +286,8 @@ After a user is created, `users/<name>/` contains that user's independent person
 
 - `type`: `"openai"` (OpenAI protocol) or `"anthropic"` (Anthropic protocol)
 - `api_style`: `"responses"` (Responses API) or `"chat"` (Chat Completions), OpenAI protocol only
-- Changes take effect immediately after clicking "Save" in the Web panel. No restart required.
+- Changes take effect immediately after clicking "Save" in the Web panel (instant Provider rebuild).
+- `POST /api/reload` invalidates the prompt cache and reloads system prompt, tools, and ToolRunner.
 
 ### Priority
 

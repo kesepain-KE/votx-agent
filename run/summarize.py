@@ -3,6 +3,8 @@ import json
 import os
 import re
 
+from run.io_utils import atomic_write_json
+
 
 def index_path(user_dir: str) -> str:
     return os.path.join(user_dir, "history", "history_save_data.json")
@@ -21,9 +23,7 @@ def load_index(user_dir: str) -> dict:
 
 def save_index(user_dir: str, index: dict):
     path = index_path(user_dir)
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(index, f, ensure_ascii=False, indent=2)
+    atomic_write_json(path, index, indent=2)
 
 
 def generate_summary(provider, messages: list[dict]) -> str:

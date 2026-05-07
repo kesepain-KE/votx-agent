@@ -18,6 +18,21 @@ if _root not in sys.path:
 
 app = Flask(__name__, template_folder=os.path.join(_root, "web", "templates"))
 
+# Flask session cookie secret key — 优先读环境变量，否则用项目根路径 hash 生成
+_secret = os.environ.get("VOTX_SECRET_KEY")
+if not _secret:
+    _secret_path = os.path.join(_root, ".session_secret")
+    if os.path.exists(_secret_path):
+        with open(_secret_path, "r", encoding="utf-8") as f:
+            _secret = f.read().strip()
+    if not _secret:
+        import secrets
+        _secret = secrets.token_hex(32)
+        with open(_secret_path, "w", encoding="utf-8") as f:
+            f.write(_secret)
+        os.chmod(_secret_path, 0o600)
+app.secret_key = _secret
+
 
 # ---- Error Handlers ----
 

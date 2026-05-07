@@ -799,6 +799,14 @@
       outline-offset: 2px;
     }
 
+    .preview-banner {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; margin-bottom: 10px;
+      background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border);
+      border-radius: 12px; font-size: 13px; color: var(--text-secondary);
+    }
+    .preview-banner .btn { white-space: nowrap; }
+
     .input-row {
       display: grid; grid-template-columns: auto 1fr auto;
       gap: 8px; padding: 7px;
@@ -1385,6 +1393,12 @@
       <div class="quick">
         <button class="chip" v-for="cmd in commands" :key="cmd" @click="sendCommand(cmd)">{{ cmd }}</button>
       </div>
+      <!-- 归档预览提示 -->
+      <div v-if="isPreview" class="preview-banner">
+        <span>📋 归档预览 — 只读模式</span>
+        <button class="btn btn-ghost small" @click="continueConversation">从此对话继续</button>
+        <button class="btn btn-ghost small" @click="loadConversation({id:'__current__'})">返回当前对话</button>
+      </div>
       <div v-if="attachChips.length" style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px">
         <span class="attach-chip" v-for="(f, i) in attachChips" :key="i">
           ↑ {{ f.name }}
@@ -1393,19 +1407,19 @@
       </div>
       <div class="input-row">
         <input type="file" ref="uploadInput" multiple @change="onUploadFiles" accept="*/*" style="display:none">
-        <button class="upload-btn" @click="$refs.uploadInput.click()" title="上传文件">↑</button>
+        <button class="upload-btn" @click="$refs.uploadInput.click()" title="上传文件" :disabled="isPreview">↑</button>
         <textarea
           ref="textInput"
           v-model="input"
-          :disabled="!userActive || running"
-          placeholder="输入消息或 / 命令... (Enter 发送, Shift+Enter 换行)"
+          :disabled="!userActive || running || isPreview"
+          :placeholder="isPreview ? '归档预览模式（只读），请点击「从此对话继续」后再聊天' : '输入消息或 / 命令... (Enter 发送, Shift+Enter 换行)'"
           rows="1"
           @keydown.enter.exact.prevent="sendMessage"
           @input="autoResize"
           style="resize:none;overflow-y:auto;min-height:22px;max-height:150px;line-height:1.5;width:100%"
         ></textarea>
         <button v-if="running" class="send-btn stop" @click="stopRun">停止</button>
-        <button v-else class="send-btn" :disabled="!userActive" @click="sendMessage">发送</button>
+        <button v-else class="send-btn" :disabled="!userActive || isPreview" @click="sendMessage">发送</button>
       </div>
     </footer>
   </main>
@@ -1577,7 +1591,10 @@ createApp({
       conversations: [],
       activeConv: '__current__',
       showConvManager: false,
-      commands: ['/clear', '/history', '/retry', '/help'],
+      isPreview: false,
+      previewConvId: null,
+      previewConvKind: null,
+      commands: ['/clear', '/history', '/retry', '/help', '/stats', '/archive', '/summarize', '/new'],
 
       messages: [],
       input: '',
@@ -1786,49 +1803,92 @@ createApp({
 
     async loadConversation(c) {
       if (!this.userActive) return;
-      if (c.id === '__current__') { this.toast('已在当前对话'); return; }
-      if (!confirm('加载此对话将替换当前对话（已自动保存），继续？')) return;
+      // 预览当前对话 — 从 /api/messages 加载
+      if (c.id === '__current__') {
+        this.isPreview = false;
+        this.previewConvId = null;
+        this.previewConvKind = null;
+        this.messages = [];
+        try {
+          const msgs = await this.api('/api/messages');
+          if (Array.isArray(msgs)) this.renderMessages(msgs);
+          this.chatTitle = (this.profileName || '') + ' · 当前对话';
+          this.activeConv = c.id;
+          this.scrollBottom();
+        } catch (e) { this.toast('加载失败: ' + e.message); }
+        return;
+      }
+      // 归档预览 — 只读，不覆盖当前对话
       try {
-        const d = await this.api('/api/load-conversation', {
+        const d = await this.api('/api/conversations/load', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id: c.id }),
         });
         if (d.error) { this.toast('加载失败: ' + d.error); return; }
         this.messages = [];
-        this.chatTitle = (this.profileName || '') + ' · ' + (c.label || (d.msg_count ? '历史对话' : '新对话'));
+        this.renderMessages(d.messages || []);
+        this.isPreview = true;
+        this.previewConvId = c.id;
+        this.previewConvKind = 'archive';
+        this.chatTitle = (this.profileName || '') + ' · 预览: ' + (c.label || d.id);
         this.activeConv = c.id;
-        this.pushSysMsg('已加载对话 (' + (d.msg_count || 0) + ' 条消息)');
+        this.pushSysMsg('📋 归档预览（只读），点击「从此对话继续」可恢复为当前对话');
+        this.scrollBottom();
+      } catch (e) { this.toast('加载失败: ' + e.message); }
+    },
 
-        // 加载消息
+    async continueConversation() {
+      if (!this.isPreview || !this.previewConvId) return;
+      if (!confirm('将当前对话自动归档后，加载此历史对话为当前对话，继续？')) return;
+      try {
+        const d = await this.api('/api/conversations/continue', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: this.previewConvId }),
+        });
+        if (d.error) { this.toast('继续失败: ' + d.error); return; }
+        this.isPreview = false;
+        this.previewConvId = null;
+        this.previewConvKind = null;
+        this.activeConv = '__current__';
+        this.messages = [];
+        // 重新加载当前对话消息
         const msgs = await this.api('/api/messages');
-        if (Array.isArray(msgs)) {
-          for (const m of msgs) {
-            if (m.role === 'system') continue;
-            if (m.role === 'user') {
-              this.pushUserMsg(m.content || '', []);
-            } else if (m.role === 'assistant') {
-              const msg = this.startAssistantMsg();
-              if (m.tool_calls) {
-                for (const tc of m.tool_calls) {
-                  const name = tc.function?.name || 'unknown';
-                  let args = {};
-                  try { args = JSON.parse(tc.function?.arguments || '{}'); } catch (e) {}
-                  msg.tools.push(this.makeToolCard(name, args, 0, true));
-                }
-              }
-              if (m.content) {
-                msg.content = m.content;
-                msg._raw = '';
-                msg.streaming = false;
-              }
-            }
-          }
-        }
+        if (Array.isArray(msgs)) this.renderMessages(msgs);
+        this.chatTitle = (this.profileName || '') + ' · 当前对话';
+        this.pushSysMsg('已恢复 ' + (d.msg_count || 0) + ' 条历史消息为当前对话');
         this.refreshOverview();
         this.scrollBottom();
-        this.toast('对话已加载');
-      } catch (e) { this.toast('加载失败: ' + e.message); }
+      } catch (e) { this.toast('继续失败: ' + e.message); }
+    },
+
+    renderMessages(msgs) {
+      for (const m of msgs) {
+        if (m.role === 'system') continue;
+        if (m.role === 'user') {
+          this.pushUserMsg(m.content || '', []);
+        } else if (m.role === 'assistant') {
+          const msg = this.startAssistantMsg();
+          msg.streaming = false;
+          if (m.tool_calls) {
+            for (const tc of m.tool_calls) {
+              const name = tc.function?.name || 'unknown';
+              let args = {};
+              try { args = JSON.parse(tc.function?.arguments || '{}'); } catch (e) {}
+              msg.tools.push(this.makeToolCard(name, args, 0, true));
+            }
+          }
+          if (m.content) {
+            msg.content = m.content;
+            msg._raw = '';
+          }
+          if (m.reasoning_content) {
+            msg.think = m.reasoning_content;
+            msg.thinkOpen = false;
+          }
+        }
+      }
     },
 
     openConvManager() {
@@ -1925,9 +1985,13 @@ createApp({
         const d = await this.api('/api/command', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ command: '/clear' }),
+          body: JSON.stringify({ command: '/new' }),
         });
         this.messages = [];
+        this.isPreview = false;
+        this.previewConvId = null;
+        this.previewConvKind = null;
+        this.activeConv = '__current__';
         this.chatTitle = (this.profileName || '') + ' · 新对话';
         this.pushSysMsg(d.content || '已创建新对话');
         this.refreshOverview();
@@ -2030,6 +2094,7 @@ createApp({
     async sendMessage() {
       const text = this.input.trim();
       if (!text || !this.userActive || this.running) return;
+      if (this.isPreview) { this.toast('归档预览模式下无法发送消息，请先点击「从此对话继续」'); return; }
 
       // 组装附件路径
       const attachPaths = this.attachChips.map(c => c.path).filter(Boolean);

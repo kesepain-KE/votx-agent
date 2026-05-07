@@ -13,15 +13,26 @@ if TYPE_CHECKING:
 TOOL_REGISTRY: dict[str, Any] = {}
 
 
-def register_tool(schema: dict, handler):
+def register_tool(schema: dict, handler, meta: dict = None):
     """注册工具到全局表"""
-    TOOL_REGISTRY[schema["function"]["name"]] = (schema, handler)
+    name = schema["function"]["name"]
+    TOOL_REGISTRY[name] = (schema, handler, meta or {})
 
 
 def load_tool_schemas() -> list[dict[str, Any]]:
     """返回排序后的 schema 列表"""
     items = sorted(TOOL_REGISTRY.values(), key=lambda x: x[0]["function"]["name"])
-    return [s for s, _ in items]
+    return [s for s, *_ in items]  # 取第一个元素（schema），兼容二元组和三元组
+
+
+def clear_tool_registry():
+    """清空全局工具注册表（reload 前调用）"""
+    TOOL_REGISTRY.clear()
+
+
+def get_tool_registry_snapshot() -> dict[str, Any]:
+    """返回当前注册表的浅拷贝"""
+    return dict(TOOL_REGISTRY)
 
 
 class ToolRunner:
@@ -104,7 +115,8 @@ class ToolRunner:
             t0 = _time.perf_counter()
             try:
                 if name in TOOL_REGISTRY:
-                    _, handler = TOOL_REGISTRY[name]
+                    entry = TOOL_REGISTRY[name]
+                    handler = entry[1]  # handler 始终是第二个元素
                     with ThreadPoolExecutor(max_workers=1) as executor:
                         future = executor.submit(handler, **args)
                         try:

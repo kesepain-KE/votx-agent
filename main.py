@@ -7,7 +7,8 @@ import sys
 
 from provider.factory import create_provider
 from run.chat import ChatManager
-from run.engine import build_system_prompt, run_chat_turn, _fmt_tool_line
+from run.engine import run_chat_turn, _fmt_tool_line
+from run.prompt_cache import build_cached_system_prompt
 from run.summarize import summarize_and_store, sync_to_new_archives
 from run.tool import ToolRunner, load_tool_schemas
 
@@ -30,7 +31,7 @@ def main():
     # 初始化 provider 和工具系统
     provider = create_provider(user_config, core_config)
     tool_runner = ToolRunner(core_config, user_config)
-    system_prompt = build_system_prompt(root, user_dir)  # 内部调用 register_all() 填充 TOOL_REGISTRY
+    system_prompt = build_cached_system_prompt(root, user_dir)  # 内部调用 register_all() 填充 TOOL_REGISTRY
     tools = load_tool_schemas()  # 必须在 build_system_prompt 之后，否则注册表为空
 
     # 初始化对话管理
