@@ -1,6 +1,7 @@
 """工具执行 - 注册 / 权限 / 限流 / 日志"""
 import json
 import time as _time
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from typing import Any, TYPE_CHECKING
 
 from skills._common import err, log_tool_call
@@ -32,6 +33,10 @@ class ToolRunner:
         self.max_per_tool = tool_cfg.get("tool_max_per_tool", 80)  # 单工具上限
         self.call_count = 0
         self.per_tool_count: dict[str, int] = {}
+
+        # 工具执行超时（复用 provider.timeout，默认 120s）
+        provider_cfg = (user_config or {}).get("provider", {})
+        self.tool_timeout = provider_cfg.get("timeout", 120)
 
         # 权限：从用户配置读取（deny 优先）
         ucfg = (user_config or {}).get("tool", {})
@@ -95,13 +100,20 @@ class ToolRunner:
                 log_tool_call(name, {}, limit_err, False, 0)
                 continue
 
-            # 执行
+            # 执行（带全局超时）
             t0 = _time.perf_counter()
             try:
                 if name in TOOL_REGISTRY:
                     _, handler = TOOL_REGISTRY[name]
-                    output = str(handler(**args))
-                    success = not output.startswith("ERROR:")
+                    with ThreadPoolExecutor(max_workers=1) as executor:
+                        future = executor.submit(handler, **args)
+                        try:
+                            result = future.result(timeout=self.tool_timeout)
+                            output = str(result)
+                            success = not output.startswith("ERROR:")
+                        except FutureTimeoutError:
+                            output = err(f"工具 {name} 执行超时 ({self.tool_timeout}s)")
+                            success = False
                 else:
                     output = err(f"工具 {name} 未注册")
                     success = False
