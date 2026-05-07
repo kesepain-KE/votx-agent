@@ -15,7 +15,7 @@ from run.tool import register_tool
 def _load_user_config() -> dict:
     """加载当前用户配置，自动探测活跃用户目录。"""
     from paths import get_project_root
-    root = get_project_root()
+    root = Path(get_project_root())
     users_dir = root / 'users'
 
     configs = sorted(users_dir.glob('*/config.json'), key=lambda p: p.stat().st_mtime, reverse=True)
