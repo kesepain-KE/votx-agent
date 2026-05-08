@@ -27,15 +27,8 @@ htmlcov/
 # ============================================================
 # 用户私有数据
 # ============================================================
-users/*/history/
-users/*/download/
-users/*/memory/
-users/*/config.json
-users/*/agent_memory.db
-users/*/tool_log.jsonl
-users/*/.learnings/
-users/*/self-improving/
-!users/*/config.example.json
+users/*
+!users/.gitkeep
 
 # ============================================================
 # 知识图谱数据（运行时生成）
