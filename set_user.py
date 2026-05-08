@@ -211,7 +211,7 @@ def add_user(name: str = "") -> str | None:
             "data": f"{name}_chat_data.json",
             "log": f"{name}_chat_log.json",
         },
-        "tool": {"enabled": {}, "deny": []},
+        "tool": {"tool_timeout": 120, "enabled": {}, "deny": []},
     }
     _write_config(user_dir, config)
 

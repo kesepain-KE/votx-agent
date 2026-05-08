@@ -45,9 +45,15 @@ class ToolRunner:
         self.call_count = 0
         self.per_tool_count: dict[str, int] = {}
 
-        # 工具执行超时（复用 provider.timeout，默认 120s）
+        # 工具执行超时，优先级：user_config.tool.tool_timeout > core_config.tool.tool_timeout > provider.timeout > 120s
+        user_tool_cfg = (user_config or {}).get("tool", {})
         provider_cfg = (user_config or {}).get("provider", {})
-        self.tool_timeout = provider_cfg.get("timeout", 120)
+        self.tool_timeout = (
+            user_tool_cfg.get("tool_timeout")
+            or tool_cfg.get("tool_timeout")
+            or provider_cfg.get("timeout")
+            or 120
+        )
 
         # 权限：从用户配置读取（deny 优先）
         ucfg = (user_config or {}).get("tool", {})
