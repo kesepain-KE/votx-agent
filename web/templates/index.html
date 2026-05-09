@@ -1339,7 +1339,7 @@
         <button class="btn btn-ghost mini" @click="newChat">新对话</button>
       </div>
     </header>
-    <div class="chat" ref="chatEl">
+    <div class="chat" ref="chatEl" @scroll="onChatScroll">
       <template v-for="m in messages" :key="m.id">
         <div v-if="m.type === 'sys'" class="sys-msg">{{ m.content }}</div>
         <div v-else-if="m.type === 'error'" class="sys-error">⚠ {{ m.content }}</div>
@@ -1353,12 +1353,12 @@
             <!-- 图片预览 (用户消息) -->
             <img v-for="img in (m.images || [])" :key="img.name" :src="'/api/files/view/' + encodeURIComponent(img.name) + (img.dir && img.dir !== 'file' ? '?dir=' + img.dir : '')" :alt="img.name" style="max-width:100%;max-height:260px;border-radius:12px;margin-bottom:6px;display:block" loading="lazy">
             <!-- 思考块 -->
-            <div v-if="m.think" class="think-block" :class="{ open: m.thinkOpen }">
+            <div v-if="m.think && showThinking" class="think-block" :class="{ open: m.thinkOpen }">
               <div class="think-header" @click="m.thinkOpen = !m.thinkOpen">💭 思考过程</div>
               <div class="think-body">{{ m.think }}</div>
             </div>
             <!-- 工具调用 -->
-            <div v-for="tc in (m.tools || [])" :key="tc._key" class="tool-call" :class="{ open: tc.open }" v-show="showTaskExecution">
+            <div v-for="tc in (m.tools || [])" :key="tc._key" class="tool-call" :class="{ open: tc.open }" v-show="showToolCalls">
               <div class="tc-header" @click="tc.open = !tc.open">
                 <span>{{ tc.icon }}</span>
                 <span class="tc-name">{{ tc.name }}</span>
@@ -1452,8 +1452,12 @@
             <div class="switch" :class="{ on: config.stream }" @click="toggleConfigSwitch('stream')"></div>
           </div>
           <div class="toggle-card">
-            <div><b>任务执行显示</b><p style="color:var(--text-secondary);font-size:11px;margin-top:2px">显示/隐藏工具调用</p></div>
-            <div class="switch" :class="{ on: showTaskExecution }" @click="showTaskExecution = !showTaskExecution"></div>
+            <div><b>调用工具显示</b><p style="color:var(--text-secondary);font-size:11px;margin-top:2px">显示/隐藏工具调用卡片</p></div>
+            <div class="switch" :class="{ on: showToolCalls }" @click="showToolCalls = !showToolCalls"></div>
+          </div>
+          <div class="toggle-card">
+            <div><b>思考过程显示</b><p style="color:var(--text-secondary);font-size:11px;margin-top:2px">显示/隐藏 AI 思考过程</p></div>
+            <div class="switch" :class="{ on: showThinking }" @click="showThinking = !showThinking"></div>
           </div>
           <div class="item">
             <div class="item-top"><b>用户模型设置</b><span class="pill">{{ selectedUser || '—' }}</span></div>
@@ -1482,7 +1486,7 @@
           </div>
           <div style="display:flex;gap:8px;margin-top:12px">
             <button class="btn btn-primary small" style="flex:1" @click="saveAllConfig">保存</button>
-            <button class="btn btn-ghost small" style="flex:1" @click="applyConfig">应用</button>
+            <button class="btn btn-ghost small" style="flex:1" @click="applyConfig">重新加载</button>
             <button class="btn btn-ghost small" style="flex:1" @click="restoreConfig">恢复</button>
             <button class="btn btn-ghost small" style="flex:1" @click="reloadAgent">🔄 重载</button>
           </div>
@@ -1577,9 +1581,11 @@ createApp({
       selectErr: '',
       refreshing: false,
       dragging: false,
+      userScrolledUp: false,
       dragCounter: 0,
       running: false,
-      showTaskExecution: true,
+      showToolCalls: true,
+      showThinking: true,
 
       stats: { messages: '—', tools: '—', size: '—' },
       profileName: '未连接',
@@ -1641,9 +1647,13 @@ createApp({
     fileGroups() {
       const upload = this.files.filter(f => f.dir === 'file');
       const download = this.files.filter(f => f.dir === 'download');
+      const knowledgeUser = this.files.filter(f => f.dir === 'knowledge');
+      const knowledgeGlobal = this.files.filter(f => f.dir === 'global-knowledge');
       const groups = [];
-      if (upload.length) groups.push({ label: '上传文件', files: upload });
       if (download.length) groups.push({ label: '下载文件', files: download });
+      if (upload.length) groups.push({ label: '上传文件', files: upload });
+      if (knowledgeUser.length) groups.push({ label: '知识库（用户）', files: knowledgeUser });
+      if (knowledgeGlobal.length) groups.push({ label: '知识库（全局）', files: knowledgeGlobal });
       return groups;
     },
   },
@@ -1679,11 +1689,19 @@ createApp({
     encodeURIComponent,
 
     // ---- Scroll ----
-    scrollBottom() {
+    scrollBottom(force) {
+      if (force !== true && this.userScrolledUp) return;
       this.$nextTick(() => {
         const el = this.$refs.chatEl;
         if (el) el.scrollTop = el.scrollHeight;
       });
+    },
+
+    onChatScroll() {
+      const el = this.$refs.chatEl;
+      if (!el) return;
+      const threshold = 60;
+      this.userScrolledUp = (el.scrollHeight - el.scrollTop - el.clientHeight) > threshold;
     },
 
     // ---- Auto resize textarea ----
@@ -1803,6 +1821,8 @@ createApp({
 
     async loadConversation(c) {
       if (!this.userActive) return;
+      if (this.running) this.stopRun();
+      this.userScrolledUp = false;
       // 预览当前对话 — 从 /api/messages 加载
       if (c.id === '__current__') {
         this.isPreview = false;
@@ -1812,7 +1832,7 @@ createApp({
         try {
           const msgs = await this.api('/api/messages');
           if (Array.isArray(msgs)) this.renderMessages(msgs);
-          this.chatTitle = (this.profileName || '') + ' · 当前对话';
+          this.chatTitle = (this.profileName || '') + ' · ' + (c.summary || c.label || '当前对话');
           this.activeConv = c.id;
           this.scrollBottom();
         } catch (e) { this.toast('加载失败: ' + e.message); }
@@ -1826,9 +1846,13 @@ createApp({
           body: JSON.stringify({ id: c.id }),
         });
         if (d.error) { this.toast('加载失败: ' + d.error); return; }
-        this.messages = [];
-        this.renderMessages(d.messages || []);
         this.isPreview = true;
+        this.messages = [];
+        // 归档预览：数据层剥离工具调用和思考过程，只保留对话正文
+        this.renderMessages((d.messages || []).map(m => {
+          if (m.role === 'assistant') { const { tool_calls, reasoning_content, ...rest } = m; return rest; }
+          return m;
+        }));
         this.previewConvId = c.id;
         this.previewConvKind = 'archive';
         this.chatTitle = (this.profileName || '') + ' · 预览: ' + (c.label || d.id);
@@ -1853,6 +1877,7 @@ createApp({
         this.previewConvKind = null;
         this.activeConv = '__current__';
         this.messages = [];
+        await this.$nextTick();
         // 重新加载当前对话消息
         const msgs = await this.api('/api/messages');
         if (Array.isArray(msgs)) this.renderMessages(msgs);
@@ -1871,7 +1896,7 @@ createApp({
         } else if (m.role === 'assistant') {
           const msg = this.startAssistantMsg();
           msg.streaming = false;
-          if (m.tool_calls) {
+          if (m.tool_calls && !this.isPreview) {
             for (const tc of m.tool_calls) {
               const name = tc.function?.name || 'unknown';
               let args = {};
@@ -1883,7 +1908,7 @@ createApp({
             msg.content = m.content;
             msg._raw = '';
           }
-          if (m.reasoning_content) {
+          if (m.reasoning_content && !this.isPreview) {
             msg.think = m.reasoning_content;
             msg.thinkOpen = false;
           }
@@ -1898,6 +1923,7 @@ createApp({
       this.showConvManager = false;
     },
     async loadFromManager(c) {
+      if (this.running) this.stopRun();
       this.closeConvManager();
       await this.loadConversation(c);
     },
@@ -1921,12 +1947,6 @@ createApp({
       const b = el ? el.querySelector('b') : null;
       const next = prompt('输入新的对话名', (b ? b.textContent.replace('★ ', '') : '') || c.label);
       if (!next || !next.trim()) return;
-      if (c.id === '__current__') {
-        const conv = this.conversations.find(x => x.id === '__current__');
-        if (conv) { conv.summary = next.trim(); conv.label = next.trim(); }
-        this.toast('当前对话名已更新');
-        return;
-      }
       try {
         const d = await this.api('/api/conversations/' + c.id + '/rename', {
           method: 'POST',
@@ -1981,6 +2001,7 @@ createApp({
 
     async newChat() {
       if (!this.userActive) return;
+      if (this.running) this.stopRun();
       try {
         const d = await this.api('/api/command', {
           method: 'POST',
@@ -2071,7 +2092,7 @@ createApp({
           await this.streamChat(d.content);
           return;
         }
-        if (cmd === '/clear') {
+        if (cmd === '/clear' || cmd === '/new') {
           this.messages = [];
         }
         this.refreshOverview();
@@ -2104,10 +2125,11 @@ createApp({
         fullMsg = attachPaths.join('\n') + '\n' + text;
       }
 
+      this.userScrolledUp = false;
       this.pushUserMsg(fullMsg, imageInfos);
       this.input = '';
       this.attachChips = [];
-      this.scrollBottom();
+      this.scrollBottom(true);
 
       await this.streamChat(fullMsg);
       this.scrollBottom();
@@ -2115,6 +2137,7 @@ createApp({
 
     // ---- SSE Streaming ----
     async streamChat(message) {
+      this.userScrolledUp = false;
       this.running = true;
       this._abortCtrl = new AbortController();
       const reqStart = Date.now();
@@ -2247,6 +2270,8 @@ createApp({
     stopRun() {
       if (this._abortCtrl) {
         this._abortCtrl.abort();
+        this._abortCtrl = null;
+        this.running = false;
         this.toast('已停止运行');
       }
     },
@@ -2317,15 +2342,21 @@ createApp({
     async loadFileList() {
       if (!this.userActive) return;
       try {
-        const [r1, r2] = await Promise.all([
+        const [r1, r2, r3, r4] = await Promise.all([
           this.api('/api/files?dir=file'),
           this.api('/api/files?dir=download'),
+          this.api('/api/files?dir=knowledge'),
+          this.api('/api/files?dir=global-knowledge'),
         ]);
         const f1 = Array.isArray(r1) ? r1 : [];
         const f2 = Array.isArray(r2) ? r2 : [];
+        const f3 = Array.isArray(r3) ? r3 : [];
+        const f4 = Array.isArray(r4) ? r4 : [];
         this.files = [
           ...f1.map(f => ({ ...f, dir: 'file', _key: 'f-' + f.path, checked: false, sizeStr: fmtSize(f.size), mtimeStr: fmtTime(f.mtime) })),
           ...f2.map(f => ({ ...f, dir: 'download', _key: 'd-' + f.path, checked: false, sizeStr: fmtSize(f.size), mtimeStr: fmtTime(f.mtime) })),
+          ...f3.map(f => ({ ...f, dir: 'knowledge', _key: 'k-' + f.path, checked: false, sizeStr: fmtSize(f.size), mtimeStr: fmtTime(f.mtime) })),
+          ...f4.map(f => ({ ...f, dir: 'global-knowledge', _key: 'gk-' + f.path, checked: false, sizeStr: fmtSize(f.size), mtimeStr: fmtTime(f.mtime) })),
         ];
       } catch (e) { /* ignore */ }
     },
@@ -2355,7 +2386,7 @@ createApp({
           const d = await this.api('/api/files?dir=' + dir, { method: 'DELETE' });
           total += (d.deleted || 0);
         }
-        this.files = [];
+        this.files = this.files.filter(f => f.dir !== 'file' && f.dir !== 'download');
         this.toast('已删除 ' + total + ' 个文件');
       } catch (e) { this.toast('删除失败: ' + e.message); }
     },
@@ -2478,6 +2509,8 @@ createApp({
         apiStyle: this.config.apiStyle,
         model: this.config.model,
         baseUrl: this.config.baseUrl,
+        think: this.config.think,
+        stream: this.config.stream,
       };
     },
 
@@ -2499,7 +2532,7 @@ createApp({
       if (!this.userActive) { this.toast('请先选择用户'); return; }
       await this.loadDebugConfig();
       this.snapshotConfig();
-      this.toast('配置已应用');
+      this.toast('配置已从磁盘重新加载');
     },
 
     async reloadAgent() {
@@ -2521,6 +2554,8 @@ createApp({
       this.config.apiStyle = this.lastSavedConfig.apiStyle || '';
       this.config.model = this.lastSavedConfig.model || '';
       this.config.baseUrl = this.lastSavedConfig.baseUrl || '';
+      if ('think' in this.lastSavedConfig) this.config.think = this.lastSavedConfig.think;
+      if ('stream' in this.lastSavedConfig) this.config.stream = this.lastSavedConfig.stream;
       this.toast('已恢复到上次保存状态');
     },
 

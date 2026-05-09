@@ -64,7 +64,9 @@ def api_system_prompt():
 
     other_parts = []
 
-    # ── 1. Skill 目录 ──
+    # ── 顺序与 engine.py build_system_prompt() 保持一致 ──
+
+    # 1. Skill 目录
     skill_lines = []
     skills_dir = os.path.join(root, "skills")
     if os.path.isdir(skills_dir):
@@ -92,17 +94,40 @@ def api_system_prompt():
         other_parts.append("## Skill 目录（共 {} 个）\n\n{}".format(
             len(skill_lines), "\n".join(sorted(skill_lines))))
 
-    # ── 2. 会话状态 ──
-    session_state = os.path.join(root, "SESSION-STATE.md")
-    if os.path.exists(session_state):
-        try:
-            content = open(session_state, encoding="utf-8").read().strip()
-            if content:
-                other_parts.append("## 会话状态 (SESSION-STATE.md)\n\n" + content)
-        except Exception:
-            pass
+    # 2. 知识库索引（双层架构，data_structure.md）
+    user_kb = os.path.join(user_dir, "knowledge")
+    global_kb = os.path.join(root, "knowledge")
+    has_user_kb = os.path.isdir(user_kb)
+    has_global_kb = os.path.isdir(global_kb)
 
-    # ── 3. 自改进记忆 (HOT) ──
+    if has_user_kb or has_global_kb:
+        user_kb_rel = os.path.relpath(user_kb, root).replace("\\", "/")
+        kb_parts = ["## 知识库（双层架构）\n"]
+        kb_parts.append(f"- **用户级知识库（默认读写）**: `{user_kb_rel}/`")
+        if has_user_kb:
+            user_ds = os.path.join(user_kb, "data_structure.md")
+            if os.path.isfile(user_ds):
+                try:
+                    ds = open(user_ds, encoding="utf-8").read().strip()
+                    if ds:
+                        kb_parts.append(f"\n### 用户知识库索引 (data_structure.md)\n{ds}")
+                except Exception:
+                    pass
+        global_kb_rel = os.path.relpath(global_kb, root).replace("\\", "/")
+        kb_parts.append(f"- **全局知识库（只读）**: `{global_kb_rel}/`")
+        if has_global_kb:
+            global_ds = os.path.join(global_kb, "data_structure.md")
+            if os.path.isfile(global_ds):
+                try:
+                    ds = open(global_ds, encoding="utf-8").read().strip()
+                    if ds:
+                        kb_parts.append(f"\n### 全局知识库索引 (data_structure.md)\n{ds}")
+                except Exception:
+                    pass
+        kb_parts.append("- **规则**: 检索同时搜索两层，用户级优先；默认写入用户级，明确说\"写入全局\"才写全局")
+        other_parts.append("\n".join(kb_parts))
+
+    # 3. 自改进记忆 (HOT Tier)
     si_mem = os.path.join(user_dir, "self-improving", "memory.md")
     if os.path.exists(si_mem):
         try:
@@ -112,7 +137,7 @@ def api_system_prompt():
         except Exception:
             pass
 
-    # ── 4. 纠正记录 ──
+    # 4. 纠正记录
     si_corr = os.path.join(user_dir, "self-improving", "corrections.md")
     if os.path.exists(si_corr):
         try:
@@ -122,7 +147,7 @@ def api_system_prompt():
         except Exception:
             pass
 
-    # ── 5. mem_* 长期记忆 ──
+    # 5. 长期记忆 (mem_* 文件)
     mem_dir = os.path.join(user_dir, "memory")
     if os.path.isdir(mem_dir):
         mem_files = sorted(
@@ -134,7 +159,6 @@ def api_system_prompt():
                 mem_lines.append(f"\n### {fn}\n")
                 try:
                     c = open(os.path.join(mem_dir, fn), encoding="utf-8").read()
-                    # 限制单文件长度
                     if len(c) > 3000:
                         c = c[:3000] + "\n\n…(截断)"
                     mem_lines.append(c)
@@ -142,18 +166,13 @@ def api_system_prompt():
                     mem_lines.append("(无法读取)")
             other_parts.append("\n".join(mem_lines))
 
-    # ── 6. 知识图谱摘要 ──
-    graph_path = os.path.join(root, "memory", "ontology", "graph.jsonl")
-    if os.path.exists(graph_path):
+    # 6. 会话状态 (SESSION-STATE.md) — 最后叠加
+    session_state = os.path.join(root, "SESSION-STATE.md")
+    if os.path.exists(session_state):
         try:
-            entity_count = sum(1 for _ in open(graph_path, encoding="utf-8"))
-            other_parts.append(
-                "## 知识图谱 (Ontology)\n\n"
-                "路径: `memory/ontology/graph.jsonl`\n"
-                "实体总数: {} 条\n"
-                "Schema: `memory/ontology/schema.yaml`\n"
-                "\n> 使用 ontology_* 工具查询和操作知识图谱。".format(entity_count)
-            )
+            content = open(session_state, encoding="utf-8").read().strip()
+            if content:
+                other_parts.append("## 会话状态 (SESSION-STATE.md)\n\n" + content)
         except Exception:
             pass
 

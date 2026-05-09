@@ -341,6 +341,18 @@ def api_rename_conversation(conv_id):
         return jsonify({"error": "缺少 name 参数"}), 400
 
     user_dir = session_data["user_dir"]
+
+    # __current__ 没有实体文件，更新索引中的 summary
+    if conv_id == "__current__":
+        from run.summarize import load_index, save_index
+        try:
+            idx = load_index(user_dir)
+            idx.setdefault("chat_data.json", {})["summary"] = new_name
+            save_index(user_dir, idx)
+            return jsonify({"ok": True, "new_name": new_name})
+        except Exception as e:
+            return jsonify({"error": f"更新失败: {e}"}), 500
+
     archive_dir = os.path.join(user_dir, "history", "archive")
     old_path = os.path.join(archive_dir, conv_id)
 

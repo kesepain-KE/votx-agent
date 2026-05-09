@@ -37,7 +37,8 @@ Most AI Agent frameworks on GitHub are built for single-user, English-first scen
 
 - **Dual protocol support**: OpenAI protocol (Responses API / Chat Completions) and Anthropic protocol (Messages API) with a unified internal format
 - **Multi-vendor access**: DeepSeek / Anthropic / Azure / SiliconFlow / Groq / Xiaomi Mimo — switch by changing `base_url`
-- **Multi-user isolation**: each user has an independent persona (`self_soul.md`), conversation history, long-term memory, tool logs, and file space
+- **Multi-user isolation**: each user has an independent persona (`self_soul.md`), conversation history, long-term memory, knowledge base, and file space
+- **Dual-level knowledge base**: user-level (default read/write) + global-level (read-only shared), hierarchical index navigation, PDF/Excel retrieval support
 - **Dual client support**: Vue 3 Web UI and CLI terminal share the same `run/engine.py` conversation engine with consistent behavior
 - **Self-learning**: failed tool calls are automatically recorded as lessons and injected as rules before future conversations
 - **Long-conversation friendly**: automatic summaries and archives keep context from growing without bound
@@ -225,7 +226,7 @@ votx-agent/
 │   │   └── conversations.py    # Conversation list, archive preview, continue from history, rename, delete
 │   └── templates/index.html    # Vue 3 single-page frontend
 │
-├── skills/                     # 27 Skills, tool Skills and instruction Skills
+├── skills/                     # 28 Skills, tool Skills and instruction Skills
 ├── config/                     # Global configuration and AI execution rules
 ├── tmp/                        # Agent temp files (scripts, runtime artifacts, pushable)
 ├── users/                      # User data, personas, history, memory, files
@@ -237,7 +238,7 @@ votx-agent/
 | Category | Count | Description |
 |---|---:|---|
 | Tool Skills | 12 | Register function calling tools: file read/write, HTTP requests, shell execution, time, Word documents, video download, web search, hotboard query, long-term memory, ontology, universal vision, and Markdown conversion |
-| Instruction Skills | 15 | Inject system prompt behavior guides: vision recognition, file search, PDF processing, web content fetching, self-improvement memory, OpenCLI adapter authoring & auto-fix, browser automation, smart search routing, and more |
+| Instruction Skills | 16 | Inject system prompt behavior guides: vision recognition, file search, PDF processing, web content fetching, self-improvement memory, knowledge base retrieval, OpenCLI adapter authoring & auto-fix, browser automation, smart search routing, and more |
 
 All Skills are located in the `skills/` directory and can be extended as needed.
 
@@ -252,7 +253,7 @@ User input → build_system_prompt() → create_provider(config)
   → No tool_calls or configurable round limit reached (default 80) → Save history
 ```
 
-- The system prompt is dynamically assembled from the user's persona, Skill catalog, self-improvement memory, long-term memory, and other components
+- The system prompt is dynamically assembled from the user's persona, Skill catalog, self-improvement memory, long-term memory, knowledge base paths, and other components
 - The Web UI streams reasoning progress and response content in real time through SSE
 - Tool-call chaining is automatically repaired when needed and supports multi-round continuous reasoning
 

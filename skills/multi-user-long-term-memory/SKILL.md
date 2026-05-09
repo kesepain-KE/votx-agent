@@ -1,3 +1,8 @@
+---
+name: multi-user-long-term-memory
+description: 多用户长期记忆工具。用户说"记住/保存/记录XX"时用 mem_save 存储，说"回忆/之前说过什么/帮我查下记忆"时用 mem_get/mem_search 检索。按用户隔离，跨会话持久化。
+---
+
 # Multi-User Long-Term Memory Skill
 
 ## 功能

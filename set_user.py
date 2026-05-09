@@ -82,6 +82,9 @@ def _ensure_dirs(user_dir: Path):
     # 长期记忆
     (user_dir / "memory").mkdir(parents=True, exist_ok=True)
 
+    # 知识库（用户独立）
+    (user_dir / "knowledge").mkdir(parents=True, exist_ok=True)
+
     # self-improving 目录 + 模板文件
     si = user_dir / "self-improving"
     for sub in ["projects", "domains", "archive"]:

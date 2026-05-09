@@ -14,6 +14,11 @@ def _resolve_file_dir(session_data, subdir="file"):
     user_dir = session_data.get("user_dir", "")
     if subdir == "download":
         d = os.path.join(user_dir, "download")
+    elif subdir == "knowledge":
+        d = os.path.join(user_dir, "knowledge")
+    elif subdir == "global-knowledge":
+        root = session_data.get("root", "")
+        d = os.path.join(root, "knowledge")
     else:
         d = os.path.join(user_dir, "history", "file")
     os.makedirs(d, exist_ok=True)
@@ -24,6 +29,10 @@ def _file_rel_path(session_data, name, subdir="file"):
     user = session_data.get("user_name", "")
     if subdir == "download":
         return os.path.join("users", user, "download", name).replace("\\", "/")
+    if subdir == "knowledge":
+        return os.path.join("users", user, "knowledge", name).replace("\\", "/")
+    if subdir == "global-knowledge":
+        return os.path.join("knowledge", name).replace("\\", "/")
     return os.path.join("users", user, "history", "file", name).replace("\\", "/")
 
 

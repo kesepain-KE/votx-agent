@@ -37,7 +37,8 @@ Github 上现有的 AI Agent 框架大多面向单用户、英文场景，交互
 
 - **双协议支持**：OpenAI 协议（Responses API / Chat Completions）和 Anthropic 协议（Messages API），统一内部格式
 - **多厂商接入**：DeepSeek / Anthropic / Azure / 硅基流动 / Groq / 小米 mimo 等，改 base_url 即切
-- **多用户隔离**：每个用户独立人设（`self_soul.md`）、对话历史、长期记忆、工具日志和文件空间
+- **多用户隔离**：每个用户独立人设（`self_soul.md`）、对话历史、长期记忆、知识库和文件空间
+- **双层知识库**：用户级（默认读写）+ 全局级（只读共享），分层索引导航，支持 PDF/Excel 检索
 - **双端支持**：Vue 3 Web UI + CLI 终端，共用 `run/engine.py` 对话引擎，行为完全一致
 - **自学习**：工具调用失败自动记录教训，下次对话前注入为规则，越用越聪明
 - **长对话友好**：自动摘要归档，上下文不膨胀
@@ -224,7 +225,7 @@ votx-agent/
 │   │   └── conversations.py    # 对话列表、归档预览、从历史继续、重命名、删除
 │   └── templates/index.html    # Vue 3 单页前端
 │
-├── skills/                     # 27 个 Skill（工具型 + 指令型）
+├── skills/                     # 28 个 Skill（工具型 + 指令型）
 ├── config/                     # 全局配置与 AI 执行规则
 ├── tmp/                        # 智能体临时文件（脚本、运行时产物，可推送）
 ├── users/                      # 用户数据（人设、历史、记忆、文件）
@@ -236,7 +237,7 @@ votx-agent/
 | 类别 | 数量 | 说明 |
 |---|---|---|
 | 工具型 Skill | 12 个 | 注册 function calling：文件读写、HTTP 请求、Shell 执行、时间、Word 文档、视频下载、联网搜索、热榜查询、长期记忆、知识图谱、通用识图、Markdown 转换 |
-| 指令型 Skill | 15 个 | 注入 system prompt 行为指南：视觉识别、文件搜索、PDF 处理、网页抓取、自改进记忆、OpenCLI 适配器编写与自动修复、浏览器自动化、智能搜索路由等 |
+| 指令型 Skill | 16 个 | 注入 system prompt 行为指南：视觉识别、文件搜索、PDF 处理、网页抓取、自改进记忆、知识库检索、OpenCLI 适配器编写与自动修复、浏览器自动化、智能搜索路由等 |
 
 所有 Skill 位于 `skills/` 目录，可自行扩展。
 
@@ -251,7 +252,7 @@ votx-agent/
   → 无 tool_calls 或达到配置上限（默认 80 轮）→ 保存历史
 ```
 
-- system prompt 由用户人设、Skill 目录、自改进记忆、长期记忆等组件动态拼接
+- system prompt 由用户人设、Skill 目录、自改进记忆、长期记忆、知识库路径等组件动态拼接
 - Web UI 通过 SSE 事件流实时推送思考过程和回复内容
 - 工具调用链路自动修复断链，支持多轮连续 reasoning
 

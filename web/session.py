@@ -45,6 +45,10 @@ def clear_session(user_name: str = None):
 
 def init_user_session(root: str, user_dir: str, user_name: str, user_config: dict, core_config: dict):
     """初始化或重建用户的会话数据"""
+    # 确保用户知识库目录存在（兼容旧用户迁移）
+    kb_dir = os.path.join(user_dir, "knowledge")
+    os.makedirs(kb_dir, exist_ok=True)
+
     provider = create_provider(user_config, core_config)
     chat = ChatManager(user_dir, core_config, user_config)
     try:

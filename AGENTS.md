@@ -22,6 +22,8 @@ AGENTS.md (本文件)               ← 我的自我操作手册
        ↓ 叠加
 Skill 摘要                       ← 由 skills.register_all() 动态生成（~600 tokens）
        ↓ 叠加
+知识库路径（双层）                 ← 用户级 + 全局级，由 engine.build_system_prompt() 注入
+       ↓ 叠加
 自改进记忆 (HOT Tier)            ← users/<name>/self-improving/memory.md
        ↓ 叠加
 纠正记录                         ← users/<name>/self-improving/corrections.md
@@ -29,8 +31,6 @@ Skill 摘要                       ← 由 skills.register_all() 动态生成（
 长期记忆                         ← users/<name>/memory/*.md
        ↓ 叠加
 SESSION-STATE.md                 ← 会话级别状态注入
-       ↓ 叠加
-知识图谱摘要                      ← memory/ontology/graph.jsonl 实体统计
 ```
 
 缓存由 `run/prompt_cache.py` 管理：按上述所有源文件的 mtime 计算缓存 key，源码不变时秒出。`/api/reload` 强制失效并重建。
@@ -66,7 +66,7 @@ SESSION-STATE.md                 ← 会话级别状态注入
 │   ├── routes/                          API 路由（29 个，分布在 chat / config / conversations / files / system）
 │   │   └── conversations.py            对话列表、归档只读预览、从历史继续、重命名、删除
 │   └── templates/index.html            Vue 3 单页前端
-├── skills/                              27 Skill (12 工具型 + 15 指令型)
+├── skills/                              28 Skill (13 工具型 + 15 指令型)
 ├── config/soul.md                       全局人格基座
 ├── tmp/                                  智能体临时文件（脚本/运行时产物，可推送）
 │
@@ -223,7 +223,18 @@ api_key 在 Web 面板回车或点保存时写入（含在 `saveAllConfig` body 
 
 **自改进 Skill：** `skills/self-improving/SKILL.md`，指导我进行分层记忆（HOT/WARM/COLD）、自我反思、记录纠正。
 
-当前技能清单：`download-anything`, `file-search`, `file`, `find-skills`, `multi-user-long-term-memory`, `network`, `ontology`, `opencli-adapter-author`, `opencli-autofix`, `opencli-browser`, `opencli-usage`, `pdf-tools`, `self-improving`, `shell`, `skill-creator`, `skill-vetter`, `smart-search`, `tavily-search`, `time`, `uapi-hotboard-reporter`, `video-download`, `vision-universal`, `vision`, `web-content-fetcher`, `web-tools-guide`, `word-docx`
+当前技能清单：`download-anything`, `file-search`, `file`, `find-skills`, `kb-retriever`, `markdown-converter`, `multi-user-long-term-memory`, `network`, `ontology`, `opencli-adapter-author`, `opencli-autofix`, `opencli-browser`, `opencli-usage`, `pdf-tools`, `self-improving`, `shell`, `skill-creator`, `skill-vetter`, `smart-search`, `tavily-search`, `time`, `uapi-hotboard-reporter`, `video-download`, `vision-universal`, `vision`, `web-content-fetcher`, `web-tools-guide`, `word-docx`
+
+## 知识库（kb-retriever）
+
+知识库是**指令型 Skill**（无 tool.py），通过 system prompt 注入行为规则。核心流程：分层索引导航 → 按需处理文件 → 渐进式检索。
+
+- **双层架构**：
+  - **用户级**：`users/<name>/knowledge/` — 默认读写，Web 右侧文件面板可见，新用户自动建目录
+  - **全局级**：项目根 `knowledge/` — 默认只读，所有用户共享，写入需用户明确说"写入全局"
+- **检索**：同时搜索两层，用户级结果优先；用 `read_file`/`list_dir`/`run_command(grep)` + `convert_to_markdown`
+- **写入规则**：默认写用户级；只有用户明确指示时才写全局；禁止未经指示修改全局知识库
+- **路径注入**：`run/engine.py` 的 `build_system_prompt()` 将两层路径 + 读写规则注入 system prompt
 
 ## 我的工具选择
 
@@ -297,4 +308,4 @@ python -X utf8 -c "import os, shutil; root='<项目根绝对路径>'; \
 
 ## 可用 Skill 目录
 
-Skill 摘要由 `skills.register_all()` 动态生成，经 `build_system_prompt()` 注入到 system prompt 末尾。总数量：27 个（12 工具型 + 15 指令型），详见 `skills/` 下各子目录的 `SKILL.md`。**不要手工维护此列表**，否则会与动态生成的摘要重复注入，导致 prompt 膨胀。
+Skill 摘要由 `skills.register_all()` 动态生成，经 `build_system_prompt()` 注入到 system prompt 末尾。总数量：28 个（13 工具型 + 15 指令型），详见 `skills/` 下各子目录的 `SKILL.md`。**不要手工维护此列表**，否则会与动态生成的摘要重复注入，导致 prompt 膨胀。

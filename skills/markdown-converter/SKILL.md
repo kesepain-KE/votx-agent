@@ -1,3 +1,8 @@
+---
+name: markdown-converter
+description: 文档转 Markdown 工具。使用 markitdown 将 PDF/Word/PPT/Excel/HTML/图片/音频/ZIP 等转为 Markdown 文本。当需要提取文档内容、转换文件格式、对二进制文件做文本检索时使用。
+---
+
 # Markdown Converter
 
 Convert documents and files to Markdown using `markitdown`. Supports PDF, Word (.docx), PowerPoint (.pptx), Excel (.xlsx, .xls), HTML, CSV, JSON, XML, images (EXIF+OCR), audio (transcription), ZIP archives, YouTube URLs, EPubs.

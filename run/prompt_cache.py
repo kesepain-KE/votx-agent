@@ -50,8 +50,6 @@ def _compute_cache_key(root: str, user_dir: str) -> int:
     mtimes.append(_dir_max_mtime(os.path.join(user_dir, "memory"), "*.md"))
     # SESSION-STATE.md (注意：engine.py 从 root 读取，不是 user_dir)
     mtimes.append(_mtime(os.path.join(root, "SESSION-STATE.md")))
-    # 知识图谱 graph.jsonl（可能影响 prompt 摘要）
-    mtimes.append(_mtime(os.path.join(root, "memory", "ontology", "graph.jsonl")))
 
     return hash(tuple(mtimes))
 

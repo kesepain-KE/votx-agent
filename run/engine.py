@@ -109,6 +109,46 @@ def build_system_prompt(root: str, user_dir: str) -> str:
                 lines.append(si["summary"])
         system_prompt += "\n".join(lines)
 
+    # ── 知识库（双层架构，注入 data_structure.md 索引） ──
+    user_kb = os.path.join(user_dir, "knowledge")
+    global_kb = os.path.join(root, "knowledge")
+    has_user_kb = os.path.isdir(user_kb)
+    has_global_kb = os.path.isdir(global_kb)
+
+    if has_user_kb or has_global_kb:
+        kb_lines = ["\n\n## 知识库（双层架构）"]
+
+        # 用户级
+        user_kb_rel = os.path.relpath(user_kb, root).replace("\\", "/")
+        if has_user_kb:
+            kb_lines.append(f"- **用户级知识库（默认读写）**: `{user_kb_rel}/`")
+            user_ds = os.path.join(user_kb, "data_structure.md")
+            if os.path.isfile(user_ds):
+                try:
+                    ds_content = open(user_ds, encoding="utf-8").read().strip()
+                    if ds_content:
+                        kb_lines.append(f"\n### 用户知识库索引\n{ds_content}")
+                except Exception:
+                    pass
+        else:
+            kb_lines.append(f"- **用户级知识库**: `{user_kb_rel}/` 尚不存在，可手动创建并放入文档")
+
+        # 全局级
+        if has_global_kb:
+            global_kb_rel = os.path.relpath(global_kb, root).replace("\\", "/")
+            kb_lines.append(f"- **全局知识库（只读，除非用户明确指示写入）**: `{global_kb_rel}/`")
+            global_ds = os.path.join(global_kb, "data_structure.md")
+            if os.path.isfile(global_ds):
+                try:
+                    ds_content = open(global_ds, encoding="utf-8").read().strip()
+                    if ds_content:
+                        kb_lines.append(f"\n### 全局知识库索引\n{ds_content}")
+                except Exception:
+                    pass
+
+        kb_lines.append("- **规则**: 检索时同时搜索两层，用户级结果优先；默认写入用户级，只有用户明确说\"写入全局\"时才写入全局知识库")
+        system_prompt += "\n".join(kb_lines)
+
     # ── 自改进记忆 (HOT Tier) ──
     si_mem = os.path.join(user_dir, "self-improving", "memory.md")
     if os.path.exists(si_mem) and os.path.getsize(si_mem) > 0:
@@ -147,21 +187,6 @@ def build_system_prompt(root: str, user_dir: str) -> str:
                         system_prompt += f"\n\n[{fn}]\n{c}"
                 except Exception:
                     pass
-
-    # ── 知识图谱摘要 (Ontology) ──
-    graph_path = os.path.join(root, "memory", "ontology", "graph.jsonl")
-    if os.path.exists(graph_path):
-        try:
-            entity_count = sum(1 for _ in open(graph_path, encoding="utf-8"))
-            if entity_count > 0:
-                # 只注入摘要，不注入完整图谱（太大）
-                system_prompt += (
-                    "\n\n## 知识图谱（Ontology）\n"
-                    f"实体总数: {entity_count} 条，存储在 `memory/ontology/graph.jsonl`。\n"
-                    "使用 ontology_* 工具查询和操作。"
-                )
-        except Exception:
-            pass
 
     session_state = os.path.join(root, "SESSION-STATE.md")
     if os.path.exists(session_state):

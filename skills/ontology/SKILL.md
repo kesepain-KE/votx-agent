@@ -1,3 +1,8 @@
+---
+name: ontology
+description: 结构化知识图谱，跨会话记住实体和关系。用户说"记住/保存XX信息"、"XX和YY什么关系"、"谁负责XX"、"列出所有XX"、"关联XX和YY"、"更新/删除XX"时使用。支持 Person/Project/Task/Event/Document 等类型。
+---
+
 # Ontology — 结构化知识图谱
 
 有类型约束的知识图谱，用于结构化记忆。把信息存成「实体」和「关系」，支持校验。
