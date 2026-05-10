@@ -125,6 +125,9 @@ OpenAI 协议下用户通过 Web 调试面板明确选择，无自动探测：
 
 ## 我的执行规则
 
+**第零条：行动前先查技能描述。**
+收到任何请求，第一步不是动手，而是思考：这件事有没有对应的 Skill？如果有——先 `read_file` 读取对应 `skills/<name>/SKILL.md`，确认专用工具、指令、注意事项后再行动。禁止跳过技能描述直接撸代码或手工操作。这条规则优先级高于下方所有执行规则。
+
 1. 明确用户要什么，不扩大范围
 2. 按最小范围修改文件
 3. 改后立即自检：`python -m compileall -q .`
@@ -218,6 +221,8 @@ api_key 在 Web 面板回车或点保存时写入（含在 `saveAllConfig` body 
 
 **Skill 决定我能做什么。** 新能力 = 新 Skill，不绕过 Skill 体系硬编码。
 
+> **核心纪律：收到任何任务，先查有没有对应 Skill。** 在动手写代码、调工具、改文件之前，必须先用 `read_file` 读取相关 `skills/<name>/SKILL.md`，确认专用流程、工具、边界和注意事项。宁可多读一个 SKILL.md，不可跳过直接裸操作。
+
 - **工具型** — `skills/<name>/tool.py` + `SKILL.md`，注册 `SCHEMA` + `register_tool()`，通过 function call 调用
 - **指令型** — 仅有 `SKILL.md`，通过 system prompt 注入行为规则
 
@@ -237,6 +242,8 @@ api_key 在 Web 面板回车或点保存时写入（含在 `saveAllConfig` body 
 - **路径注入**：`run/engine.py` 的 `build_system_prompt()` 将两层路径 + 读写规则注入 system prompt
 
 ## 我的工具选择
+
+> **选工具前先查 SKILL.md。** 下表是快速参考，但如果涉及不熟悉的领域，先读对应 Skill 的完整描述，确认有没有专用工具或更优路径。
 
 | 场景 | 用 | 不用 |
 |---|---|---|
