@@ -4,6 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>votx-agent</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
   <style>
     /* =============================================
        Design System — CSS Custom Properties
@@ -1175,6 +1177,65 @@
     ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.10); border-radius: 99px; }
     ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.20); }
 
+    /* KaTeX */
+    .katex { color: var(--text-primary); font-size: 1.05em; }
+    .katex-display { overflow-x: auto; overflow-y: hidden; padding: 4px 0; }
+    .katex-display > .katex { font-size: 1.1em; }
+    .katex-error { color: var(--danger); }
+
+    /* Rendered Markdown inside bubbles */
+    .bubble h1, .bubble h2, .bubble h3, .bubble h4, .bubble h5, .bubble h6 {
+      margin: 10px 0 6px; line-height: 1.3;
+    }
+    .bubble h1 { font-size: 1.4em; }
+    .bubble h2 { font-size: 1.25em; }
+    .bubble h3 { font-size: 1.1em; }
+    .bubble blockquote {
+      margin: 8px 0; padding: 6px 12px;
+      border-left: 3px solid var(--glass-border);
+      color: var(--text-secondary);
+    }
+    .bubble table { border-collapse: collapse; margin: 8px 0; width: 100%; }
+    .bubble th, .bubble td {
+      border: 1px solid var(--glass-border);
+      padding: 6px 10px; text-align: left; font-size: 0.93em;
+    }
+    .bubble th { background: rgba(255,255,255,0.04); font-weight: 700; }
+    .bubble ul, .bubble ol { padding-left: 22px; margin: 6px 0; }
+    .bubble li { margin: 2px 0; }
+    .bubble hr {
+      border: 0; border-top: 1px solid var(--glass-border);
+      margin: 12px 0;
+    }
+    .bubble input[type=checkbox] {
+      margin-right: 6px; accent-color: var(--accent);
+      transform: translateY(1px);
+    }
+    .bubble mark {
+      background: rgba(255,255,200,0.2); color: inherit;
+      padding: 1px 3px; border-radius: 3px;
+    }
+    .bubble u { text-decoration: underline; }
+    .bubble sub, .bubble sup { font-size: 0.8em; }
+    .bubble dl { margin: 8px 0; }
+    .bubble dt { font-weight: 700; margin-top: 6px; }
+    .bubble dd { margin-left: 18px; color: var(--text-secondary); }
+    .bubble details {
+      margin: 8px 0; padding: 8px 12px;
+      border: 1px solid var(--glass-border);
+      border-radius: var(--r-sm);
+      background: rgba(255,255,255,0.02);
+    }
+    .bubble summary { cursor: pointer; font-weight: 600; }
+    .bubble kbd {
+      padding: 2px 6px; font-family: var(--font-mono); font-size: 0.85em;
+      border: 1px solid var(--glass-border);
+      border-radius: 4px; background: rgba(255,255,255,0.04);
+    }
+    .bubble abbr[title] {
+      text-decoration: underline dotted; cursor: help;
+    }
+
     /* Selection */
     ::selection { background: rgba(255,255,255,0.15); color: var(--text-primary); }
     body[data-theme="light"] ::selection { background: rgba(0,0,0,0.10); }
@@ -1550,22 +1611,240 @@ function fmtMs(ms) { if (!ms && ms !== 0) return ''; if (ms < 1000) return ms + 
 function isImageFile(name) { return /\.(png|jpe?g|gif|webp|svg|bmp|ico)$/i.test(name); }
 
 function formatContent(text) {
-  let segs = [], last = 0, re = /```(\w*)\n?([\s\S]*?)```/g, m;
-  while ((m = re.exec(text)) !== null) {
-    if (m.index > last) segs.push({ raw: false, t: text.slice(last, m.index) });
-    segs.push({ raw: true, t: '<pre><code>' + escHtml(m[2]) + '</code></pre>' });
-    last = m.index + m[0].length;
+  // Recursive nested list parser
+  function parseNestedList(lines, startIdx, baseIndent) {
+    if (baseIndent === undefined) {
+      var firstM = lines[startIdx].match(/^(\s*)([-\*]|\d+\.)\s/);
+      baseIndent = firstM ? firstM[1].length : 0;
+    }
+    var html = '';
+    var currentTag = null;
+    var i = startIdx;
+
+    while (i < lines.length) {
+      var m = lines[i].match(/^(\s*)([-\*]|\d+\.)\s/);
+      if (!m) break;
+
+      var indent = m[1].length;
+      if (indent < baseIndent) break;         // back to parent level
+      if (indent > baseIndent) { i++; continue; } // will be handled by recursive call from previous item
+
+      var marker = m[2];
+      var rest = lines[i].slice(m[0].length);
+      var type = (marker === '-' || marker === '*') ? 'ul' : 'ol';
+      var cb = rest.match(/^\[(\s|x|X)\]\s?(.*)$/);
+      var text = cb ? cb[2] : rest;
+      var checked = cb ? (cb[1] !== ' ') : null;
+
+      if (type !== currentTag) {
+        if (currentTag) html += '</' + currentTag + '>';
+        html += '<' + type + '>';
+        currentTag = type;
+      }
+
+      html += '<li>';
+      if (checked !== null) {
+        html += '<input type="checkbox" disabled' + (checked ? ' checked' : '') + '>';
+      }
+      html += escHtml(text);
+      i++;
+
+      // Check for sub-list on next line (deeper indent)
+      if (i < lines.length) {
+        var nextM = lines[i].match(/^(\s*)([-\*]|\d+\.)\s/);
+        if (nextM && nextM[1].length > indent) {
+          var sub = parseNestedList(lines, i, nextM[1].length);
+          html += sub.html;
+          i = sub.endIdx;
+        }
+      }
+
+      html += '</li>';
+    }
+
+    if (currentTag) html += '</' + currentTag + '>';
+    return { html: html, endIdx: i };
   }
-  if (last < text.length) segs.push({ raw: false, t: text.slice(last) });
-  let out = '';
-  for (const s of segs) {
-    if (s.raw) { out += s.t; continue; }
-    let t = escHtml(s.t);
-    t = t.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-    t = t.replace(/`([^`]+)`/g, '<code>$1</code>');
-    out += t;
+
+  var blocks = [];
+
+  function stash(type, content, extra) {
+    const ph = '\x00' + blocks.length + '\x00';
+    blocks.push({ type, content, ...extra });
+    return ph;
   }
-  return out;
+
+  // 1. Extract fenced code blocks (protect $ inside code)
+  text = text.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) =>
+    stash('code', code, { lang })
+  );
+
+  // 2. Extract inline code
+  text = text.replace(/`([^`]+)`/g, (_, code) =>
+    stash('inlineCode', code)
+  );
+
+  // 2.5. Extract <details> blocks (raw HTML passthrough)
+  text = text.replace(/<details[^>]*>([\s\S]*?)<\/details>/g, (_, inner) =>
+    stash('details', inner)
+  );
+
+  // 3. Extract block math: $$...$$ or bare \begin{env}...\end{env}
+  text = text.replace(/(?<!\\)\$\$([\s\S]+?)(?<!\\)\$\$/g, (_, math) =>
+    stash('mathBlock', math.trim())
+  );
+  text = text.replace(/(?:^|\n)(\s*\\begin\{[a-zA-Z*]+\}[\s\S]*?\\end\{[a-zA-Z*]+\})/g, (_, math) =>
+    stash('mathBlock', math.trim())
+  );
+
+  // 4. Extract inline math $...$
+  //    Opening $ must NOT be followed by digit/space (skip $50 currency)
+  //    Closing $ must NOT be preceded by space (allow $x^2$, $a_1$)
+  //    Negative lookbehind for \ prevents \$ escaped math
+  text = text.replace(/(?<!\\)\$([^\s\d$](?:[^$]*[^\s$])?)(?<!\\)\$/g, (_, math) =>
+    stash('mathInline', math)
+  );
+
+  // 4.5. Process backslash escapes — \* \` \$ etc. become literal chars
+  text = text.replace(/\\(.)/g, '$1');
+
+  // 5. Process block-level elements — line by line, escape+wrap each
+  var lines = text.split('\n');
+  var out = [];
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i];
+    var t = line.trim();
+
+    // Heading: # through ######
+    var hMatch = line.match(/^(#{1,6})\s+(.+)$/);
+    if (hMatch) {
+      var level = hMatch[1].length;
+      out.push('<h' + level + '>' + escHtml(hMatch[2]) + '</h' + level + '>');
+      continue;
+    }
+
+    // HR: --- or *** alone on a line
+    if (/^(-{3,}|\*{3,})$/.test(t)) { out.push('<hr>'); continue; }
+
+    // Blockquote: > text (supports >> nested, consecutive lines merged)
+    if (/^>+/.test(line)) {
+      var q = [];
+      while (i < lines.length && /^>+/.test(lines[i])) {
+        q.push(escHtml(lines[i].replace(/^>+\s?/, '')));
+        i++;
+      }
+      i--;
+      out.push('<blockquote>' + q.join('<br>') + '</blockquote>');
+      continue;
+    }
+
+    // Table: header line with |, followed by separator line with |-:
+    if (/\|/.test(line) && i + 1 < lines.length &&
+        /^\|?[\s\-:]+\|[\s\-:|]+\|?$/.test(lines[i + 1])) {
+      var hCells = line.split('|').filter(function(c) { return c.trim(); }).map(function(c) { return escHtml(c.trim()); });
+      var sCells = lines[i + 1].split('|').filter(function(c) { return c.trim(); });
+      var aligns = sCells.map(function(c) {
+        var s = c.trim();
+        if (s.charAt(0) === ':' && s.charAt(s.length - 1) === ':') return 'center';
+        if (s.charAt(s.length - 1) === ':') return 'right';
+        return 'left';
+      });
+      var tbl = '<table><thead><tr>';
+      for (var hi = 0; hi < hCells.length; hi++) {
+        tbl += '<th style="text-align:' + (aligns[hi] || 'left') + '">' + hCells[hi] + '</th>';
+      }
+      tbl += '</tr></thead><tbody>';
+      i += 2;
+      while (i < lines.length && /\|/.test(lines[i]) &&
+             !/^\|?[\s\-:]+\|[\s\-:|]+\|?$/.test(lines[i])) {
+        var dCells = lines[i].split('|').filter(function(c) { return c.trim(); }).map(function(c) { return escHtml(c.trim()); });
+        tbl += '<tr>';
+        for (var di = 0; di < dCells.length; di++) {
+          tbl += '<td style="text-align:' + (aligns[di] || 'left') + '">' + dCells[di] + '</td>';
+        }
+        tbl += '</tr>';
+        i++;
+      }
+      i--; // for loop will increment
+      tbl += '</tbody></table>';
+      out.push(tbl);
+      continue;
+    }
+
+    // Nested list: - * or 1. at line start (skip **bold**)
+    // Uses recursive descent to handle arbitrary nesting depth
+    if (/^[\s]*[-\*]\s/.test(line) && !/^[\s]*\*\*/.test(line) ||
+        /^[\s]*\d+\.\s/.test(line)) {
+      var listResult = parseNestedList(lines, i);
+      out.push(listResult.html);
+      i = listResult.endIdx - 1; // for loop will i++
+      continue;
+    }
+
+    // Definition list: term followed by : definition
+    if (line && i + 1 < lines.length && /^:\s/.test(lines[i + 1])) {
+      var dl = '<dl><dt>' + escHtml(t) + '</dt>';
+      i++;
+      while (i < lines.length && /^:\s/.test(lines[i])) {
+        dl += '<dd>' + escHtml(lines[i].replace(/^:\s/, '')) + '</dd>';
+        i++;
+      }
+      i--;
+      dl += '</dl>';
+      out.push(dl);
+      continue;
+    }
+
+    // Regular line
+    out.push(escHtml(line));
+  }
+  text = out.join('\n');
+
+  // 6. Inline Markdown (bold first, then italic, strikethrough, links)
+  text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  text = text.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  text = text.replace(/~~([^~]+)~~/g, '<del>$1</del>');
+  text = text.replace(/~([^~]+)~/g, '<sub>$1</sub>');
+  text = text.replace(/\^([^\^]+)\^/g, '<sup>$1</sup>');
+  text = text.replace(/==([^=]+)==/g, '<mark>$1</mark>');
+  text = text.replace(/\+\+([^+]+)\+\+/g, '<u>$1</u>');
+  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+
+  // 6.5. Unescape whitelisted safe HTML tags (already escaped by escHtml)
+  text = text.replace(/&lt;kbd&gt;/g, '<kbd>').replace(/&lt;\/kbd&gt;/g, '</kbd>');
+  text = text.replace(/&lt;mark&gt;/g, '<mark>').replace(/&lt;\/mark&gt;/g, '</mark>');
+  text = text.replace(/&lt;abbr\s+title=&quot;(.*?)&quot;&gt;/g, '<abbr title="$1">').replace(/&lt;\/abbr&gt;/g, '</abbr>');
+
+  // 7. Replace placeholders → KaTeX / code blocks / inline code
+  for (var j = 0; j < blocks.length; j++) {
+    var b = blocks[j];
+    var ph = '\x00' + j + '\x00';
+    var html = '';
+
+    if (b.type === 'code') {
+      html = '<pre><code>' + escHtml(b.content) + '</code></pre>';
+    } else if (b.type === 'details') {
+      html = '<details>' + b.content + '</details>';
+    } else if (b.type === 'inlineCode') {
+      html = '<code>' + escHtml(b.content) + '</code>';
+    } else if (b.type === 'mathBlock') {
+      try {
+        html = katex.renderToString(b.content, { displayMode: true, throwOnError: false, strict: false });
+      } catch (e) {
+        html = '<pre class="katex-error">' + escHtml(b.content) + '</pre>';
+      }
+    } else if (b.type === 'mathInline') {
+      try {
+        html = katex.renderToString(b.content, { displayMode: false, throwOnError: false, strict: false });
+      } catch (e) {
+        html = '<code class="katex-error">' + escHtml(b.content) + '</code>';
+      }
+    }
+
+    text = text.split(ph).join(html);
+  }
+
+  return text;
 }
 
 let _msgId = 1;
