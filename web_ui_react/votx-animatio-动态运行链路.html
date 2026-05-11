@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>votx-agent 模块通信动画</title>
+<style>
+:root{
+  --bg:#0a0e14;--card:#12171f;--border:#1e2733;
+  --text:#e0e6ed;--muted:#6b7a8d;
+  --blue:#58a6ff;--green:#3fb950;--orange:#d29922;
+  --purple:#bc8cff;--pink:#f778ba;--red:#f85149;--cyan:#39d2c0;--yellow:#e3b341;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;overflow-x:auto;}
+
+.header{text-align:center;padding:36px 20px 12px;}
+.header h1{font-size:2em;background:linear-gradient(135deg,var(--cyan),var(--blue),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.header p{color:var(--muted);font-size:.9em;margin-top:4px;}
+
+.tabs{display:flex;justify-content:center;gap:8px;padding:10px 20px;}
+.tab-btn{
+  padding:10px 28px;border-radius:8px;border:1px solid var(--border);
+  background:var(--card);color:var(--muted);font-size:.9em;cursor:pointer;
+  transition:all .25s;font-weight:500;
+}
+.tab-btn:hover{border-color:var(--blue);color:var(--text);}
+.tab-btn.active{background:rgba(88,166,255,.12);border-color:var(--blue);color:var(--blue);}
+
+.controls{display:flex;justify-content:center;gap:10px;padding:6px 20px 4px;}
+.ctrl-btn{
+  padding:8px 20px;border-radius:6px;border:1px solid var(--border);
+  background:var(--card);color:var(--text);font-size:.82em;cursor:pointer;
+  transition:all .2s;
+}
+.ctrl-btn:hover{border-color:var(--green);color:var(--green);}
+.ctrl-btn.primary{border-color:var(--green);color:var(--green);}
+.ctrl-btn.danger{border-color:var(--red);color:var(--red);}
+
+.step-bar{
+  text-align:center;padding:8px 20px;font-size:.82em;color:var(--muted);
+  min-height:36px;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;
+}
+.step-dots{display:flex;gap:5px;flex-wrap:wrap;justify-content:center;}
+.step-dot{
+  width:10px;height:10px;border-radius:50%;background:var(--border);
+  transition:all .3s;cursor:pointer;
+}
+.step-dot.active{background:var(--blue);box-shadow:0 0 8px var(--blue);}
+.step-dot.done{background:var(--green);box-shadow:0 0 6px var(--green);}
+
+/* 画布区 — 高度留足底部节点 + 间距 */
+.canvas-wrap{
+  position:relative;width:100%;max-width:1400px;margin:0 auto;
+  height:960px;overflow:visible;
+}
+
+.node{
+  position:absolute;border-radius:14px;border:2px solid var(--border);
+  background:var(--card);padding:16px 22px;text-align:center;
+  transition:border-color .4s,box-shadow .4s,transform .3s;z-index:2;
+  width:150px;
+}
+.node.highlight{
+  border-color:var(--blue);box-shadow:0 0 24px rgba(88,166,255,.3);
+  transform:scale(1.08);
+}
+.node .icon{font-size:2em;margin-bottom:6px;}
+.node .label{font-size:.85em;font-weight:600;color:var(--text);}
+.node .sub{font-size:.7em;color:var(--muted);margin-top:3px;}
+
+.arrow-layer{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:1;overflow:visible;}
+.arrow-layer svg{width:100%;height:100%;overflow:visible;}
+.arrow-path{fill:none;stroke:var(--border);stroke-width:2;transition:stroke .4s,stroke-width .4s;}
+.arrow-path.active{stroke:var(--blue);stroke-width:3;filter:drop-shadow(0 0 6px var(--blue));}
+
+.packet{
+  position:absolute;width:12px;height:12px;border-radius:50%;
+  z-index:10;pointer-events:none;opacity:0;
+  box-shadow:0 0 12px currentColor;
+}
+.packet.blue{background:var(--blue);color:var(--blue);}
+.packet.green{background:var(--green);color:var(--green);}
+.packet.orange{background:var(--orange);color:var(--orange);}
+.packet.purple{background:var(--purple);color:var(--purple);}
+.packet.pink{background:var(--pink);color:var(--pink);}
+.packet.cyan{background:var(--cyan);color:var(--cyan);}
+
+/* 提示栏 — 画布下方留 60px 间距 */
+.info-panel{max-width:1400px;margin:60px auto 0;padding:0 20px;}
+.info-card{
+  background:var(--card);border:1px solid var(--border);border-radius:10px;
+  padding:20px 26px;font-size:.88em;line-height:1.8;color:var(--muted);min-height:100px;
+}
+.info-card h3{color:var(--text);font-size:1.05em;margin-bottom:8px;}
+.info-card code{background:rgba(110,118,129,.2);padding:1px 6px;border-radius:3px;font-size:.9em;color:var(--text);}
+.info-card .tag{display:inline-block;padding:2px 10px;border-radius:4px;font-size:.78em;font-weight:500;margin-right:4px;}
+.info-card .tag.green{background:rgba(63,185,80,.12);color:var(--green);}
+.info-card .tag.blue{background:rgba(88,166,255,.12);color:var(--blue);}
+
+.footer{text-align:center;padding:32px 20px;color:var(--muted);font-size:.82em;}
+.footer a{color:var(--blue);text-decoration:none;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>votx-agent 模块通信动画</h1>
+  <p>Web 模式 vs CLI 模式 · 逐步演示各模块间的数据流</p>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchMode('cli')">🖥️ CLI 模式</button>
+  <button class="tab-btn" onclick="switchMode('web')">🌐 Web 模式</button>
+</div>
+
+<div class="controls">
+  <button class="ctrl-btn primary" id="btn-play" onclick="play()">▶ 播放</button>
+  <button class="ctrl-btn" onclick="stepForward()">⏭ 下一步</button>
+  <button class="ctrl-btn" onclick="stepBack()">⏮ 上一步</button>
+  <button class="ctrl-btn danger" onclick="reset()">⏹ 重置</button>
+  <button class="ctrl-btn" onclick="autoPlay()">⏩ 自动播放</button>
+</div>
+
+<div class="step-bar">
+  <span id="step-label">准备就绪</span>
+  <div class="step-dots" id="step-dots"></div>
+</div>
+
+<div class="canvas-wrap" id="canvas">
+  <div class="arrow-layer"><svg id="svg-arrows"><defs>
+    <marker id="ah-blue" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8" fill="var(--blue)"/></marker>
+    <marker id="ah-default" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8" fill="var(--border)"/></marker>
+  </defs></svg></div>
+</div>
+
+<div class="info-panel">
+  <div class="info-card" id="info-card">
+    <h3>👋 欢迎</h3>
+    点击 <span class="tag green">▶ 播放</span> 或 <span class="tag blue">⏭ 下一步</span> 开始演示。
+  </div>
+</div>
+
+<div class="footer">
+  <a href="https://github.com/kesepain-KE/votx-agent" target="_blank">votx-agent</a> · 模块通信流程动画 · 2025
+</div>
+
+<script>
+const NODE_W=150,NODE_H=80;
+
+// 6 行节点，y 从 30 到 780，画布 960px，底部节点下留 100px+
+const NODES = {
+  user:    { x:700, y:30,  icon:'👤', label:'用户输入',    sub:'stdin / fetch' },
+  web:     { x:200, y:30,  icon:'🌐', label:'Web Server',  sub:'Flask + SSE', hidden:'cli' },
+  cli:     { x:1200,y:30,  icon:'🖥️', label:'CLI Main',    sub:'main.py', hidden:'web' },
+  session: { x:700, y:170, icon:'🔒', label:'Session',     sub:'web/session.py' },
+  prompt:  { x:300, y:320, icon:'🧩', label:'Prompt 缓存', sub:'prompt_cache.py' },
+  engine:  { x:700, y:320, icon:'⚙️', label:'Engine',      sub:'run/engine.py' },
+  chat:    { x:300, y:490, icon:'💬', label:'ChatManager',  sub:'run/chat.py' },
+  provider:{ x:700, y:490, icon:'🔌', label:'Provider',    sub:'provider/factory.py' },
+  toolrun: { x:1100,y:490, icon:'⚡', label:'ToolRunner',  sub:'run/tool.py' },
+  llm:     { x:700, y:660, icon:'🧠', label:'LLM API',    sub:'OpenAI / Claude' },
+  skills:  { x:1100,y:660, icon:'📦', label:'Skills',      sub:'skills/' },
+  output:  { x:700, y:810, icon:'📤', label:'响应输出',    sub:'text / SSE stream' },
+};
+
+const ARROWS = [
+  ['user','session','a1'],['web','session','a2'],['cli','session','a3'],
+  ['session','engine','a4'],['prompt','engine','a5'],
+  ['engine','provider','a6'],['engine','chat','a7'],
+  ['provider','llm','a8'],['llm','provider','a9'],
+  ['provider','toolrun','a10'],['toolrun','skills','a11'],
+  ['skills','toolrun','a12'],['toolrun','provider','a13'],
+  ['provider','engine','a14'],['engine','output','a15'],['chat','engine','a16'],
+];
+
+const CLI_STEPS = [
+  {label:'Step 1: 用户在终端输入消息',highlight:['user','cli'],arrow:['a3'],info:`<h3>👤 用户输入 → 🖥️ CLI</h3>用户在终端输入文本，<code>main.py</code> 的主循环捕获输入。调用 <code>chat.add_user_message(content)</code> 将消息追加到历史。`},
+  {label:'Step 2: 组装 System Prompt',highlight:['engine','prompt'],arrow:['a5'],info:`<h3>🧩 Prompt 缓存 → ⚙️ Engine</h3><code>build_cached_system_prompt()</code> 检查所有源文件 mtime。缓存命中 → 直接返回；缓存未命中 → <code>build_system_prompt()</code> 从 9 个源文件叠加组装。`},
+  {label:'Step 3: 构建消息列表',highlight:['chat','engine'],arrow:['a16'],info:`<h3>💬 ChatManager → ⚙️ Engine</h3><code>chat.build_messages()</code> 组装 system prompt + 历史消息。<code>chat.reset_count()</code> 重置工具调用计数器。`},
+  {label:'Step 4: 创建 Provider 并发送请求',highlight:['session','engine','provider'],arrow:['a4','a6'],info:`<h3>⚙️ Engine → 🔌 Provider</h3><code>run_chat_turn()</code> 进入主循环。调用 <code>provider.respond_stream(messages, tools)</code> 或 <code>provider.respond()</code>。`},
+  {label:'Step 5: Provider 调用 LLM API',highlight:['provider','llm'],arrow:['a8'],info:`<h3>🔌 Provider → 🧠 LLM API</h3><code>ResponsesProvider</code> 发送 HTTP 请求到 OpenAI/DeepSeek。<code>AnthropicProvider</code> 发送到 Claude Messages API。流式模式逐 chunk 接收，非流式等待完整响应。`},
+  {label:'Step 6: LLM 返回响应',highlight:['llm','provider'],arrow:['a9'],info:`<h3>🧠 LLM API → 🔌 Provider</h3>LLM 返回 <code>ProviderResponse</code>（统一格式）。包含 <code>text</code>（回复）、<code>reasoning</code>（思考）、<code>tool_calls</code>（工具调用）。`},
+  {label:'Step 7: 检查是否有工具调用',highlight:['engine','provider'],arrow:['a14'],info:`<h3>🔌 Provider → ⚙️ Engine</h3><code>response.has_tool_calls</code> 判断是否需要执行工具。→ <strong>有</strong>：进入工具执行流程（Step 8）<br>→ <strong>无</strong>：这是最终回复，跳到 Step 11`},
+  {label:'Step 8: ToolRunner 执行工具',highlight:['toolrun','provider'],arrow:['a10'],info:`<h3>🔌 Provider → ⚡ ToolRunner</h3><code>tool_runner.execute(response)</code> 遍历所有 tool_calls。对每个调用：权限校验 → 限流检查 → 带超时执行。`},
+  {label:'Step 9: 调用具体 Skill',highlight:['toolrun','skills'],arrow:['a11'],info:`<h3>⚡ ToolRunner → 📦 Skills</h3>从 <code>TOOL_REGISTRY[name]</code> 查找 handler。<code>ThreadPoolExecutor</code> 带超时（默认 120s）执行。结果返回 <code>str</code>，ERROR: 开头表示失败。`},
+  {label:'Step 10: 工具结果追加，循环回 LLM',highlight:['skills','toolrun','chat','engine','provider'],arrow:['a12','a13','a16','a6'],info:`<h3>📦 → ⚡ → 💬 → ⚙️ → 🔌</h3>工具结果通过 <code>chat.add_tool_results()</code> 追加到消息历史。<code>tool_round += 1</code>，回到 Step 4 继续循环。死循环检测：同一命令连续失败 3 次 → 警告停止。`},
+  {label:'Step 11: 最终回复输出',highlight:['engine','output','chat'],arrow:['a15','a16'],info:`<h3>⚙️ Engine → 📤 输出</h3>无 tool_calls → 这是最终回复。<code>chat.add_assistant_message(reply)</code> 保存到历史。CLI 直接打印到终端（流式逐字输出）。`},
+  {label:'Step 12: 保存历史 & Token 统计',highlight:['chat'],arrow:[],info:`<h3>💬 ChatManager 持久化</h3><code>chat.save_history()</code> — 原子写 JSON 落盘（自动闭合断裂的 tool_calls 链）。<code>chat.accumulate_usage()</code> — 累加 prompt/completion/cached tokens。<code>chat.save_log()</code> — 完整日志（含 system prompt）。`},
+];
+
+const WEB_STEPS = [
+  {label:'Step 1: 浏览器发送请求',highlight:['user','web'],arrow:['a2'],info:`<h3>👤 用户 → 🌐 Web Server</h3>Vue 3 前端通过 <code>fetch('/api/chat')</code> 发送 POST 请求。请求体包含 <code>message</code> 和 <code>conversation_id</code>。Flask <code>@app.route('/api/chat')</code> 接收。`},
+  {label:'Step 2: Session 隔离 & 初始化',highlight:['web','session'],arrow:['a2'],info:`<h3>🌐 Web Server → 🔒 Session</h3><code>web/session.py</code> 按 <code>user_name</code> 分桶隔离。<code>init_user_session()</code> 创建 Provider、ChatManager、ToolRunner。每个用户完全独立的配置、历史、Provider 实例。`},
+  {label:'Step 3: System Prompt 缓存构建',highlight:['session','engine','prompt'],arrow:['a4','a5'],info:`<h3>🔒 → ⚙️ → 🧩</h3><code>build_cached_system_prompt(root, user_dir)</code>。检查 9 个源文件 mtime → hash 比对。命中缓存 → 秒出；未命中 → 重新组装。`},
+  {label:'Step 4: 构建消息 & 进入对话循环',highlight:['chat','engine'],arrow:['a16'],info:`<h3>💬 → ⚙️</h3><code>chat.add_user_message()</code> + <code>chat.build_messages()</code>。<code>run_chat_turn()</code> 生成器开始 yield 事件。`},
+  {label:'Step 5: SSE 流式调用 Provider',highlight:['engine','provider'],arrow:['a6'],info:`<h3>⚙️ Engine → 🔌 Provider</h3>Web 模式默认流式：<code>provider.respond_stream(messages, tools)</code>。事件通过 SSE（Server-Sent Events）实时推送到前端。`},
+  {label:'Step 6: Provider → LLM API',highlight:['provider','llm'],arrow:['a8'],info:`<h3>🔌 Provider → 🧠 LLM API</h3>HTTP 请求发送到 LLM 厂商。流式模式：<code>for chunk in response</code> 逐块接收。每个 chunk 转为事件 dict yield 给 engine。`},
+  {label:'Step 7: LLM 流式返回',highlight:['llm','provider'],arrow:['a9'],info:`<h3>🧠 LLM → 🔌 Provider</h3><code>thinking_chunk</code> — 思考过程（DeepSeek/Claude）<br><code>text_chunk</code> — 文本片段<br>流式路径：思考先于正文，逐 chunk yield。`},
+  {label:'Step 8: SSE 推送到前端',highlight:['engine','web','output'],arrow:['a15'],info:`<h3>⚙️ → 🌐 → 📤 SSE 事件流</h3>每个 yield 的事件通过 SSE 推送到浏览器。前端 Vue 组件实时渲染：思考气泡、文本打字机效果、工具调用进度。`},
+  {label:'Step 9: 工具调用（如有）',highlight:['provider','toolrun','skills'],arrow:['a10','a11'],info:`<h3>🔌 → ⚡ → 📦</h3>如果 LLM 返回 tool_calls：ToolRunner 执行 → Skills handler 处理。工具调用进度通过 SSE 推送到前端显示。`},
+  {label:'Step 10: 工具结果回传',highlight:['skills','toolrun','chat','engine'],arrow:['a12','a13','a16'],info:`<h3>📦 → ⚡ → 💬 → ⚙️</h3>工具结果追加到消息历史。循环回到 Provider，继续与 LLM 交互。直到 LLM 返回纯文本回复（无 tool_calls）。`},
+  {label:'Step 11: 响应完成',highlight:['engine','chat','output'],arrow:['a15','a16'],info:`<h3>⚙️ → 💬 → 📤</h3><code>text_done</code> 事件推送到前端。<code>chat.add_assistant_message()</code> 保存回复。<code>chat.save_history()</code> 落盘。`},
+  {label:'Step 12: 右侧面板刷新',highlight:['web','session'],arrow:[],info:`<h3>🌐 Web 前端刷新</h3>前端调用 <code>refreshOverview()</code> 全量刷新右侧面板。Token 用量统计、对话历史、归档索引全部更新。会话状态保持，用户可继续对话。`},
+];
+
+let currentMode='cli',currentStep=-1,isPlaying=false,autoTimer=null;
+function getSteps(){return currentMode==='cli'?CLI_STEPS:WEB_STEPS;}
+
+function renderNodes(){
+  const c=document.getElementById('canvas');
+  c.querySelectorAll('.node,.packet').forEach(n=>n.remove());
+  const svg=document.getElementById('svg-arrows');
+  const defs=svg.querySelector('defs');
+  svg.innerHTML='';svg.appendChild(defs);
+
+  for(const [id,n] of Object.entries(NODES)){
+    if(n.hidden===currentMode) continue;
+    const el=document.createElement('div');
+    el.className='node';el.id='node-'+id;
+    el.style.left=(n.x-NODE_W/2)+'px';
+    el.style.top=n.y+'px';
+    el.innerHTML=`<div class="icon">${n.icon}</div><div class="label">${n.label}</div><div class="sub">${n.sub}</div>`;
+    c.appendChild(el);
+  }
+
+  for(const [from,to,id] of ARROWS){
+    const nf=NODES[from],nt=NODES[to];
+    if(!nf||!nt) continue;
+    if(nf.hidden===currentMode||nt.hidden===currentMode) continue;
+    const x1=nf.x,y1=nf.y+NODE_H,x2=nt.x,y2=nt.y;
+    const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('id','arrow-'+id);
+    path.setAttribute('class','arrow-path');
+    path.setAttribute('marker-end','url(#ah-default)');
+    const dy=y2-y1;
+    path.setAttribute('d',`M${x1},${y1} C${x1},${y1+dy*.4} ${x2},${y2-dy*.4} ${x2},${y2}`);
+    svg.appendChild(path);
+  }
+  renderStepDots();
+}
+
+function renderStepDots(){
+  document.getElementById('step-dots').innerHTML=getSteps().map((_,i)=>
+    `<div class="step-dot${i===currentStep?' active':''}${i<currentStep?' done':''}" onclick="goToStep(${i})"></div>`
+  ).join('');
+}
+
+function clearHighlights(){
+  document.querySelectorAll('.node').forEach(n=>n.classList.remove('highlight'));
+  document.querySelectorAll('.arrow-path').forEach(a=>{a.classList.remove('active');a.setAttribute('marker-end','url(#ah-default)');});
+  document.querySelectorAll('.packet').forEach(p=>p.remove());
+}
+
+function animatePacket(fromId,toId,color='blue'){
+  return new Promise(resolve=>{
+    const nf=NODES[fromId],nt=NODES[toId];
+    if(!nf||!nt){resolve();return;}
+    const c=document.getElementById('canvas');
+    const pkt=document.createElement('div');
+    pkt.className='packet '+color;c.appendChild(pkt);
+    const x1=nf.x,y1=nf.y+NODE_H/2,x2=nt.x,y2=nt.y+NODE_H/2;
+    const dur=700,start=performance.now();
+    (function frame(t){
+      const p=Math.min((t-start)/dur,1);
+      const ease=p<.5?2*p*p:1-Math.pow(-2*p+2,2)/2;
+      pkt.style.left=(x1+(x2-x1)*ease-6)+'px';
+      pkt.style.top=(y1+(y2-y1)*ease-6)+'px';
+      pkt.style.opacity=p<.1?p*10:p>.9?(1-p)*10:1;
+      if(p<1) requestAnimationFrame(frame);
+      else{pkt.remove();resolve();}
+    })(start);
+  });
+}
+
+async function goToStep(idx){
+  const steps=getSteps();
+  if(idx<0||idx>=steps.length) return;
+  clearHighlights();currentStep=idx;
+  const step=steps[idx];
+  document.getElementById('step-label').textContent=step.label;
+  for(const nid of step.highlight){const el=document.getElementById('node-'+nid);if(el) el.classList.add('highlight');}
+  for(const aid of(step.arrow||[])){
+    const el=document.getElementById('arrow-'+aid);
+    if(el){el.classList.add('active');el.setAttribute('marker-end','url(#ah-blue)');}
+  }
+  document.getElementById('info-card').innerHTML=step.info;
+  renderStepDots();
+
+  const pairs={
+    'a1':['user','session'],'a2':['web','session'],'a3':['cli','session'],
+    'a4':['session','engine'],'a5':['prompt','engine'],
+    'a6':['engine','provider'],'a7':['chat','engine'],
+    'a8':['provider','llm'],'a9':['llm','provider'],
+    'a10':['provider','toolrun'],'a11':['toolrun','skills'],
+    'a12':['skills','toolrun'],'a13':['toolrun','provider'],
+    'a14':['provider','engine'],'a15':['engine','output'],'a16':['engine','chat'],
+  };
+  const colors=['blue','green','orange','purple','pink','cyan'];
+  for(const aid of(step.arrow||[])){
+    const pair=pairs[aid];
+    if(pair) await animatePacket(pair[0],pair[1],colors[Math.floor(Math.random()*colors.length)]);
+  }
+}
+
+function stepForward(){goToStep(currentStep+1);}
+function stepBack(){goToStep(currentStep-1);}
+function reset(){
+  stopAuto();currentStep=-1;clearHighlights();
+  document.getElementById('step-label').textContent='准备就绪';
+  document.getElementById('info-card').innerHTML='<h3>👋 已重置</h3>点击播放开始演示。';
+  renderStepDots();
+}
+function play(){goToStep(0);}
+function autoPlay(){
+  if(isPlaying){stopAuto();return;}
+  isPlaying=true;document.getElementById('btn-play').textContent='⏸ 暂停';
+  if(currentStep>=getSteps().length-1) currentStep=-1;
+  (function tick(){if(!isPlaying)return;if(currentStep<getSteps().length-1){stepForward();autoTimer=setTimeout(tick,2200);}else stopAuto();})();
+}
+function stopAuto(){isPlaying=false;clearTimeout(autoTimer);document.getElementById('btn-play').textContent='▶ 播放';}
+function switchMode(mode){
+  currentMode=mode;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelector(`.tab-btn[onclick*="${mode}"]`).classList.add('active');
+  reset();renderNodes();
+}
+renderNodes();
+</script>
+</body>
+</html>
