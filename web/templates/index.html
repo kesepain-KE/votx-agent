@@ -819,13 +819,16 @@
       background: rgba(255,255,255,0.88);
       border-color: rgba(255,255,255,0.18);
       color: #000000;
+      box-shadow: none;
     }
+
+    .msg.me .msg-avatar { box-shadow: none; }
 
     body[data-color-scheme="light"] .msg.me .bubble {
       background: linear-gradient(135deg, var(--accent), var(--accent-2));
       border-color: var(--accent-glow);
       color: #ffffff;
-      box-shadow: 0 12px 30px var(--accent-glow);
+      box-shadow: none;
     }
 
     @keyframes rise {
