@@ -193,6 +193,81 @@
       --accent-2-glow: rgba(175, 200, 218, 0.16);
     }
 
+
+
+
+
+    /* ---- 蜜桃乌龙 ---- */
+    body[data-theme="peach-oolong"] {
+      --bg-root: #fff0e8;
+      --bg-soft: #ffd8c9;
+      --text-primary: #6f2b1d;
+      --text-secondary: #c65c32;
+      --text-tertiary: #dc9374;
+      --accent: #e4783e;
+      --accent-dim: #bb5527;
+      --accent-glow: rgba(228, 120, 62, 0.22);
+      --accent-2: #f2a65f;
+      --accent-2-glow: rgba(242, 166, 95, 0.18);
+    }
+
+    /* ---- 焦糖玛奇朵 ---- */
+    body[data-theme="caramel-macchiato"] {
+      --bg-root: #faf3eb;
+      --bg-soft: #ead4bd;
+      --text-primary: #4b2f21;
+      --text-secondary: #8b5a36;
+      --text-tertiary: #b58a68;
+      --accent: #9b6234;
+      --accent-dim: #744622;
+      --accent-glow: rgba(155, 98, 52, 0.18);
+      --accent-2: #d6a15d;
+      --accent-2-glow: rgba(214, 161, 93, 0.16);
+    }
+
+
+    /* ---- 玫瑰荔枝冻 ---- */
+    body[data-theme="rose-lychee"] {
+      --bg-root: #fff0f3;
+      --bg-soft: #ffd5de;
+      --text-primary: #7a243c;
+      --text-secondary: #c24765;
+      --text-tertiary: #df8da0;
+      --accent: #d9546f;
+      --accent-dim: #b33651;
+      --accent-glow: rgba(217, 84, 111, 0.20);
+      --accent-2: #ff9a8d;
+      --accent-2-glow: rgba(255, 154, 141, 0.18);
+    }
+
+    /* ---- 薰衣草拿铁 ---- */
+    body[data-theme="lavender-latte"] {
+      --bg-root: #f5f0fa;
+      --bg-soft: #e5ddef;
+      --text-primary: #493d61;
+      --text-secondary: #7d6c9d;
+      --text-tertiary: #a79bbd;
+      --accent: #8a75b4;
+      --accent-dim: #66528d;
+      --accent-glow: rgba(138, 117, 180, 0.18);
+      --accent-2: #b49ad0;
+      --accent-2-glow: rgba(180, 154, 208, 0.16);
+    }
+
+    /* ---- 海盐芝士 ---- */
+    body[data-theme="sea-salt-cheese"] {
+      --bg-root: #f5f6f8;
+      --bg-soft: #e2e7ee;
+      --text-primary: #25303d;
+      --text-secondary: #5f6f82;
+      --text-tertiary: #9aa5b2;
+      --accent: #6e8097;
+      --accent-dim: #53647a;
+      --accent-glow: rgba(110, 128, 151, 0.15);
+      --accent-2: #b8c6d8;
+      --accent-2-glow: rgba(184, 198, 216, 0.14);
+    }
+
     /* =============================================
        Reset & Base
        ============================================= */
@@ -2045,16 +2120,21 @@ let _msgId = 1;
 function nextId() { return _msgId++; }
 
 const THEMES = [
-  { id: 'dark',             label: '高级黑', scheme: 'dark',  c1: '#000000', c2: '#666666' },
-  { id: 'light',            label: '高级白', scheme: 'light', c1: '#ffffff', c2: '#d9d9d9' },
-  { id: 'cream',            label: '奶油米', scheme: 'light', c1: '#faf2e0', c2: '#0e61ac' },
-  { id: 'slate',            label: '雾灰紫', scheme: 'light', c1: '#e4e4e6', c2: '#6f7899' },
-  { id: 'matcha-cake',      label: '抹茶糕', scheme: 'light', c1: '#f4f8df', c2: '#3f7e44' },
-  { id: 'coconut-mint',     label: '薄荷饮', scheme: 'light', c1: '#e9fcfa', c2: '#1d8ed6' },
-  { id: 'taro-mousse',      label: '芋泥酪', scheme: 'light', c1: '#f5eefb', c2: '#7b5bc2' },
-  { id: 'blue-sakura',      label: '樱花酪', scheme: 'light', c1: '#fceff3', c2: '#507bdb' },
-  { id: 'strawberry-cake',  label: '草莓糕', scheme: 'light', c1: '#fff5ef', c2: '#d93655' },
-  { id: 'cool-blue-gray',   label: '蓝灰调', scheme: 'light', c1: '#feffff', c2: '#47709b' },
+  { id: 'dark',                label: '高级黑', scheme: 'dark',  c1: '#000000', c2: '#666666' },
+  { id: 'light',               label: '高级白', scheme: 'light', c1: '#ffffff', c2: '#d9d9d9' },
+  { id: 'cream',               label: '奶油米', scheme: 'light', c1: '#faf2e0', c2: '#0e61ac' },
+  { id: 'slate',               label: '雾灰紫', scheme: 'light', c1: '#e4e4e6', c2: '#6f7899' },
+  { id: 'matcha-cake',         label: '抹茶糕', scheme: 'light', c1: '#f4f8df', c2: '#3f7e44' },
+  { id: 'coconut-mint',        label: '薄荷饮', scheme: 'light', c1: '#e9fcfa', c2: '#1d8ed6' },
+  { id: 'taro-mousse',         label: '芋泥酪', scheme: 'light', c1: '#f5eefb', c2: '#7b5bc2' },
+  { id: 'blue-sakura',         label: '樱花酪', scheme: 'light', c1: '#fceff3', c2: '#507bdb' },
+  { id: 'strawberry-cake',     label: '草莓糕', scheme: 'light', c1: '#fff5ef', c2: '#d93655' },
+  { id: 'cool-blue-gray',      label: '蓝灰调', scheme: 'light', c1: '#feffff', c2: '#47709b' },
+  { id: 'peach-oolong',        label: '蜜桃茶', scheme: 'light', c1: '#fff0e8', c2: '#e4783e' },
+  { id: 'caramel-macchiato',   label: '焦糖咖', scheme: 'light', c1: '#faf3eb', c2: '#9b6234' },
+  { id: 'rose-lychee',         label: '荔枝冻', scheme: 'light', c1: '#fff0f3', c2: '#d9546f' },
+  { id: 'lavender-latte',      label: '薰衣草', scheme: 'light', c1: '#f5f0fa', c2: '#8a75b4' },
+  { id: 'sea-salt-cheese',     label: '海盐酪', scheme: 'light', c1: '#f5f6f8', c2: '#6e8097' },
 ];
 
 function applyTheme(id) {
