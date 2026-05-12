@@ -40,8 +40,9 @@ Most AI Agent frameworks on GitHub are built for single-user, English-first scen
 - **Multi-user isolation**: each user has an independent persona (`self_soul.md`), conversation history, long-term memory, knowledge base, and file space
 - **Dual-level knowledge base**: user-level (default read/write) + global-level (read-only shared), hierarchical index navigation, PDF/Excel retrieval support
 - **Dual client support**: Vue 3 Web UI and CLI terminal share the same `run/engine.py` conversation engine with consistent behavior
+- **Task planning**: complex requests auto-decomposed into step-by-step plans with Web UI progress bubble, approval/pause/abort support
 - **Self-learning**: failed tool calls are automatically recorded as lessons and injected as rules before future conversations
-- **Long-conversation friendly**: automatic summaries and archives keep context from growing without bound
+- **Long-conversation friendly**: auto token compression + summary archives keep context within model limits
 
 > This project is part of the [kesepain-KE](https://github.com/kesepain-KE) repository family and is under active iteration.
 
@@ -168,7 +169,7 @@ Open `http://localhost:1478` in your browser and select a user from the left sid
 
 | Command | Environment | Description |
 |---|---|---|
-| `/clear` | CLI + Web | Clear the current conversation and tool logs |
+| `/clear` | CLI + Web | Clear current conversation, tool logs, and completed task plans |
 | `/history` `/stats` | CLI + Web | View session statistics |
 | `/archive` | CLI + Web | Manually archive current conversation (without clearing) |
 | `/summarize` `/summary` | CLI + Web | Generate conversation summary and store in index |
@@ -222,11 +223,12 @@ votx-agent/
 ├── web/                        # Web UI
 │   ├── server.py               # Flask + SSE event stream
 │   ├── session.py              # Multi-user session isolation (sharded by user_name)
-│   ├── routes/                 # API routes (chat / config / conversations / files / system)
+│   ├── routes/                 # API routes (chat / config / conversations / files / system / task_plan)
 │   │   └── conversations.py    # Conversation list, archive preview, continue from history, rename, delete
 │   └── templates/index.html    # Vue 3 single-page frontend
 │
-├── skills/                     # 28 Skills, tool Skills and instruction Skills
+├── skills/                     # 28 Skills (13 tool + 15 instruction)
+├── agents/                     # Sub-agents (task_plan / auto_improve)
 ├── config/                     # Global configuration and AI execution rules
 ├── tmp/                        # Agent temp files (scripts, runtime artifacts, pushable)
 ├── users/                      # User data, personas, history, memory, files
@@ -237,8 +239,8 @@ votx-agent/
 
 | Category | Count | Description |
 |---|---:|---|
-| Tool Skills | 12 | Register function calling tools: file read/write, HTTP requests, shell execution, time, Word documents, video download, web search, hotboard query, long-term memory, ontology, universal vision, and Markdown conversion |
-| Instruction Skills | 16 | Inject system prompt behavior guides: vision recognition, file search, PDF processing, web content fetching, self-improvement memory, knowledge base retrieval, OpenCLI adapter authoring & auto-fix, browser automation, smart search routing, and more |
+| Tool Skills | 13 | Register function calling tools: file read/write, HTTP requests, shell execution, time, Word documents, video download, web search, hotboard query, long-term memory, ontology, universal vision, Markdown conversion, and task planning |
+| Instruction Skills | 15 | Inject system prompt behavior guides: vision recognition, file search, PDF processing, web content fetching, self-improvement memory, knowledge base retrieval, OpenCLI adapter authoring & auto-fix, browser automation, smart search routing, and more |
 
 All Skills are located in the `skills/` directory and can be extended as needed.
 
@@ -253,17 +255,18 @@ User input → build_system_prompt() → create_provider(config)
   → No tool_calls or configurable round limit reached (default 80) → Save history
 ```
 
-- The system prompt is dynamically assembled from the user's persona, Skill catalog, self-improvement memory, long-term memory, knowledge base paths, and other components
-- The Web UI streams reasoning progress and response content in real time through SSE
+- The system prompt is dynamically assembled from the user's persona, Skill catalog, self-improvement memory, long-term memory, knowledge base paths, active task plans, and other components
+- The Web UI streams reasoning progress, response content, and task plan status in real time through SSE
 - Tool-call chaining is automatically repaired when needed and supports multi-round continuous reasoning
+- Task planning: sub-agent analyzes conversation → generates step-by-step plan → Web UI progress bubble tracks in real time → auto/manual execution
 
 **Self-learning**
 
 Successful and failed tool executions both generate learning records. Relevant lessons are automatically injected into future conversations for continuous improvement.
 
-**Long-conversation management**
+**Context management**
 
-History is saved as structured JSON. Very long sessions are automatically summarized and archived, then retrieved later on demand.
+Auto token estimation (CJK-aware) with pre-overflow compression: system prompt truncation + old message summary replacement, ensuring the context window limit is never exceeded.
 
 ## Configuration
 

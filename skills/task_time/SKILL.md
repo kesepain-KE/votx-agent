@@ -1,5 +1,5 @@
 ---
-name: task-time
+name: task_time
 description: 管理 corn 定时任务 — 创建/查看/修改/删除每日或单次定时任务，由后台调度器自动执行
 ---
 

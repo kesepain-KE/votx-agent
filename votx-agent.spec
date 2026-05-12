@@ -19,7 +19,7 @@ def _collect_tree(rel: str) -> list[tuple[str, str]]:
 
 # 数据文件：（源路径, 目标相对路径）
 datas = []
-for d in ["web", "config", "skills", "provider", "tools", "run"]:
+for d in ["web", "config", "skills", "provider", "tools", "run", "corn", "agents"]:
     datas.extend(_collect_tree(d))
 datas.append((str(_root / "paths.py"), "paths.py"))
 datas.append((str(_root / "AGENTS.md"), "AGENTS.md"))

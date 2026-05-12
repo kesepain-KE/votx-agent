@@ -1,5 +1,5 @@
 ---
-name: pdf-tools
+name: pdf_tools
 description: View, extract, edit, and manipulate PDF files. Supports text extraction, text editing (overlay and replacement), merging, splitting, rotating pages, and getting PDF metadata. Use when working with PDF documents for reading content, adding/editing text, reorganizing pages, combining files, or extracting information.
 ---
 

@@ -13,6 +13,9 @@ class ChatManager:
     def __init__(self, user_dir: str, core_config: dict[str, Any], user_config: dict[str, Any]):
         hist_cfg = core_config["history"]
         self.max_history = hist_cfg["history_max"]
+        ctx_cfg = core_config.get("context_window", {})
+        self.context_max = ctx_cfg.get("max_tokens", 900000)
+        self.context_safe_ratio = ctx_cfg.get("safe_ratio", 0.85)
         user_hist = user_config.get("history", {})
         data_file = user_hist.get("data", "chat_data.json")
         log_file = user_hist.get("log", "chat_log.json")
@@ -62,6 +65,10 @@ class ChatManager:
     def set_system_prompt(self, prompt: str):
         self.system_prompt = prompt
 
+    def refresh_system_prompt(self, root: str):
+        from run.prompt_cache import build_cached_system_prompt
+        self.system_prompt = build_cached_system_prompt(root, self.user_dir)
+
     def set_provider(self, provider):
         """设置 LLM provider（供 auto_improve 子代理使用）"""
         self.provider = provider
@@ -69,12 +76,145 @@ class ChatManager:
     # ---- 消息组装 ----
 
     def build_messages(self) -> list[dict[str, Any]]:
-        """组装完整消息列表: system + history"""
+        """组装完整消息列表: system + history，自动确保不超上下文窗口"""
         msgs: list[dict[str, Any]] = []
         if self.system_prompt:
             msgs.append({"role": "system", "content": self.system_prompt})
         msgs.extend(self.messages)
-        return msgs
+        return self._ensure_token_budget(msgs)
+
+    # ---- token 估算 ----
+
+    @staticmethod
+    def _estimate_tokens(text: str) -> int:
+        """估算文本 token 数。CJK 字符约 0.6 token/字，非 CJK 约 0.25 token/字。
+
+        使用保守系数（略高估），确保实际 token 数不会超出模型上下文窗口。
+        """
+        if not text:
+            return 0
+        cjk = 0
+        other = 0
+        for ch in text:
+            cp = ord(ch)
+            if (0x4E00 <= cp <= 0x9FFF or 0x3400 <= cp <= 0x4DBF or
+                0xF900 <= cp <= 0xFAFF or 0x20000 <= cp <= 0x2FFFF):
+                cjk += 1
+            elif cp > 127:
+                other += 1  # 其他多字节字符（emoji, 符号等）
+            else:
+                other += 1
+        # CJK: ~0.6 token/字; 非CJK多字节: ~1 token/字; ASCII: ~0.25 token/字
+        # 保守估计使用略高系数
+        return int(cjk * 0.65 + other * 0.3)
+
+    @classmethod
+    def _msg_tokens(cls, msg: dict[str, Any]) -> int:
+        """估算单条消息的 token 数"""
+        total = 0
+        content = msg.get("content", "")
+        if isinstance(content, str):
+            total += cls._estimate_tokens(content)
+        elif isinstance(content, list):
+            for part in content:
+                if isinstance(part, dict) and "text" in part:
+                    total += cls._estimate_tokens(part["text"])
+        for tc in msg.get("tool_calls", []):
+            func = tc.get("function", {})
+            total += cls._estimate_tokens(func.get("name", ""))
+            total += cls._estimate_tokens(func.get("arguments", ""))
+        if msg.get("reasoning_content"):
+            total += cls._estimate_tokens(msg["reasoning_content"])
+        return total
+
+    def _ensure_token_budget(self, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """确保消息列表不超出 token 预算，超出时自动从历史前端裁剪。
+
+        裁剪规则：
+        1. system 消息保留但超大时截断
+        2. 从索引 1 开始向后找安全切点（不切断 tool_calls/tool 配对）
+        3. 裁剪后生成摘要插入 system 消息之后
+        4. 循环裁剪直到 token 数低于 safe_budget
+        """
+        safe_budget = int(self.context_max * self.context_safe_ratio)
+
+        # 快速路径
+        total = sum(self._msg_tokens(m) for m in messages)
+        if total <= safe_budget:
+            return messages
+
+        sys_msg = messages[0] if messages and messages[0].get("role") == "system" else None
+        body = messages[1:] if sys_msg else list(messages)
+
+        # system prompt 超大时截断（极端情况，一般不会触发）
+        if sys_msg:
+            sys_tokens = self._msg_tokens(sys_msg)
+            if sys_tokens > safe_budget:
+                sys_msg = self._truncate_system_prompt(sys_msg, safe_budget)
+                sys_tokens = self._msg_tokens(sys_msg)
+        else:
+            sys_tokens = 0
+
+        trimmed_batches: list[list[dict]] = []
+
+        while True:
+            body_tokens = sum(self._msg_tokens(m) for m in body)
+            if sys_tokens + body_tokens <= safe_budget:
+                break
+            if not body:
+                break
+
+            # 找安全切点：向后扫描，第一次遇到非 tool 消息处切开
+            cut = 1
+            for i in range(1, len(body)):
+                if body[i].get("role") != "tool":
+                    cut = i
+                    break
+            else:
+                cut = max(1, len(body) // 2)
+
+            trimmed_batches.append(body[:cut])
+            body = body[cut:]
+
+        # 生成摘要
+        if trimmed_batches and body:
+            all_trimmed = []
+            for batch in trimmed_batches:
+                all_trimmed.extend(batch)
+            digest = self._extract_digest(all_trimmed)
+            if digest:
+                ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+                lines = [
+                    f"[上下文压缩] 以下 {len(all_trimmed)} 条消息因超出 token 上限被压缩：",
+                    *digest,
+                    f"压缩时间: {ts}",
+                ]
+                body.insert(0, {"role": "user", "content": "\n".join(lines)})
+
+        self.messages = list(body)
+        result = [sys_msg] + body if sys_msg else body
+        return result
+
+    @staticmethod
+    def _truncate_system_prompt(sys_msg: dict, max_tokens: int) -> dict:
+        """截断 system prompt 到指定 token 预算内（极端情况应急）"""
+        content = sys_msg.get("content", "")
+        if not content:
+            return sys_msg
+        suffix = "\n\n[提示: system prompt 因超长被截断]"
+        suffix_tokens = ChatManager._estimate_tokens(suffix)
+        budget = max_tokens - suffix_tokens
+        # 二分查找：找到最大的 safe_len 使得 estimate(content[:safe_len]) <= budget
+        lo, hi = 0, len(content)
+        while lo < hi:
+            mid = (lo + hi + 1) // 2
+            if ChatManager._estimate_tokens(content[:mid]) <= budget:
+                lo = mid
+            else:
+                hi = mid - 1
+        truncated = content[:lo]
+        print(f"[上下文压缩] system prompt 过大({len(content)}字)，已截断到 {len(truncated)} 字")
+        return {**sys_msg, "content": truncated + suffix}
 
     # ---- 添加消息 ----
 
@@ -412,8 +552,12 @@ class ChatManager:
                 ])
             except OSError:
                 pass
+        est_tokens = sum(self._msg_tokens(m) for m in self.messages)
+        sys_tokens = self._estimate_tokens(self.system_prompt) if self.system_prompt else 0
+        safe_budget = int(self.context_max * self.context_safe_ratio)
         lines = [
             f"当前会话消息: {msg_count} 条（上限 {self.max_history}）",
+            f"预估 Token: {est_tokens + sys_tokens} (system {sys_tokens} + 历史 {est_tokens}) / 安全上限 {safe_budget}",
             f"历史文件大小: {_fmt_bytes(size)}",
             f"工具调用日志: {tool_log_count} 条",
             f"归档备份数: {archive_count} 个",

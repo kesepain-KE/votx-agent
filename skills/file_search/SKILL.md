@@ -1,5 +1,5 @@
 ---
-name: file-search
+name: file_search
 description: "Fast file-name and content search using `fd` and `rg` (ripgrep)."
 metadata:
   {

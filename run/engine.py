@@ -241,6 +241,51 @@ def build_system_prompt(root: str, user_dir: str) -> str:
         except Exception:
             pass
 
+    # ── 活跃任务计划 ──
+    import json as _json
+    plans_dir = os.path.join(user_dir, "task-plan")
+    if os.path.isdir(plans_dir):
+        plans = []
+        for fn in sorted(os.listdir(plans_dir)):
+            if fn.endswith(".json"):
+                try:
+                    plan = _json.loads(open(os.path.join(plans_dir, fn), encoding="utf-8").read())
+                    plans.append(plan)
+                except Exception:
+                    pass
+        active = [p for p in plans if p.get("status") in ("in_progress", "pending", "paused")]
+        if active:
+            p = active[0]  # 只取第一个活跃计划
+            status = p.get("status", "?")
+            status_label = {"pending": "等待审批", "in_progress": "执行中", "paused": "已暂停"}.get(status, status)
+            system_prompt += (
+                f"\n\n## 活跃任务计划 [{p.get('id', '?')}]\n"
+                f"**{p.get('title', '?')}** — {status_label}\n"
+                f"{p.get('description', '')}\n"
+            )
+            for i, s in enumerate(p.get("steps", [])):
+                icon = {"pending": "⬜", "in_progress": "🔄", "completed": "✅",
+                        "failed": "❌", "skipped": "⏭️"}.get(s.get("status", ""), "⬜")
+                system_prompt += f"  {icon} {s.get('id', i+1)}: {s.get('description', '?')}\n"
+                if s.get("result"):
+                    result_text = s["result"][:200]
+                    system_prompt += f"      结果: {result_text}\n"
+
+            if status == "in_progress":
+                system_prompt += (
+                    "\n**请按计划逐步执行。完成每步后调用 task_plan_step_done(plan_id, step_id, result)。"
+                    "如遇失败调用 task_plan_step_fail。全部完成后计划自动标记为 completed。**\n"
+                )
+            elif status == "pending":
+                system_prompt += (
+                    "\n**此计划等待用户审批，请勿执行任何步骤。** "
+                    "告知用户计划已生成，请点击「批准」开始执行。\n"
+                )
+            elif status == "paused":
+                system_prompt += (
+                    "\n**此计划已暂停，请等待用户指令后再继续。**\n"
+                )
+
     return system_prompt
 
 

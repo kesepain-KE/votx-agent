@@ -1,5 +1,5 @@
 ---
-name: opencli-usage
+name: opencli_usage
 description: OpenCLI 顶层使用指南。当 Agent 需要了解 opencli 能做什么、如何发现适配器、通用标志和输出格式时使用。触发词：opencli 能做什么、opencli 命令怎么用、opencli list。
 type: instruction
 ---

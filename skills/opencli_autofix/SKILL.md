@@ -1,5 +1,5 @@
 ---
-name: opencli-autofix
+name: opencli_autofix
 description: OpenCLI 适配器自动修复技能。当 opencli 命令因网站 DOM/API/响应格式变化而失败时，自动诊断、修复 adapter 并重试。触发词：opencli 报错、adapter 坏了、修复 opencli、autofix。
 type: instruction
 ---

@@ -55,7 +55,7 @@ def handle_all(e):
 
 # ---- 路由注册（在 app 创建之后导入，避免循环依赖） ----
 
-from web.routes import chat, files, conversations, system, config, tasks  # noqa: E402,F401
+from web.routes import chat, files, conversations, system, config, tasks, task_plan  # noqa: E402,F401
 
 
 # ---- Runner ----

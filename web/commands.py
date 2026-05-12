@@ -53,6 +53,27 @@ def _archive_current_with_summary(session_data, clear_after: bool = False) -> di
     return {"type": "command_result", "content": content, "summary": summary}
 
 
+def _clear_completed_plans(user_dir: str) -> int:
+    """删除已完成/已中止的任务计划文件，返回删除数量"""
+    import json
+    plans_dir = os.path.join(user_dir, "task-plan")
+    if not os.path.isdir(plans_dir):
+        return 0
+    deleted = 0
+    for name in sorted(os.listdir(plans_dir)):
+        if name.endswith(".json"):
+            path = os.path.join(plans_dir, name)
+            try:
+                with open(path, encoding="utf-8") as f:
+                    plan = json.load(f)
+                if plan.get("status") in ("completed", "aborted"):
+                    os.remove(path)
+                    deleted += 1
+            except Exception:
+                pass
+    return deleted
+
+
 def _clear_tool_logs(chat) -> int:
     """清理新旧工具日志，返回删除的日志行数。"""
     tl_count = 0
@@ -92,7 +113,13 @@ def _dispatch(cmd: str, session_data=None) -> dict | None:
         except Exception:
             pass
         tl_count = _clear_tool_logs(chat)
-        extra = f"，{tl_count} 条工具日志已清空" if tl_count else ""
+        tp_count = _clear_completed_plans(session_data.get("user_dir", ""))
+        extra_parts = []
+        if tl_count:
+            extra_parts.append(f"{tl_count} 条工具日志已清空")
+        if tp_count:
+            extra_parts.append(f"{tp_count} 个已完成计划已删除")
+        extra = "，" + "，".join(extra_parts) if extra_parts else ""
         return {"type": "command_result", "content": f"已清除 {count} 条历史消息{extra}。"}
     if cmd in ("/history", "/stats"):
         return {"type": "command_result", "content": chat.history_stats()}

@@ -1,5 +1,5 @@
 ---
-name: smart-search
+name: smart_search
 description: 基于 OpenCLI 命令的智能搜索路由器。当用户想要搜索、查询、查找信息时，自动路由到最佳的 opencli 搜索源（AI 源 + 专用源）。触发词：搜索、查一下、找资料、opencli 搜索。
 type: instruction
 ---

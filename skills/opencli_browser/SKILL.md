@@ -1,5 +1,5 @@
 ---
-name: opencli-browser
+name: opencli_browser
 description: 通过 opencli 驱动真实 Chrome 窗口的浏览器自动化技能。用于检查页面、填写表单、点击登录流程、提取数据。覆盖选择器优先的目标契约、复合表单字段、网络捕获等。触发词：opencli browser、浏览器自动化、网页操作、页面交互。
 type: instruction
 ---

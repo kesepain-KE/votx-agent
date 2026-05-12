@@ -1,5 +1,5 @@
 ---
-name: vision-universal
+name: vision_universal
 description: 通用识图工具 — 支持本地图片和远程URL，兼容所有OpenAI格式的多模态API（GPT-4o、MiMo、Claude等）。当用户需要分析图片、提取图中文字、识别图片内容时使用。
 ---
 

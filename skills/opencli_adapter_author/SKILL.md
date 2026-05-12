@@ -1,5 +1,5 @@
 ---
-name: opencli-adapter-author
+name: opencli_adapter_author
 description: OpenCLI 适配器编写技能 — 从零到通过 verify 的完整流程。用于为新站点编写 adapter 或给已有站点添加新命令。覆盖站点侦察、API 发现、字段解码、adapter 编写、验证全流程。触发词：写 adapter、新建 opencli 命令、opencli adapter、站点适配。
 type: instruction
 ---

@@ -11,8 +11,9 @@ from skills._common import err, truncate
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 _VALID_SUBS = {"memory", "self-improving", "ontology"}
 
-# 跨模块上下文（由 engine set_auto_improve_context 注入）
-_ctx: dict = {}
+# 共享上下文：因 register_all() 用 importlib 重载本模块，需通过 skills._auto_improve_ctx 共享
+import skills as _skills_mod
+_ctx = _skills_mod._auto_improve_ctx
 
 
 def set_auto_improve_context(provider=None, chat=None, user_name: str = ""):

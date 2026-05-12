@@ -1,6 +1,6 @@
 ---
-name: Auto Improve
-slug: auto-improve
+name: Auto_Improve
+slug: auto_improve
 version: 1.0.0
 description: "用户主动触发的永久记忆/规则/知识图谱管理。自动触发写入临时层。"
 ---

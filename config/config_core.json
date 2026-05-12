@@ -16,5 +16,14 @@
     "improve": {
         "forget_time": 604800,
         "auto_improve_time": 3600
+    },
+    "task_plan": {
+        "max_steps": 10,
+        "auto_execute": false,
+        "result_truncate": 500
+    },
+    "context_window": {
+        "max_tokens": 900000,
+        "safe_ratio": 0.85
     }
 }

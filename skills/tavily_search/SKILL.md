@@ -1,5 +1,5 @@
 ---
-name: tavily-search
+name: tavily_search
 description: Tavily 网络搜索 — 专为 AI Agent 设计的搜索引擎，返回结构化结果（标题、URL、摘要）。当 Agent 需要搜索最新信息、查资料时使用。
 compatibility: 需要 TAVILY_API_KEY 环境变量 + tavily-python (pip install tavily-python)
 ---

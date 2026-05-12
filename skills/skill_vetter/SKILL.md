@@ -1,5 +1,5 @@
 ---
-name: skill-vetter
+name: skill_vetter
 version: 1.0.0
 description: Security-first skill vetting for AI agents. Use before installing any skill from ClawdHub, GitHub, or other sources. Checks for red flags, permission scope, and suspicious patterns.
 ---

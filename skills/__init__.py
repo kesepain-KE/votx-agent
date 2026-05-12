@@ -34,6 +34,19 @@ def _parse_skill_md(path: Path) -> tuple[str, str]:
     return path.parent.name, text.strip()
 
 
+_last_skills_info: list[dict] = []
+
+# 共享上下文：因 register_all() 用 importlib 加载 tool.py 可能产生独立模块实例，
+# 需通过 skills 模块的共享 dict 传递上下文，避免两个实例各自持有独立的 _ctx。
+_auto_improve_ctx: dict = {}
+_task_plan_ctx: dict = {}
+
+
+def get_cached_skills_info() -> list[dict]:
+    """返回上次 register_all() 缓存的技能摘要列表"""
+    return list(_last_skills_info)
+
+
 def register_all(force_reload: bool = False, clear_registry: bool = True) -> list[dict]:
     """扫描 SKILL.md → 加载 tool.py（如有）→ 返回指令 Skill 列表
 
@@ -41,6 +54,7 @@ def register_all(force_reload: bool = False, clear_registry: bool = True) -> lis
         list[dict]: [{"name": str, "description": str, "body": str}, ...]
         其中 body 是 SKILL.md 正文（不含 frontmatter），供 main.py 注入 system prompt。
     """
+    global _last_skills_info
     import sys
     skills_dir = Path(__file__).parent
 
@@ -115,4 +129,5 @@ def register_all(force_reload: bool = False, clear_registry: bool = True) -> lis
                 "body": body,  # 保留完整正文供 on-demand 读取
             })
 
+    _last_skills_info = instruction_skills
     return instruction_skills

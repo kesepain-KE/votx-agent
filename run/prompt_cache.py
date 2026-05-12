@@ -54,6 +54,8 @@ def _compute_cache_key(root: str, user_dir: str) -> int:
     mtimes.append(_dir_max_mtime(os.path.join(user_dir, "improve", "ontology", "temporary"), "*.md"))
     # SESSION-STATE.md (注意：engine.py 从 root 读取，不是 user_dir)
     mtimes.append(_mtime(os.path.join(root, "SESSION-STATE.md")))
+    # task-plan 目录 (活跃计划注入 system prompt)
+    mtimes.append(_dir_max_mtime(os.path.join(user_dir, "task-plan"), "*.json"))
 
     return hash(tuple(mtimes))
 

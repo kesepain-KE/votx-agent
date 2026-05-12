@@ -43,6 +43,11 @@ def api_update_config():
         with open(config_path, encoding="utf-8") as f:
             config = json.load(f)
 
+        # 顶层字段: task_plan
+        if "accept_task" in data:
+            tp = config.setdefault("task_plan", {})
+            tp["accept_task"] = bool(data["accept_task"])
+
         provider = config.setdefault("provider", {})
 
         # Provider 字段白名单

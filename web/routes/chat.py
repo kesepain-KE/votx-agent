@@ -10,6 +10,67 @@ from web.session import _root, get_session, get_active_user, clear_session, init
 from web.commands import _dispatch
 
 
+def _snapshot_plans(user_dir: str) -> dict[str, dict]:
+    """扫描用户 task-plan 目录，返回 {plan_id: plan} 快照"""
+    plans_dir = os.path.join(user_dir, "task-plan")
+    if not os.path.isdir(plans_dir):
+        return {}
+    snap = {}
+    for name in sorted(os.listdir(plans_dir)):
+        if name.endswith(".json"):
+            try:
+                with open(os.path.join(plans_dir, name), encoding="utf-8") as f:
+                    plan = json.load(f)
+                pid = plan.get("id", name.replace(".json", ""))
+                snap[pid] = plan
+            except Exception:
+                pass
+    return snap
+
+
+def _diff_plans(prev: dict, curr: dict) -> list[dict]:
+    """比较前后快照，返回需要推送的 SSE 事件列表"""
+    events = []
+    prev_ids = set(prev.keys())
+    curr_ids = set(curr.keys())
+
+    # 新增计划
+    for pid in curr_ids - prev_ids:
+        plan = curr[pid]
+        events.append({"type": "plan_created", "plan": plan, "plan_id": pid})
+
+    # 已有计划变化
+    for pid in curr_ids & prev_ids:
+        old = prev[pid]
+        new = curr[pid]
+        if old == new:
+            continue
+        # 状态变化
+        if old.get("status") != new.get("status"):
+            if new["status"] == "completed":
+                events.append({"type": "plan_complete", "plan_id": pid, "plan": new})
+            elif new["status"] == "paused":
+                events.append({"type": "plan_pause", "plan_id": pid, "plan": new})
+            elif new["status"] == "aborted":
+                events.append({"type": "plan_aborted", "plan_id": pid, "plan": new})
+            elif new["status"] == "in_progress":
+                events.append({"type": "plan_started", "plan_id": pid, "plan": new})
+        # 步骤变化
+        old_steps = {s["id"]: s for s in old.get("steps", [])}
+        new_steps = {s["id"]: s for s in new.get("steps", [])}
+        for sid, ns in new_steps.items():
+            os = old_steps.get(sid, {})
+            if os.get("status") != ns.get("status"):
+                events.append({
+                    "type": "plan_step",
+                    "plan_id": pid,
+                    "step": {"id": sid, "status": ns["status"],
+                             "result": ns.get("result"), "error": ns.get("error")},
+                })
+
+    return events
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -98,14 +159,30 @@ def api_chat():
 
     chat.add_user_message(message)
     tool_runner.reset_count()
+    chat.refresh_system_prompt(_root)
 
     def generate():
+        user_dir = session_data.get("user_dir", "")
+        prev_snap = _snapshot_plans(user_dir)
         try:
             for event in run_chat_turn(chat, tool_runner, provider, tools):
                 yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+                # 工具调用后检查计划文件变化
+                if event.get("type") == "tool_call":
+                    curr_snap = _snapshot_plans(user_dir)
+                    for pe in _diff_plans(prev_snap, curr_snap):
+                        yield f"data: {json.dumps(pe, ensure_ascii=False)}\n\n"
+                    prev_snap = curr_snap
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'content': str(e)}, ensure_ascii=False)}\n\n"
         finally:
+            # 最终检查一次计划变化
+            try:
+                curr_snap = _snapshot_plans(user_dir)
+                for pe in _diff_plans(prev_snap, curr_snap):
+                    yield f"data: {json.dumps(pe, ensure_ascii=False)}\n\n"
+            except Exception:
+                pass
             try:
                 chat.save_history()
                 chat.save_log(chat.build_messages())

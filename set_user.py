@@ -76,23 +76,24 @@ def _ensure_dirs(user_dir: Path):
     for sub in ["chat", "log", "archive", "file"]:
         (user_dir / "history" / sub).mkdir(parents=True, exist_ok=True)
 
-    # download
+    # download（给用户的产出文件）
     (user_dir / "download").mkdir(parents=True, exist_ok=True)
-
-    # 长期记忆
-    (user_dir / "memory").mkdir(parents=True, exist_ok=True)
 
     # 知识库（用户独立）
     (user_dir / "knowledge").mkdir(parents=True, exist_ok=True)
 
-    # self-improving 目录 + 模板文件
-    si = user_dir / "self-improving"
-    for sub in ["projects", "domains", "archive"]:
-        (si / sub).mkdir(parents=True, exist_ok=True)
+    # 任务计划存储
+    (user_dir / "task-plan").mkdir(parents=True, exist_ok=True)
 
-    # 模板文件（不存在时才创建，避免覆盖）
-    _write_if_missing(si / "memory.md", MEMORY_MD)
-    _write_if_missing(si / "corrections.md", CORRECTIONS_MD)
+    # improve 三层记忆体系（permanent + temporary）
+    for sub in ["memory", "self-improving", "ontology"]:
+        for tier in ["permanent", "temporary"]:
+            (user_dir / "improve" / sub / tier).mkdir(parents=True, exist_ok=True)
+
+    # self-improving 模板文件（不存在时创建）
+    si_perm = user_dir / "improve" / "self-improving" / "permanent"
+    _write_if_missing(si_perm / "memory.md", MEMORY_MD)
+    _write_if_missing(si_perm / "corrections.md", CORRECTIONS_MD)
 
 
 def _write_if_missing(path: Path, content: str):
@@ -203,18 +204,21 @@ def add_user(name: str = "") -> str | None:
     # config.json
     config = {
         "provider": {
+            "type": "openai",
             "model": model,
             "api_key": api_key,
+            "base_url": base_url,
             "think": think,
             "stream": stream,
             "timeout": 120,
-            "base_url": base_url,
+            "api_style": "chat",
         },
         "history": {
             "data": f"{name}_chat_data.json",
             "log": f"{name}_chat_log.json",
         },
         "tool": {"tool_timeout": 120, "enabled": {}, "deny": []},
+        "task_plan": {"accept_task": True},
     }
     _write_config(user_dir, config)
 

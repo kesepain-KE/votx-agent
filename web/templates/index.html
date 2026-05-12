@@ -1386,6 +1386,48 @@
     .file-select { display: flex; align-items: center; gap: 8px; }
     .file-check { accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer; }
 
+    /* Plan bubble */
+    .plan-bubble {
+      margin: 0 0 10px 0;
+      padding: 14px 16px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--glass-border);
+      animation: planBubbleIn 0.3s var(--ease-out);
+      max-height: 320px; overflow-y: auto;
+    }
+    @keyframes planBubbleIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .plan-bubble-header {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+    }
+    .plan-bubble-icon { font-size: 16px; }
+    .plan-bubble-title { font-weight: 700; font-size: 14px; color: var(--text-primary); }
+    .plan-bubble-progress { font-size: 11px; color: var(--text-secondary); margin-left: auto; }
+    .plan-bubble-badge {
+      font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px;
+      background: #4caf50; color: #fff; margin-left: auto;
+    }
+    .plan-bubble-desc { font-size: 12px; color: var(--text-secondary); margin: 0 0 10px 0; }
+    .plan-bubble-steps { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+    .plan-step-row {
+      display: grid; grid-template-columns: 18px 1fr auto;
+      align-items: center; gap: 6px; font-size: 12px;
+      padding: 4px 6px; border-radius: 8px;
+      color: var(--text-secondary);
+    }
+    .plan-step-row.step-in_progress { background: rgba(255,255,255,0.04); color: var(--text-primary); }
+    .plan-step-row.step-completed { color: var(--text-primary); }
+    .plan-step-row.step-failed { color: #f44336; background: rgba(244,67,54,0.06); }
+    .plan-step-icon { font-size: 11px; flex-shrink: 0; width: 18px; text-align: center; }
+    .plan-step-result { font-size: 10px; color: var(--text-tertiary); max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .plan-step-error { font-size: 10px; color: #f44336; }
+    .plan-bubble-actions {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+      padding-top: 8px; border-top: 1px solid var(--glass-border);
+    }
+    .plan-bubble-actions .btn { font-size: 11px; padding: 6px 10px; }
+    .plan-bubble.completed { border-color: rgba(76,175,80,0.3); }
+
     /* Context menu */
     .ctx-menu {
       position: fixed; display: none; z-index: 99;
@@ -1735,6 +1777,42 @@
           <span class="remove-file" @click="removeAttach(i)">×</span>
         </span>
       </div>
+      <!-- Plan Bubble -->
+      <div v-if="activePlan" class="plan-bubble" :class="{ reviewing: planPhase === 'review', executing: planPhase === 'executing', completed: planPhase === 'completed' }">
+        <div class="plan-bubble-header">
+          <span class="plan-bubble-icon">{{ planPhase === 'completed' ? '✅' : '📋' }}</span>
+          <span class="plan-bubble-title">{{ activePlan.title }}</span>
+          <span class="plan-bubble-progress" v-if="planPhase === 'executing'">{{ planDoneCount }}/{{ activePlan.steps.length }} 步</span>
+          <span class="plan-bubble-badge" v-if="planPhase === 'completed'">已完成</span>
+          <span class="plan-bubble-badge" v-if="planPhase === 'paused'" style="background:#ff9800">已暂停</span>
+        </div>
+        <p class="plan-bubble-desc" v-if="activePlan.description">{{ activePlan.description }}</p>
+        <div class="plan-bubble-steps">
+          <div v-for="s in activePlan.steps" :key="s.id" class="plan-step-row" :class="'step-' + (s.status || 'pending')">
+            <span class="plan-step-icon">{{ planStepIcon(s.status) }}</span>
+            <span class="plan-step-desc">{{ s.description }}</span>
+            <span class="plan-step-result" v-if="s.result" :title="s.result">{{ s.result.length > 40 ? s.result.slice(0,40) + '…' : s.result }}</span>
+            <span class="plan-step-error" v-if="s.error">⚠ {{ s.error.length > 30 ? s.error.slice(0,30) + '…' : s.error }}</span>
+          </div>
+        </div>
+        <div class="plan-bubble-actions">
+          <!-- Review phase -->
+          <template v-if="planPhase === 'review'">
+            <button class="btn btn-danger small" @click="rejectPlan">拒绝</button>
+            <button class="btn btn-ghost small" @click="modifyPlan">修改</button>
+            <button class="btn btn-primary small" @click="approvePlan">批准</button>
+          </template>
+          <!-- Executing phase -->
+          <template v-if="planPhase === 'executing' || planPhase === 'paused'">
+            <button class="btn btn-danger small" @click="exitAbortPlan">退出并终止</button>
+            <button class="btn btn-ghost small" @click="stopModifyPlan">停止并修改</button>
+          </template>
+          <!-- Completed phase -->
+          <template v-if="planPhase === 'completed'">
+            <button class="btn btn-primary small" @click="exitPlan">退出任务</button>
+          </template>
+        </div>
+      </div>
       <div class="input-row">
         <input type="file" ref="uploadInput" multiple @change="onUploadFiles" accept="*/*" style="display:none">
         <button class="upload-btn" @click="$refs.uploadInput.click()" title="上传文件" :disabled="isPreview">↑</button>
@@ -1790,6 +1868,10 @@
             <div><b>思考过程显示</b><p style="color:var(--text-secondary);font-size:11px;margin-top:2px">显示/隐藏 AI 思考过程</p></div>
             <div class="switch" :class="{ on: showThinking }" @click="showThinking = !showThinking"></div>
           </div>
+          <div class="toggle-card">
+            <div><b>任务计划</b><p style="color:var(--text-secondary);font-size:11px;margin-top:2px">AI 自动分解复杂任务为步骤计划</p></div>
+            <div class="switch" :class="{ on: config.acceptTask }" @click="toggleConfigSwitch('accept_task')"></div>
+          </div>
           <div class="item">
             <div class="item-top"><b>用户模型设置</b><span class="pill">{{ selectedUser || '—' }}</span></div>
             <div class="debug-grid" style="margin-top:10px">
@@ -1815,19 +1897,22 @@
               </div>
             </div>
           </div>
-          <div style="display:flex;gap:8px;margin-top:12px">
-            <button class="btn btn-primary small" style="flex:1" @click="saveAllConfig">保存</button>
-            <button class="btn btn-ghost small" style="flex:1" @click="applyConfig">重新加载</button>
-            <button class="btn btn-ghost small" style="flex:1" @click="restoreConfig">恢复</button>
-            <button class="btn btn-ghost small" style="flex:1" @click="reloadAgent">🔄 重载</button>
+          <div class="file-toolbar" style="margin-top:12px">
+            <button class="btn btn-primary small" @click="saveAllConfig">保存</button>
+            <button class="btn btn-ghost small" @click="applyConfig">重新加载</button>
+            <button class="btn btn-ghost small" @click="restoreConfig">恢复</button>
+          </div>
+          <div class="file-toolbar">
+            <button class="btn btn-ghost small" style="grid-column:1/-1" @click="reloadAgent">🔄 重载</button>
           </div>
         </div>
       </div>
       <!-- Status -->
       <div class="pane" :class="{ active: activeTab === 'status' }">
-        <div class="prompt-tabs">
+        <div class="prompt-tabs" style="grid-template-columns:repeat(3,1fr)">
           <button class="prompt-tab" :class="{ active: statusSubTab === 'logs' }" @click="statusSubTab = 'logs'; if (statusSubTab === 'logs') loadToolLogs()">日志</button>
           <button class="prompt-tab" :class="{ active: statusSubTab === 'tasks' }" @click="statusSubTab = 'tasks'; if (statusSubTab === 'tasks') loadTasks()">定时任务</button>
+          <button class="prompt-tab" :class="{ active: statusSubTab === 'task-plans' }" @click="statusSubTab = 'task-plans'; if (statusSubTab === 'task-plans') loadTaskPlans()">任务计划</button>
         </div>
         <!-- Logs sub-pane -->
         <div v-if="statusSubTab === 'logs'" class="list">
@@ -1849,6 +1934,27 @@
             <p style="color:var(--text-secondary);font-size:10px;margin-top:2px" v-if="t.last_run">上次执行: {{ t.last_run }}</p>
             <div class="file-actions">
               <button class="btn btn-danger small" @click="deleteTask(t.id)">删除</button>
+            </div>
+          </div>
+        </div>
+        <!-- Task Plans sub-pane -->
+        <div v-if="statusSubTab === 'task-plans'">
+          <div class="file-toolbar">
+            <button class="btn btn-ghost small" @click="loadTaskPlans">刷新</button>
+            <button class="btn btn-danger small" @click="clearCompletedPlans" v-if="hasCompletedPlans">全部删除</button>
+          </div>
+          <div v-if="!taskPlans.length" style="color:var(--text-secondary);font-size:12px;padding:4px">暂无任务计划</div>
+          <div v-for="p in taskPlans" :key="p.id" class="item">
+            <div class="item-top">
+              <b>{{ p.title }}</b>
+              <span class="pill" :style="{background: planStatusColor(p.status)}">{{ planStatusLabel(p.status) }}</span>
+            </div>
+            <p style="color:var(--text-primary);font-size:12px;margin-top:4px">{{ p.description }}</p>
+            <div v-for="s in p.steps" :key="s.id" style="margin:3px 0;font-size:11px;color:var(--text-secondary)">
+              {{ planStepIcon(s.status) }} {{ s.description }}
+            </div>
+            <div class="file-actions">
+              <button class="btn btn-danger small" v-if="p.status !== 'completed' && p.status !== 'aborted'" @click="abortPlan(p.id)">中止</button>
             </div>
           </div>
         </div>
@@ -2229,12 +2335,15 @@ createApp({
         other: '选择用户后加载其他注入摘要…',
       },
 
-      config: { type: 'openai', apiStyle: 'chat', think: false, stream: false, model: '', baseUrl: '', keyDraft: '' },
+      config: { type: 'openai', apiStyle: 'chat', think: false, stream: false, acceptTask: true, model: '', baseUrl: '', keyDraft: '' },
       lastSavedConfig: {},
 
       logs: [],
       statusSubTab: 'logs',
       tasks: [],
+      taskPlans: [],
+      activePlan: null,
+      planPhase: null,   // 'review' | 'executing' | 'completed' | 'paused'
       files: [],
 
       toastText: '',
@@ -2246,6 +2355,13 @@ createApp({
   },
 
   computed: {
+    planDoneCount() {
+      if (!this.activePlan) return 0;
+      return this.activePlan.steps.filter(s => s.status === 'completed').length;
+    },
+    hasCompletedPlans() {
+      return this.taskPlans.some(p => p.status === 'completed' || p.status === 'aborted');
+    },
     profileInitial() { return (this.profileName || 'K').slice(0, 1).toUpperCase(); },
     themeLabel() { const t = THEMES.find(x => x.id === this.theme); return t ? t.label : '高级黑'; },
     fileGroups() {
@@ -2395,6 +2511,7 @@ createApp({
           this.refreshConversations(),
           this.loadToolLogs(),
           this.loadTasks(),
+          this.loadTaskPlans(),
           this.loadFileList(),
           this.loadSystemPrompt(),
           this.loadDebugConfig(),
@@ -2883,6 +3000,47 @@ createApp({
               case 'max_rounds':
                 this.pushWarn('已达到最大工具调用轮数', true);
                 break;
+              case 'plan_created':
+                if (ev.plan) {
+                  this.activePlan = ev.plan;
+                  this.planPhase = 'review';
+                  this.loadTaskPlans();
+                }
+                break;
+              case 'plan_started':
+                if (this.activePlan && ev.plan_id === this.activePlan.id) {
+                  this.activePlan.status = 'in_progress';
+                  this.planPhase = 'executing';
+                }
+                break;
+              case 'plan_step':
+                if (this.activePlan && ev.plan_id === this.activePlan.id && ev.step) {
+                  const s = this.activePlan.steps.find(x => x.id === ev.step.id);
+                  if (s) Object.assign(s, ev.step);
+                  if (this.planPhase === 'review') this.planPhase = 'executing';
+                }
+                break;
+              case 'plan_complete':
+                if (this.activePlan && ev.plan_id === this.activePlan.id) {
+                  this.activePlan.status = 'completed';
+                  this.planPhase = 'completed';
+                  this.loadTaskPlans();
+                }
+                break;
+              case 'plan_pause':
+                if (this.activePlan && ev.plan_id === this.activePlan.id) {
+                  this.activePlan.status = 'paused';
+                  this.planPhase = 'paused';
+                  this.loadTaskPlans();
+                }
+                break;
+              case 'plan_aborted':
+                if (this.activePlan && ev.plan_id === this.activePlan.id) {
+                  this.activePlan = null;
+                  this.planPhase = null;
+                  this.loadTaskPlans();
+                }
+                break;
             }
           }
           await this.$nextTick();
@@ -3095,6 +3253,97 @@ createApp({
       } catch (e) { this.toast('删除失败: ' + e.message); }
     },
 
+    // ---- Task Plans ----
+    async loadTaskPlans() {
+      if (!this.userActive) return;
+      try {
+        this.taskPlans = await this.api('/api/task-plan') || [];
+      } catch (e) { /* ignore */ }
+    },
+    async clearCompletedPlans() {
+      if (!this.userActive) return;
+      if (!confirm('确定删除所有已完成/已中止的计划？（活跃计划不受影响）')) return;
+      try {
+        const r = await this.api('/api/task-plan/clear-completed', { method: 'POST' });
+        this.toast('已删除 ' + (r.deleted || 0) + ' 个计划');
+        this.loadTaskPlans();
+      } catch (e) { this.toast('删除失败: ' + e.message); }
+    },
+    async abortPlan(planId) {
+      if (!this.userActive) return;
+      if (!confirm('确定中止此计划？未完成的步骤将被跳过。')) return;
+      try {
+        await this.api('/api/task-plan/' + planId + '/abort', { method: 'POST' });
+        this.loadTaskPlans();
+        this.toast('计划已中止');
+      } catch (e) { this.toast('中止失败: ' + e.message); }
+    },
+    planStatusColor(s) {
+      const m = { pending: 'var(--text-tertiary)', in_progress: 'var(--accent)', completed: '#4caf50', paused: '#ff9800', aborted: '#f44336', failed: '#f44336' };
+      return m[s] || 'var(--text-tertiary)';
+    },
+    planStatusLabel(s) {
+      const m = { pending: '待执行', in_progress: '执行中', completed: '已完成', paused: '已暂停', aborted: '已中止', failed: '失败' };
+      return m[s] || s;
+    },
+    planStepIcon(s) {
+      const m = { pending: '○', in_progress: '◉', completed: '✔', skipped: '⊘', failed: '✗' };
+      return m[s] || '○';
+    },
+    // Bubble actions
+    async approvePlan() {
+      if (!this.activePlan) return;
+      try {
+        await this.api('/api/task-plan/' + this.activePlan.id + '/resume', { method: 'POST' });
+        this.activePlan.status = 'in_progress';
+        this.planPhase = 'executing';
+        this.toast('计划已批准，开始执行');
+        this.input = '执行计划';
+        this.sendMessage();
+      } catch (e) { this.toast('操作失败: ' + e.message); }
+    },
+    async rejectPlan() {
+      if (!this.activePlan) return;
+      if (!confirm('确定拒绝此计划？')) return;
+      try {
+        await this.api('/api/task-plan/' + this.activePlan.id + '/abort', { method: 'POST' });
+        this.activePlan = null;
+        this.planPhase = null;
+        this.loadTaskPlans();
+        this.toast('计划已拒绝');
+      } catch (e) { this.toast('操作失败: ' + e.message); }
+    },
+    modifyPlan() {
+      this.toast('请直接发送修改要求，如"把第2步改成..."');
+      this.$refs.textInput && this.$refs.textInput.focus();
+    },
+    async exitAbortPlan() {
+      if (!this.activePlan) return;
+      if (!confirm('确定退出并终止此计划？未完成的步骤将被跳过。')) return;
+      try {
+        await this.api('/api/task-plan/' + this.activePlan.id + '/abort', { method: 'POST' });
+        this.activePlan = null;
+        this.planPhase = null;
+        this.loadTaskPlans();
+        this.toast('计划已终止');
+      } catch (e) { this.toast('操作失败: ' + e.message); }
+    },
+    async stopModifyPlan() {
+      if (!this.activePlan) return;
+      try {
+        await this.api('/api/task-plan/' + this.activePlan.id + '/pause', { method: 'POST' });
+        this.activePlan.status = 'paused';
+        this.planPhase = 'paused';
+        this.toast('计划已暂停，请发送修改要求');
+        this.$refs.textInput && this.$refs.textInput.focus();
+      } catch (e) { this.toast('操作失败: ' + e.message); }
+    },
+    exitPlan() {
+      this.activePlan = null;
+      this.planPhase = null;
+      this.toast('任务已退出');
+    },
+
     // ---- System Prompt ----
     async loadSystemPrompt() {
       if (!this.userActive) return;
@@ -3124,6 +3373,7 @@ createApp({
         this.config.apiStyle = p.api_style || 'chat';
         this.config.think = !!p.think;
         this.config.stream = !!p.stream;
+        this.config.acceptTask = !!(cfg.task_plan && cfg.task_plan.accept_task);
         this.config.model = p.model || '';
         this.config.baseUrl = p.base_url || '';
         this.modelName = p.model || '—';
@@ -3147,16 +3397,20 @@ createApp({
 
     async toggleConfigSwitch(key) {
       if (!this.userActive) { this.toast('请先选择用户'); return; }
-      this.config[key] = !this.config[key];
+      // 映射蛇形 API key → 驼峰 config 属性
+      const propMap = { accept_task: 'acceptTask' };
+      const prop = propMap[key] || key;
+      this.config[prop] = !this.config[prop];
       try {
-        const body = {}; body[key] = this.config[key];
+        const body = {}; body[key] = this.config[prop];
         await this.api('/api/config', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
         });
-        this.toast((this.config[key] ? '已开启 ' : '已关闭 ') + key);
-      } catch (e) { this.config[key] = !this.config[key]; this.toast('保存失败'); }
+        const label = { accept_task: '任务计划' }[key] || key;
+        this.toast((this.config[prop] ? '已开启 ' : '已关闭 ') + label);
+      } catch (e) { this.config[prop] = !this.config[prop]; this.toast('保存失败'); }
     },
 
     snapshotConfig() {
@@ -3167,6 +3421,7 @@ createApp({
         baseUrl: this.config.baseUrl,
         think: this.config.think,
         stream: this.config.stream,
+        acceptTask: this.config.acceptTask,
       };
     },
 
@@ -3212,6 +3467,7 @@ createApp({
       this.config.baseUrl = this.lastSavedConfig.baseUrl || '';
       if ('think' in this.lastSavedConfig) this.config.think = this.lastSavedConfig.think;
       if ('stream' in this.lastSavedConfig) this.config.stream = this.lastSavedConfig.stream;
+      if ('acceptTask' in this.lastSavedConfig) this.config.acceptTask = this.lastSavedConfig.acceptTask;
       this.toast('已恢复到上次保存状态');
     },
 

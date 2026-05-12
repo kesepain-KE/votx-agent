@@ -1,5 +1,5 @@
 ---
-name: download-anything
+name: download_anything
 description: >
   Find and download virtually any digital resource from the internet — ebooks, academic papers,
   movies, TV shows, music, software, images, fonts, courses, and more. Covers both English and
