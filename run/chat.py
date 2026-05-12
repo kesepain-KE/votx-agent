@@ -1,11 +1,10 @@
 """对话管理 - 消息组装、历史加载保存、压缩归档"""
-import gzip
 import json
 import os
 from datetime import datetime, timezone
 from typing import Any
 
-from run.io_utils import atomic_write_json, append_jsonl, read_json_safe, atomic_write_gzip, atomic_write_text
+from run.io_utils import atomic_write_json, append_jsonl, read_json_safe, atomic_write_text
 
 
 class ChatManager:
@@ -14,7 +13,6 @@ class ChatManager:
     def __init__(self, user_dir: str, core_config: dict[str, Any], user_config: dict[str, Any]):
         hist_cfg = core_config["history"]
         self.max_history = hist_cfg["history_max"]
-        self.zip_history = hist_cfg["zip_history"]
         user_hist = user_config.get("history", {})
         data_file = user_hist.get("data", "chat_data.json")
         log_file = user_hist.get("log", "chat_log.json")
@@ -24,6 +22,8 @@ class ChatManager:
         self.archive_dir = os.path.join(user_dir, "history", "archive")
         self.system_prompt = ""
         self.messages: list[dict[str, Any]] = []
+        self.provider = None   # set_provider() 由引擎调用
+        self.user_dir = user_dir
 
         # 累计 Token 统计（跨轮会话累加）
         self.token_stats: dict[str, int] = {
@@ -61,6 +61,10 @@ class ChatManager:
 
     def set_system_prompt(self, prompt: str):
         self.system_prompt = prompt
+
+    def set_provider(self, provider):
+        """设置 LLM provider（供 auto_improve 子代理使用）"""
+        self.provider = provider
 
     # ---- 消息组装 ----
 
@@ -277,8 +281,8 @@ class ChatManager:
     def _trim_if_needed(self):
         """超过最大条数时裁剪；确保不切断 tool_calls/tool_result 配对。
 
-        裁剪后将旧消息归档，并插入一条摘要消息到历史开头，
-        让 LLM 知道前面聊过什么、什么时候聊的。
+        裁剪后触发 auto_improve 子代理提取临时记忆，
+        并插入摘要消息到历史开头。
         """
         if len(self.messages) < self.max_history:
             return
@@ -304,46 +308,34 @@ class ChatManager:
         if digest:
             ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
             lines = [
-                f"[历史压缩] 以下是之前 {len(trimmed)} 条对话的摘要（已归档保存）：",
+                f"[历史压缩] 以下是之前 {len(trimmed)} 条对话的摘要：",
                 *digest,
-                f"归档时间: {ts}",
+                f"压缩时间: {ts}",
             ]
             self.messages.insert(0, {
                 "role": "user",
                 "content": "\n".join(lines),
             })
 
-        if self.zip_history and trimmed:
-            self._archive(trimmed)
+        # 触发 auto_improve 子代理提取临时记忆
+        if self.provider and self.user_dir and trimmed:
+            try:
+                from agents.auto_improve.agent import run_auto_improve
+                result = run_auto_improve(self.provider, trimmed, self.user_dir)
+                if result.get("summary"):
+                    print(f"[auto_improve] {result['summary']}")
+            except Exception:
+                pass  # 记忆提取失败不影响主流程
 
-    def _archive(self, old_messages: list[dict[str, Any]]):
-        """将旧消息归档到独立文件。
 
-        zip_history=True → gzip 压缩 (.json.gz)，节省约 80% 空间
-        zip_history=False → 纯 JSON
-        """
-        try:
-            os.makedirs(self.archive_dir, exist_ok=True)
-            ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S_%f")
-            text = json.dumps(old_messages, ensure_ascii=False, indent=2)
-
-            if self.zip_history:
-                archive_path = os.path.join(self.archive_dir, f"history_{ts}.json.gz")
-                atomic_write_gzip(archive_path, text)
-            else:
-                archive_path = os.path.join(self.archive_dir, f"history_{ts}.json")
-                atomic_write_text(archive_path, text)
-        except Exception:
-            pass  # 归档失败不影响主流程
 
     # ---- 用户命令 ----
 
     def clear_history(self) -> str:
-        """清除当前对话历史（先归档再清空），返回提示信息"""
+        """清除当前对话历史，返回提示信息"""
         if not self.messages:
             return "没有可清除的历史记录。"
         count = len(self.messages)
-        self._archive(self.messages)
         self.messages = []
         try:
             if os.path.exists(self.data_path):
@@ -365,12 +357,31 @@ class ChatManager:
         return f"已清除 {count} 条历史消息（归档备份已保存）{extra}。"
 
     def archive_now(self) -> str:
-        """手动归档当前全部历史，不清空"""
+        """保存当前消息到归档文件，同时触发 auto_improve 记忆提取"""
         if not self.messages:
-            return "没有可归档的历史记录。"
+            return "没有可处理的对话。"
         count = len(self.messages)
-        self._archive(list(self.messages))
-        return f"已归档 {count} 条历史消息。"
+
+        # 写入归档文件
+        from datetime import datetime, timezone
+        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+        archive_dir = os.path.join(self.user_dir, "history", "archive")
+        os.makedirs(archive_dir, exist_ok=True)
+        archive_name = f"history_{ts}_{count}.json"
+        archive_path = os.path.join(archive_dir, archive_name)
+        atomic_write_json(archive_path, self.build_messages(), indent=2)
+
+        # 同时触发 auto_improve
+        if self.provider and self.user_dir:
+            try:
+                from agents.auto_improve.agent import run_auto_improve
+                result = run_auto_improve(self.provider, list(self.messages), self.user_dir)
+                if result.get("summary"):
+                    print(f"[auto_improve] {result['summary']}")
+            except Exception:
+                pass
+
+        return f"已归档 {count} 条消息到 {archive_name}"
 
     def history_stats(self) -> str:
         """返回当前历史状态摘要"""
@@ -406,7 +417,6 @@ class ChatManager:
             f"历史文件大小: {_fmt_bytes(size)}",
             f"工具调用日志: {tool_log_count} 条",
             f"归档备份数: {archive_count} 个",
-            f"自动归档: {'开' if self.zip_history else '关'}",
         ]
         return "\n".join(lines)
 

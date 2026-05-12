@@ -25,6 +25,10 @@ def main():
     # 加载配置
     with open(os.path.join(root, "config", "config_core.json"), encoding="utf-8") as f:
         core_config = json.load(f)
+
+    # 启动 corn 后台调度
+    from corn import start_corn, stop_corn
+    start_corn(root, core_config)
     with open(os.path.join(user_dir, "config.json"), encoding="utf-8") as f:
         user_config = json.load(f)
 
@@ -36,7 +40,12 @@ def main():
 
     # 初始化对话管理
     chat = ChatManager(user_dir, core_config, user_config)
+    chat.set_provider(provider)
     chat.set_system_prompt(system_prompt)
+
+    # 注入 auto_improve 上下文（供 auto_improve_review 工具使用）
+    import skills.auto_improve.tool as ai_tool
+    ai_tool.set_auto_improve_context(provider=provider, chat=chat, user_name=user_name)
     chat.load_history()
 
     # 退出时保存（含摘要）
@@ -45,6 +54,7 @@ def main():
             summarize_and_store(provider, chat.messages, user_dir)
             chat.save_history()
             chat.save_log(chat.build_messages())
+            stop_corn()
         except Exception:
             pass
 

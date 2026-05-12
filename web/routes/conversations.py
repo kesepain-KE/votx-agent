@@ -17,7 +17,7 @@ from web.session import get_session, get_active_user
 
 # ---- 路径安全 ----
 
-_VALID_ARCHIVE_FILE = re.compile(r'^history_\d{8}T\d{6}_\d+\.json(?:\.gz)?$')
+_VALID_ARCHIVE_FILE = re.compile(r'^(?:history|corn)_\d{8}T\d{6}_\w+\.json(?:\.gz)?$')
 
 
 def _validate_conv_id(user_dir: str, conv_id: str) -> tuple[str | None, str | None]:

@@ -51,6 +51,11 @@ def init_user_session(root: str, user_dir: str, user_name: str, user_config: dic
 
     provider = create_provider(user_config, core_config)
     chat = ChatManager(user_dir, core_config, user_config)
+    chat.set_provider(provider)
+
+    # 注入 auto_improve 上下文（供 auto_improve_review 工具使用）
+    import skills.auto_improve.tool as ai_tool
+    ai_tool.set_auto_improve_context(provider=provider, chat=chat, user_name=user_name)
     try:
         chat.load_history()
     except Exception:

@@ -43,11 +43,15 @@ def _compute_cache_key(root: str, user_dir: str) -> int:
     for f in Path(skills_dir).rglob("*"):
         if f.name in ("SKILL.md", "tool.py", "_meta.json"):
             mtimes.append(_mtime(str(f)))
-    # self-improving
-    mtimes.append(_mtime(os.path.join(user_dir, "self-improving", "memory.md")))
-    mtimes.append(_mtime(os.path.join(user_dir, "self-improving", "corrections.md")))
-    # memory/*.md
-    mtimes.append(_dir_max_mtime(os.path.join(user_dir, "memory"), "*.md"))
+    # improve/permanent (memory + self-improving + ontology)
+    mtimes.append(_dir_max_mtime(os.path.join(user_dir, "improve", "memory", "permanent"), "*.md"))
+    mtimes.append(_mtime(os.path.join(user_dir, "improve", "self-improving", "permanent", "memory.md")))
+    mtimes.append(_mtime(os.path.join(user_dir, "improve", "self-improving", "permanent", "corrections.md")))
+    mtimes.append(_dir_max_mtime(os.path.join(user_dir, "improve", "ontology", "permanent"), "*.md"))
+    # improve/temporary (临时记忆，注入 system prompt，频繁变化）
+    mtimes.append(_dir_max_mtime(os.path.join(user_dir, "improve", "memory", "temporary"), "*.md"))
+    mtimes.append(_dir_max_mtime(os.path.join(user_dir, "improve", "self-improving", "temporary"), "*.md"))
+    mtimes.append(_dir_max_mtime(os.path.join(user_dir, "improve", "ontology", "temporary"), "*.md"))
     # SESSION-STATE.md (注意：engine.py 从 root 读取，不是 user_dir)
     mtimes.append(_mtime(os.path.join(root, "SESSION-STATE.md")))
 

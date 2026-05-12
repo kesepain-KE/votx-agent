@@ -149,44 +149,88 @@ def build_system_prompt(root: str, user_dir: str) -> str:
         kb_lines.append("- **规则**: 检索时同时搜索两层，用户级结果优先；默认写入用户级，只有用户明确说\"写入全局\"时才写入全局知识库")
         system_prompt += "\n".join(kb_lines)
 
-    # ── 自改进记忆 (HOT Tier) ──
-    si_mem = os.path.join(user_dir, "self-improving", "memory.md")
-    if os.path.exists(si_mem) and os.path.getsize(si_mem) > 0:
-        try:
-            content = open(si_mem, encoding="utf-8").read().strip()
-            if content:
-                system_prompt += "\n\n## 自改进记忆（HOT Tier — 用户偏好、模式、规则）\n" + content
-        except Exception:
-            pass
+    # ── 改善记忆（permanent 层 — 注入 system prompt） ──
+    improve_dir = os.path.join(user_dir, "improve")
+    if os.path.isdir(improve_dir):
+        # 永久记忆 (improve/memory/permanent/*.md)
+        perm_mem_dir = os.path.join(improve_dir, "memory", "permanent")
+        if os.path.isdir(perm_mem_dir):
+            mem_files = sorted(
+                f for f in os.listdir(perm_mem_dir) if f.endswith(".md") and not f.startswith(".")
+            )
+            if mem_files:
+                system_prompt += "\n\n## 永久记忆（跨会话持久化）"
+                for fn in mem_files:
+                    try:
+                        c = open(os.path.join(perm_mem_dir, fn), encoding="utf-8").read().strip()
+                        if c:
+                            if len(c) > 2000:
+                                c = c[:2000] + "\n\n...(截断)"
+                            system_prompt += f"\n\n[{fn}]\n{c}"
+                    except Exception:
+                        pass
 
-    # ── 纠正记录 ──
-    si_corr = os.path.join(user_dir, "self-improving", "corrections.md")
-    if os.path.exists(si_corr) and os.path.getsize(si_corr) > 0:
-        try:
-            content = open(si_corr, encoding="utf-8").read().strip()
-            if content:
-                system_prompt += "\n\n## 纠正记录（Corrections — 过往被纠正的错误）\n" + content
-        except Exception:
-            pass
-
-    # ── 长期记忆 (mem_* 文件) ──
-    mem_dir = os.path.join(user_dir, "memory")
-    if os.path.isdir(mem_dir):
-        mem_files = sorted(
-            f for f in os.listdir(mem_dir) if f.endswith(".md") and not f.startswith(".")
-        )
-        if mem_files:
-            system_prompt += "\n\n## 长期记忆（跨会话持久化）"
-            for fn in mem_files:
+        # 永久规则 (improve/self-improving/permanent/)
+        perm_si_dir = os.path.join(improve_dir, "self-improving", "permanent")
+        if os.path.isdir(perm_si_dir):
+            # HOT Tier — memory.md
+            si_mem = os.path.join(perm_si_dir, "memory.md")
+            if os.path.exists(si_mem) and os.path.getsize(si_mem) > 0:
                 try:
-                    c = open(os.path.join(mem_dir, fn), encoding="utf-8").read().strip()
-                    if c:
-                        # 单文件限制 2000 字符，避免 prompt 膨胀
-                        if len(c) > 2000:
-                            c = c[:2000] + "\n\n...(截断)"
-                        system_prompt += f"\n\n[{fn}]\n{c}"
+                    content = open(si_mem, encoding="utf-8").read().strip()
+                    if content:
+                        system_prompt += "\n\n## 自改进记忆（HOT Tier — 用户偏好、模式、规则）\n" + content
                 except Exception:
                     pass
+
+            # 纠正记录 — corrections.md
+            si_corr = os.path.join(perm_si_dir, "corrections.md")
+            if os.path.exists(si_corr) and os.path.getsize(si_corr) > 0:
+                try:
+                    content = open(si_corr, encoding="utf-8").read().strip()
+                    if content:
+                        system_prompt += "\n\n## 纠正记录（Corrections — 过往被纠正的错误）\n" + content
+                except Exception:
+                    pass
+
+        # 永久知识图谱 (improve/ontology/permanent/*.md)
+        perm_ont_dir = os.path.join(improve_dir, "ontology", "permanent")
+        if os.path.isdir(perm_ont_dir):
+            ont_files = sorted(
+                f for f in os.listdir(perm_ont_dir) if f.endswith(".md") and not f.startswith(".")
+            )
+            if ont_files:
+                system_prompt += "\n\n## 永久知识图谱"
+                for fn in ont_files:
+                    try:
+                        c = open(os.path.join(perm_ont_dir, fn), encoding="utf-8").read().strip()
+                        if c:
+                            if len(c) > 2000:
+                                c = c[:2000] + "\n\n...(截断)"
+                            system_prompt += f"\n\n[{fn}]\n{c}"
+                    except Exception:
+                        pass
+
+        # ── 临时改善记忆 (temporary 层 — 注入 system prompt，web 端不显示) ──
+        for sub in ("memory", "self-improving", "ontology"):
+            temp_dir = os.path.join(improve_dir, sub, "temporary")
+            if not os.path.isdir(temp_dir):
+                continue
+            temp_files = sorted(
+                f for f in os.listdir(temp_dir) if f.endswith(".md") and not f.startswith(".")
+            )
+            if temp_files:
+                sub_label = {"memory": "临时记忆", "self-improving": "临时规则", "ontology": "临时知识图谱"}.get(sub, sub)
+                system_prompt += f"\n\n## {sub_label}（待审阅）"
+                for fn in temp_files:
+                    try:
+                        c = open(os.path.join(temp_dir, fn), encoding="utf-8").read().strip()
+                        if c:
+                            if len(c) > 2000:
+                                c = c[:2000] + "\n\n...(截断)"
+                            system_prompt += f"\n\n[{fn}]\n{c}"
+                    except Exception:
+                        pass
 
     session_state = os.path.join(root, "SESSION-STATE.md")
     if os.path.exists(session_state):

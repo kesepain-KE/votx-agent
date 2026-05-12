@@ -12,5 +12,9 @@
     },
     "output": {
         "stream": true
+    },
+    "improve": {
+        "forget_time": 604800,
+        "auto_improve_time": 3600
     }
 }

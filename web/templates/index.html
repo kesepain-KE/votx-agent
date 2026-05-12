@@ -1746,6 +1746,7 @@
           rows="1"
           @keydown.enter.exact.prevent="sendMessage"
           @input="autoResize"
+          @paste="onPaste"
           style="resize:none;overflow-y:auto;min-height:22px;max-height:150px;line-height:1.5;width:100%"
         ></textarea>
         <button v-if="running" class="send-btn stop" @click="stopRun">停止</button>
@@ -1822,11 +1823,34 @@
           </div>
         </div>
       </div>
-      <!-- Logs -->
-      <div class="pane" :class="{ active: activeTab === 'logs' }">
-        <div class="list">
+      <!-- Status -->
+      <div class="pane" :class="{ active: activeTab === 'status' }">
+        <div class="prompt-tabs">
+          <button class="prompt-tab" :class="{ active: statusSubTab === 'logs' }" @click="statusSubTab = 'logs'; if (statusSubTab === 'logs') loadToolLogs()">日志</button>
+          <button class="prompt-tab" :class="{ active: statusSubTab === 'tasks' }" @click="statusSubTab = 'tasks'; if (statusSubTab === 'tasks') loadTasks()">定时任务</button>
+        </div>
+        <!-- Logs sub-pane -->
+        <div v-if="statusSubTab === 'logs'" class="list">
           <div v-if="!logs.length" style="color:var(--text-secondary);font-size:12px;padding:4px">选择用户后加载日志…</div>
           <div v-for="l in logs" :key="l._key" class="log-row" :class="{ fail: !l.success }">{{ l.text }}</div>
+        </div>
+        <!-- Tasks sub-pane -->
+        <div v-if="statusSubTab === 'tasks'">
+          <div class="file-toolbar">
+            <button class="btn btn-ghost small" @click="loadTasks">刷新</button>
+          </div>
+          <div v-if="!tasks.length" style="color:var(--text-secondary);font-size:12px;padding:4px">暂无定时任务</div>
+          <div v-for="t in tasks" :key="t.id" class="item">
+            <div class="item-top">
+              <b>[{{ t.type === 'daily' ? '每日' : '单次' }}] {{ t.time }}</b>
+              <span class="pill">{{ t.id }}</span>
+            </div>
+            <p style="color:var(--text-primary);font-size:12px;margin-top:4px">{{ t.command }}</p>
+            <p style="color:var(--text-secondary);font-size:10px;margin-top:2px" v-if="t.last_run">上次执行: {{ t.last_run }}</p>
+            <div class="file-actions">
+              <button class="btn btn-danger small" @click="deleteTask(t.id)">删除</button>
+            </div>
+          </div>
         </div>
       </div>
       <!-- Files -->
@@ -2187,7 +2211,7 @@ createApp({
       tabs: [
         { id: 'overview', label: '概览' },
         { id: 'debug', label: '调试' },
-        { id: 'logs', label: '日志' },
+        { id: 'status', label: '状态' },
         { id: 'files', label: '文件' },
       ],
 
@@ -2209,6 +2233,8 @@ createApp({
       lastSavedConfig: {},
 
       logs: [],
+      statusSubTab: 'logs',
+      tasks: [],
       files: [],
 
       toastText: '',
@@ -2290,6 +2316,23 @@ createApp({
       });
     },
 
+    // ---- Paste handler (支持粘贴剪贴板图片/文件) ----
+    onPaste(e) {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      const files = [];
+      for (const item of items) {
+        if (item.kind === 'file') {
+          const file = item.getAsFile();
+          if (file) files.push(file);
+        }
+      }
+      if (files.length) {
+        e.preventDefault();
+        this.uploadFiles(files);
+      }
+    },
+
     // ---- Theme ----
     toggleThemeMenu(e) {
       const rect = e.currentTarget.getBoundingClientRect();
@@ -2351,6 +2394,7 @@ createApp({
         await Promise.all([
           this.refreshConversations(),
           this.loadToolLogs(),
+          this.loadTasks(),
           this.loadFileList(),
           this.loadSystemPrompt(),
           this.loadDebugConfig(),
@@ -2723,6 +2767,7 @@ createApp({
       this.pushUserMsg(fullMsg, imageInfos);
       this.input = '';
       this.attachChips = [];
+      this.autoResize();
       this.scrollBottom(true);
 
       await this.streamChat(fullMsg);
@@ -3031,6 +3076,23 @@ createApp({
           };
         });
       } catch (e) { /* ignore */ }
+    },
+
+    // ---- Tasks ----
+    async loadTasks() {
+      if (!this.userActive) return;
+      try {
+        this.tasks = await this.api('/api/tasks') || [];
+      } catch (e) { /* ignore */ }
+    },
+    async deleteTask(taskId) {
+      if (!this.userActive) return;
+      if (!confirm('确定删除此任务？')) return;
+      try {
+        await this.api('/api/tasks/' + taskId, { method: 'DELETE' });
+        this.loadTasks();
+        this.toast('任务已删除');
+      } catch (e) { this.toast('删除失败: ' + e.message); }
     },
 
     // ---- System Prompt ----

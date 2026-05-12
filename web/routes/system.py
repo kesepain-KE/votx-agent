@@ -62,6 +62,15 @@ def api_system_prompt():
     except Exception:
         full = chat.system_prompt
 
+    # 从 web 显示中剥离临时 improve（LLM 可见，web 不显示）
+    import re
+    display_full = re.sub(
+        r'\n\n## 临时(?:记忆|规则|知识图谱)（待审阅）\n.*?(?=\n\n## |\Z)',
+        '',
+        full,
+        flags=re.DOTALL,
+    )
+
     other_parts = []
 
     # ── 顺序与 engine.py build_system_prompt() 保持一致 ──
@@ -127,46 +136,64 @@ def api_system_prompt():
         kb_parts.append("- **规则**: 检索同时搜索两层，用户级优先；默认写入用户级，明确说\"写入全局\"才写全局")
         other_parts.append("\n".join(kb_parts))
 
-    # 3. 自改进记忆 (HOT Tier)
-    si_mem = os.path.join(user_dir, "self-improving", "memory.md")
-    if os.path.exists(si_mem):
-        try:
-            content = open(si_mem, encoding="utf-8").read().strip()
-            if content:
-                other_parts.append("## 自改进记忆 (HOT Tier)\n\n" + content)
-        except Exception:
-            pass
+    # 3. 改善记忆 (permanent 层)
+    improve_dir = os.path.join(user_dir, "improve")
+    if os.path.isdir(improve_dir):
+        # 永久记忆 (improve/memory/permanent/*.md)
+        perm_mem_dir = os.path.join(improve_dir, "memory", "permanent")
+        if os.path.isdir(perm_mem_dir):
+            mem_files = sorted(
+                f for f in os.listdir(perm_mem_dir) if f.endswith(".md") and not f.startswith(".")
+            )
+            if mem_files:
+                mem_lines = ["## 永久记忆\n"]
+                for fn in mem_files:
+                    mem_lines.append(f"\n### {fn}\n")
+                    try:
+                        c = open(os.path.join(perm_mem_dir, fn), encoding="utf-8").read()
+                        if len(c) > 3000:
+                            c = c[:3000] + "\n\n…(截断)"
+                        mem_lines.append(c)
+                    except Exception:
+                        mem_lines.append("(无法读取)")
+                other_parts.append("\n".join(mem_lines))
 
-    # 4. 纠正记录
-    si_corr = os.path.join(user_dir, "self-improving", "corrections.md")
-    if os.path.exists(si_corr):
-        try:
-            content = open(si_corr, encoding="utf-8").read().strip()
-            if content:
-                other_parts.append("## 纠正记录 (Corrections)\n\n" + content)
-        except Exception:
-            pass
+        # 永久规则 (improve/self-improving/permanent/)
+        perm_si_dir = os.path.join(improve_dir, "self-improving", "permanent")
+        if os.path.isdir(perm_si_dir):
+            for fn in ["memory.md", "corrections.md"]:
+                fp = os.path.join(perm_si_dir, fn)
+                if os.path.exists(fp):
+                    try:
+                        content = open(fp, encoding="utf-8").read().strip()
+                        if content:
+                            title = "自改进记忆 (HOT Tier)" if fn == "memory.md" else "纠正记录 (Corrections)"
+                            if len(content) > 3000:
+                                content = content[:3000] + "\n\n…(截断)"
+                            other_parts.append(f"## {title}\n\n{content}")
+                    except Exception:
+                        pass
 
-    # 5. 长期记忆 (mem_* 文件)
-    mem_dir = os.path.join(user_dir, "memory")
-    if os.path.isdir(mem_dir):
-        mem_files = sorted(
-            f for f in os.listdir(mem_dir) if f.endswith(".md") and not f.startswith(".")
-        )
-        if mem_files:
-            mem_lines = ["## 长期记忆 (mem_* 文件)\n"]
-            for fn in mem_files:
-                mem_lines.append(f"\n### {fn}\n")
-                try:
-                    c = open(os.path.join(mem_dir, fn), encoding="utf-8").read()
-                    if len(c) > 3000:
-                        c = c[:3000] + "\n\n…(截断)"
-                    mem_lines.append(c)
-                except Exception:
-                    mem_lines.append("(无法读取)")
-            other_parts.append("\n".join(mem_lines))
+        # 永久知识图谱 (improve/ontology/permanent/*.md)
+        perm_ont_dir = os.path.join(improve_dir, "ontology", "permanent")
+        if os.path.isdir(perm_ont_dir):
+            ont_files = sorted(
+                f for f in os.listdir(perm_ont_dir) if f.endswith(".md") and not f.startswith(".")
+            )
+            if ont_files:
+                ont_lines = ["## 永久知识图谱\n"]
+                for fn in ont_files:
+                    ont_lines.append(f"\n### {fn}\n")
+                    try:
+                        c = open(os.path.join(perm_ont_dir, fn), encoding="utf-8").read()
+                        if len(c) > 3000:
+                            c = c[:3000] + "\n\n…(截断)"
+                        ont_lines.append(c)
+                    except Exception:
+                        ont_lines.append("(无法读取)")
+                other_parts.append("\n".join(ont_lines))
 
-    # 6. 会话状态 (SESSION-STATE.md) — 最后叠加
+    # 4. 会话状态 (SESSION-STATE.md) — 最后叠加
     session_state = os.path.join(root, "SESSION-STATE.md")
     if os.path.exists(session_state):
         try:
@@ -179,7 +206,7 @@ def api_system_prompt():
     other = "\n\n".join(other_parts) if other_parts else "（无额外注入内容）"
 
     return jsonify({
-        "content": full,
+        "content": display_full,
         "soul": soul,
         "agent": agent,
         "other": other,
