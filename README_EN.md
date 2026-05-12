@@ -41,7 +41,8 @@ Most AI Agent frameworks on GitHub are built for single-user, English-first scen
 - **Dual-level knowledge base**: user-level (default read/write) + global-level (read-only shared), hierarchical index navigation, PDF/Excel retrieval support
 - **Dual client support**: Vue 3 Web UI and CLI terminal share the same `run/engine.py` conversation engine with consistent behavior
 - **Task planning**: complex requests auto-decomposed into step-by-step plans with Web UI progress bubble, approval/pause/abort support
-- **Self-learning**: failed tool calls are automatically recorded as lessons and injected as rules before future conversations
+- **Self-learning**: both successful and failed tool executions generate learning records, automatically injected into future conversations for continuous improvement
+- **Cron scheduler**: scheduled tasks with cron expressions and forgetting curve management, integrated in Web UI status panel
 - **Long-conversation friendly**: auto token compression + summary archives keep context within model limits
 
 > This project is part of the [kesepain-KE](https://github.com/kesepain-KE) repository family and is under active iteration.
@@ -170,6 +171,7 @@ Open `http://localhost:1478` in your browser and select a user from the left sid
 | Command | Environment | Description |
 |---|---|---|
 | `/clear` | CLI + Web | Clear current conversation, tool logs, and completed task plans |
+| `/new` `/newchat` | CLI + Web | Archive with summary and start a new conversation |
 | `/history` `/stats` | CLI + Web | View session statistics |
 | `/archive` | CLI + Web | Manually archive current conversation (without clearing) |
 | `/summarize` `/summary` | CLI + Web | Generate conversation summary and store in index |
@@ -229,6 +231,7 @@ votx-agent/
 │
 ├── skills/                     # 28 Skills (13 tool + 15 instruction)
 ├── agents/                     # Sub-agents (task_plan / auto_improve)
+├── corn/                       # Cron scheduler (scheduled tasks + forgetting curve)
 ├── config/                     # Global configuration and AI execution rules
 ├── tmp/                        # Agent temp files (scripts, runtime artifacts, pushable)
 ├── users/                      # User data, personas, history, memory, files
