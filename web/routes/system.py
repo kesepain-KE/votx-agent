@@ -156,19 +156,22 @@ def api_system_prompt():
                         mem_lines.append("(无法读取)")
                 other_parts.append("\n".join(mem_lines))
 
-        # 永久规则 (improve/self-improving/permanent/)
+        # 永久规则 (improve/self-improving/permanent/*.md)
         perm_si_dir = os.path.join(improve_dir, "self-improving", "permanent")
         if os.path.isdir(perm_si_dir):
-            for fn in ["memory.md", "corrections.md"]:
-                fp = os.path.join(perm_si_dir, fn)
-                if os.path.exists(fp):
+            si_files = sorted(
+                f for f in os.listdir(perm_si_dir) if f.endswith(".md") and not f.startswith(".")
+            )
+            if si_files:
+                si_lines = ["## 自改进规则（永久）\n"]
+                for fn in si_files:
+                    si_lines.append(f"\n### {fn}\n")
                     try:
-                        content = open(fp, encoding="utf-8").read().strip()
-                        if content:
-                            title = "自改进记忆 (HOT Tier)" if fn == "memory.md" else "纠正记录 (Corrections)"
-                            other_parts.append(f"## {title}\n\n{content}")
+                        c = open(os.path.join(perm_si_dir, fn), encoding="utf-8").read()
+                        si_lines.append(c)
                     except Exception:
-                        pass
+                        si_lines.append("(无法读取)")
+                other_parts.append("\n".join(si_lines))
 
         # 永久知识图谱 (improve/ontology/permanent/*.md)
         perm_ont_dir = os.path.join(improve_dir, "ontology", "permanent")

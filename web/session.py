@@ -84,4 +84,14 @@ def init_user_session(root: str, user_dir: str, user_name: str, user_config: dic
     _sessions[user_name] = session_data
     set_active_user(user_name)
     os.environ["VOTX_USER_DIR"] = user_dir
+
+    # 会话初始化时自动清理过期临时文件（默认保留 7 天）
+    try:
+        from skills.auto_improve.tool import cleanup_temp_files
+        count, _ = cleanup_temp_files(user_name, retention_days=7)
+        if count > 0:
+            print(f"[auto_improve] 已清理 {user_name} 的 {count} 个过期临时文件")
+    except Exception:
+        pass
+
     return session_data

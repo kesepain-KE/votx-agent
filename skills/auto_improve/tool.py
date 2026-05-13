@@ -174,6 +174,59 @@ def auto_improve_review(user_name: str) -> str:
         return err(f"审阅失败: {e}")
 
 
+# ---- 遗忘机制 ----
+
+def cleanup_temp_files(user_name: str, retention_days: int = 7) -> tuple[int, list[str]]:
+    """清理超过保留期的临时记忆文件。
+
+    Args:
+        user_name: 用户名
+        retention_days: 保留天数（默认 7 天）
+
+    Returns:
+        (deleted_count, deleted_paths)
+    """
+    import time as _time
+    now = _time.time()
+    threshold = now - retention_days * 86400
+    improve = _improve_dir(user_name)
+    if not improve.exists():
+        return 0, []
+
+    deleted = []
+    for sub in sorted(_VALID_SUBS):
+        temp_dir = improve / sub / "temporary"
+        if not temp_dir.is_dir():
+            continue
+        for fp in sorted(temp_dir.glob("*.md")):
+            try:
+                if fp.stat().st_mtime < threshold:
+                    fp.unlink()
+                    deleted.append(str(fp.relative_to(improve.parent)))
+            except Exception:
+                pass
+
+    if deleted:
+        from run.prompt_cache import invalidate_prompt_cache
+        invalidate_prompt_cache(user_name)
+
+    return len(deleted), deleted
+
+
+def auto_improve_cleanup(user_name: str, retention_days: int = 7) -> str:
+    """手动触发临时记忆清理。
+
+    Args:
+        user_name: 用户名
+        retention_days: 保留天数（默认 7 天）
+    """
+    count, paths = cleanup_temp_files(user_name, max(1, min(retention_days, 365)))
+    if count == 0:
+        return f"无需清理：所有临时文件均在 {retention_days} 天保留期内"
+    lines = "\n".join(f"  - {p}" for p in paths)
+    return f"已遗忘 {count} 个过期临时文件（保留期 {retention_days} 天）:\n{lines}"
+
+
 # ---- Schema ----
 
 SCHEMAS = [
@@ -270,6 +323,25 @@ SCHEMAS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "auto_improve_cleanup",
+            "description": "Delete expired temporary memory/rule/ontology files. Use when user says 清理记忆/遗忘/cleanup/forget old.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "user_name": {"type": "string", "description": "Username / user ID"},
+                    "retention_days": {
+                        "type": "integer",
+                        "description": "保留天数，默认 7 天",
+                        "default": 7,
+                    },
+                },
+                "required": ["user_name"],
+            },
+        },
+    },
 ]
 
 HANDLERS = {
@@ -278,6 +350,7 @@ HANDLERS = {
     "auto_improve_search": auto_improve_search,
     "auto_improve_delete": auto_improve_delete,
     "auto_improve_review": auto_improve_review,
+    "auto_improve_cleanup": auto_improve_cleanup,
 }
 
 

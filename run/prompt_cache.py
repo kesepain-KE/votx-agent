@@ -49,8 +49,7 @@ def _compute_cache_key(root: str, user_dir: str) -> int:
             mtimes.append(_mtime(str(f)))
     # improve/permanent (memory + self-improving + ontology)
     mtimes.append(_dir_max_mtime(os.path.join(user_dir, "improve", "memory", "permanent"), "*.md"))
-    mtimes.append(_mtime(os.path.join(user_dir, "improve", "self-improving", "permanent", "memory.md")))
-    mtimes.append(_mtime(os.path.join(user_dir, "improve", "self-improving", "permanent", "corrections.md")))
+    mtimes.append(_dir_max_mtime(os.path.join(user_dir, "improve", "self-improving", "permanent"), "*.md"))
     mtimes.append(_dir_max_mtime(os.path.join(user_dir, "improve", "ontology", "permanent"), "*.md"))
     # improve/temporary (临时记忆，注入 system prompt，频繁变化）
     mtimes.append(_dir_max_mtime(os.path.join(user_dir, "improve", "memory", "temporary"), "*.md"))

@@ -168,28 +168,21 @@ def build_system_prompt(root: str, user_dir: str) -> str:
                     except Exception:
                         pass
 
-        # 永久规则 (improve/self-improving/permanent/)
+        # 永久规则 (improve/self-improving/permanent/*.md)
         perm_si_dir = os.path.join(improve_dir, "self-improving", "permanent")
         if os.path.isdir(perm_si_dir):
-            # HOT Tier — memory.md
-            si_mem = os.path.join(perm_si_dir, "memory.md")
-            if os.path.exists(si_mem) and os.path.getsize(si_mem) > 0:
-                try:
-                    content = open(si_mem, encoding="utf-8").read().strip()
-                    if content:
-                        system_prompt += "\n\n## 自改进记忆（HOT Tier — 用户偏好、模式、规则）\n" + content
-                except Exception:
-                    pass
-
-            # 纠正记录 — corrections.md
-            si_corr = os.path.join(perm_si_dir, "corrections.md")
-            if os.path.exists(si_corr) and os.path.getsize(si_corr) > 0:
-                try:
-                    content = open(si_corr, encoding="utf-8").read().strip()
-                    if content:
-                        system_prompt += "\n\n## 纠正记录（Corrections — 过往被纠正的错误）\n" + content
-                except Exception:
-                    pass
+            si_files = sorted(
+                f for f in os.listdir(perm_si_dir) if f.endswith(".md") and not f.startswith(".")
+            )
+            if si_files:
+                system_prompt += "\n\n## 自改进规则（永久）"
+                for fn in si_files:
+                    try:
+                        c = open(os.path.join(perm_si_dir, fn), encoding="utf-8").read().strip()
+                        if c:
+                            system_prompt += f"\n\n[{fn}]\n{c}"
+                    except Exception:
+                        pass
 
         # 永久知识图谱 (improve/ontology/permanent/*.md)
         perm_ont_dir = os.path.join(improve_dir, "ontology", "permanent")
