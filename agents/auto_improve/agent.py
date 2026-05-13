@@ -180,6 +180,10 @@ def _apply_operations(ops: list[dict], user_dir: str, target_tier: str) -> tuple
         except Exception as e:
             errors.append(f"{action} {filepath}: {e}")
 
+    if executed > 0:
+        from run.prompt_cache import invalidate_prompt_cache
+        invalidate_prompt_cache(os.path.basename(user_dir))
+
     return executed, errors
 
 

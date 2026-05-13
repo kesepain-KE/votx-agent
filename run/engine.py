@@ -164,8 +164,6 @@ def build_system_prompt(root: str, user_dir: str) -> str:
                     try:
                         c = open(os.path.join(perm_mem_dir, fn), encoding="utf-8").read().strip()
                         if c:
-                            if len(c) > 2000:
-                                c = c[:2000] + "\n\n...(截断)"
                             system_prompt += f"\n\n[{fn}]\n{c}"
                     except Exception:
                         pass
@@ -205,8 +203,6 @@ def build_system_prompt(root: str, user_dir: str) -> str:
                     try:
                         c = open(os.path.join(perm_ont_dir, fn), encoding="utf-8").read().strip()
                         if c:
-                            if len(c) > 2000:
-                                c = c[:2000] + "\n\n...(截断)"
                             system_prompt += f"\n\n[{fn}]\n{c}"
                     except Exception:
                         pass
@@ -226,8 +222,6 @@ def build_system_prompt(root: str, user_dir: str) -> str:
                     try:
                         c = open(os.path.join(temp_dir, fn), encoding="utf-8").read().strip()
                         if c:
-                            if len(c) > 2000:
-                                c = c[:2000] + "\n\n...(截断)"
                             system_prompt += f"\n\n[{fn}]\n{c}"
                     except Exception:
                         pass

@@ -15,11 +15,15 @@ def _mtime(path: str | Path) -> int:
 
 
 def _dir_max_mtime(directory: str | Path, pattern: str = "*") -> int:
-    """返回目录下匹配文件的最大 mtime，不存在返回 -1"""
+    """返回目录下匹配文件的最大 mtime（含目录自身），不存在返回 -1"""
     p = Path(directory)
     if not p.is_dir():
         return -1
     mtimes = []
+    try:
+        mtimes.append(p.stat().st_mtime_ns)
+    except OSError:
+        pass
     for f in p.glob(pattern):
         try:
             mtimes.append(f.stat().st_mtime_ns)

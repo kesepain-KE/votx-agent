@@ -151,8 +151,6 @@ def api_system_prompt():
                     mem_lines.append(f"\n### {fn}\n")
                     try:
                         c = open(os.path.join(perm_mem_dir, fn), encoding="utf-8").read()
-                        if len(c) > 3000:
-                            c = c[:3000] + "\n\n…(截断)"
                         mem_lines.append(c)
                     except Exception:
                         mem_lines.append("(无法读取)")
@@ -168,8 +166,6 @@ def api_system_prompt():
                         content = open(fp, encoding="utf-8").read().strip()
                         if content:
                             title = "自改进记忆 (HOT Tier)" if fn == "memory.md" else "纠正记录 (Corrections)"
-                            if len(content) > 3000:
-                                content = content[:3000] + "\n\n…(截断)"
                             other_parts.append(f"## {title}\n\n{content}")
                     except Exception:
                         pass
@@ -186,8 +182,6 @@ def api_system_prompt():
                     ont_lines.append(f"\n### {fn}\n")
                     try:
                         c = open(os.path.join(perm_ont_dir, fn), encoding="utf-8").read()
-                        if len(c) > 3000:
-                            c = c[:3000] + "\n\n…(截断)"
                         ont_lines.append(c)
                     except Exception:
                         ont_lines.append("(无法读取)")

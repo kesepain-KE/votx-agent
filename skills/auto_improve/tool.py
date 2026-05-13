@@ -62,6 +62,8 @@ def auto_improve_save(user_name: str, key: str, content: str,
     fp = dir_path / f"{safe_key}.md"
     try:
         fp.write_text(content.strip() + "\n", encoding="utf-8")
+        from run.prompt_cache import invalidate_prompt_cache
+        invalidate_prompt_cache(user_name)
         return f"OK: 已保存永久{sub} [{safe_key}] ({len(content)} 字符)"
     except Exception as e:
         return err(f"保存失败: {e}")
@@ -143,6 +145,8 @@ def auto_improve_delete(user_name: str, key: str, sub: str = "memory") -> str:
         return err(f"未找到 [{sub}] {key}")
     try:
         fp.unlink()
+        from run.prompt_cache import invalidate_prompt_cache
+        invalidate_prompt_cache(user_name)
         return f"OK: 已删除{'永久' if tier == 'permanent' else '临时'}{sub} [{key}]"
     except Exception as e:
         return err(f"删除失败: {e}")
