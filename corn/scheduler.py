@@ -143,7 +143,7 @@ def _run_task_web(root: str, core_config: dict, task: dict):
 
     system_prompt = build_cached_system_prompt(root, user_dir)
     tools = load_tool_schemas()
-    tool_runner = ToolRunner(core_config, user_config)
+    tool_runner = ToolRunner(core_config, user_config, user_dir=user_dir)
     chat.set_system_prompt(system_prompt)
 
     import skills.auto_improve.tool as ai_tool

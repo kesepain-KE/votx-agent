@@ -353,30 +353,20 @@ def api_rename_conversation(conv_id):
         except Exception as e:
             return jsonify({"error": f"更新失败: {e}"}), 500
 
-    archive_dir = os.path.join(user_dir, "history", "archive")
-    old_path = os.path.join(archive_dir, conv_id)
+    kind, path_or_err = _validate_conv_id(user_dir, conv_id)
+    if kind is None:
+        return jsonify({"error": path_or_err}), 400
 
-    real_archive = os.path.realpath(archive_dir)
-    real_old = os.path.realpath(old_path)
-    if not real_old.startswith(real_archive + os.sep) and real_old != real_archive:
-        return jsonify({"error": "路径越权"}), 403
-
-    if not os.path.exists(old_path):
-        return jsonify({"error": "文件不存在"}), 404
-
-    _, ext = os.path.splitext(conv_id)
-    if conv_id.endswith(".json.gz"):
-        ext = ".json.gz"
-    new_filename = new_name + ext
-    new_path = os.path.join(archive_dir, new_filename)
-
-    if os.path.exists(new_path):
-        return jsonify({"error": "同名文件已存在"}), 409
-
+    # 归档文件名有固定格式，直接改文件名会导致后续 load/delete 校验失败。
+    # 因此“重命名”只更新摘要索引中的展示名，实体归档文件保持不可变。
+    from run.summarize import load_index, save_index
     try:
-        os.rename(old_path, new_path)
-        return jsonify({"ok": True, "new_name": new_filename})
-    except OSError as e:
+        idx = load_index(user_dir)
+        meta = idx.setdefault(conv_id, {})
+        meta["summary"] = new_name
+        save_index(user_dir, idx)
+        return jsonify({"ok": True, "new_name": new_name, "id": conv_id})
+    except Exception as e:
         return jsonify({"error": f"重命名失败: {e}"}), 500
 
 

@@ -379,7 +379,7 @@ def api_reload_dynamic():
     # 3. 重建 ToolRunner
     try:
         from run.tool import ToolRunner
-        session_data["tool_runner"] = ToolRunner(core_config, user_config)
+        session_data["tool_runner"] = ToolRunner(core_config, user_config, user_dir=user_dir)
         result["reloaded"].append("tool_runner")
     except Exception as e:
         warnings.append(f"tool_runner: {e}")

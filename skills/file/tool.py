@@ -2,7 +2,7 @@
 import os
 from pathlib import Path
 from run.tool import register_tool
-from skills._common import err, truncate, safe_path, check_sandbox
+from skills._common import err, truncate, safe_path, check_sandbox, get_current_user_dir
 
 def read_file(path: str, encoding: str = "utf-8") -> str:
     """读取文件内容，受沙箱保护"""
@@ -46,7 +46,7 @@ def write_file(path: str, content: str, encoding: str = "utf-8") -> str:
     resolved = check_sandbox(p)
     
     if not resolved:
-        user_dir = os.environ.get("VOTX_USER_DIR", "")
+        user_dir = get_current_user_dir()
         if not user_dir:
             return err(f"路径越权且无用户目录配置: {path}")
         resolved = Path(user_dir).resolve() / p.name

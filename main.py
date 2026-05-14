@@ -18,6 +18,7 @@ def main():
     if not user_dir:
         print("错误: 未指定用户目录")
         sys.exit(1)
+    user_name = os.path.basename(user_dir)
 
     from paths import get_project_root
     root = get_project_root()
@@ -34,7 +35,7 @@ def main():
 
     # 初始化 provider 和工具系统
     provider = create_provider(user_config, core_config)
-    tool_runner = ToolRunner(core_config, user_config)
+    tool_runner = ToolRunner(core_config, user_config, user_dir=user_dir)
     system_prompt = build_cached_system_prompt(root, user_dir)  # 内部调用 register_all() 填充 TOOL_REGISTRY
     tools = load_tool_schemas()  # 必须在 build_system_prompt 之后，否则注册表为空
 

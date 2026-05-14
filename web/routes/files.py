@@ -2,7 +2,7 @@
 import os
 import json
 
-from flask import Response, jsonify, request, send_file, session as flask_session
+from flask import jsonify, request, send_file, session as flask_session
 
 from web.server import app
 from web.session import get_session, get_active_user
@@ -150,7 +150,7 @@ def api_file_view(filename):
         ".bmp": "image/bmp", ".ico": "image/x-icon",
     }
     mime = mime_map.get(ext, "application/octet-stream")
-    return Response(open(target, "rb").read(), mimetype=mime)
+    return send_file(target, mimetype=mime, as_attachment=False, conditional=True)
 
 
 @app.route("/api/files/<filename>", methods=["DELETE"])

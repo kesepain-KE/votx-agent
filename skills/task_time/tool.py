@@ -1,15 +1,12 @@
 """task_time Skill — corn 定时任务管理工具"""
-import os
 import uuid
 
 from run.tool import register_tool
-from skills._common import err
-
-_USER_DIR = os.environ.get("VOTX_USER_DIR", "")
+from skills._common import err, get_current_user_dir
 
 
 def _get_user_dir():
-    return _USER_DIR or os.environ.get("VOTX_USER_DIR", "")
+    return get_current_user_dir()
 
 
 def task_time_create(type: str = "daily", time: str = "09:00", command: str = "") -> str:

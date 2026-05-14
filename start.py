@@ -85,7 +85,7 @@ def main_once(user_name: str, prompt: str):
     system_prompt = build_cached_system_prompt(root, user_dir)
     from run.tool import load_tool_schemas, ToolRunner
     tools = load_tool_schemas()
-    tool_runner = ToolRunner(core_config, user_config)
+    tool_runner = ToolRunner(core_config, user_config, user_dir=user_dir)
 
     # 初始化对话
     from run.chat import ChatManager

@@ -3,6 +3,7 @@ import ipaddress
 import json
 import os
 import re as _re
+from contextvars import ContextVar, Token
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse as _urlparse
@@ -11,6 +12,7 @@ from run.io_utils import append_jsonl
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 # skills/_common/__init__.py → skills/_common → skills → 项目根
+_CURRENT_USER_DIR: ContextVar[str | None] = ContextVar("votx_current_user_dir", default=None)
 
 
 def err(msg: str) -> str:
@@ -22,6 +24,20 @@ def truncate(text: str, max_len: int = 0) -> str:
     if max_len > 0 and len(text) > max_len:
         return text[:max_len] + f"\n... (截断，共 {len(text)} 字符)"
     return text
+
+
+def set_current_user_dir(user_dir: str | None) -> Token:
+    """绑定当前工具执行上下文的用户目录，避免多用户 Web 会话互相串日志。"""
+    return _CURRENT_USER_DIR.set(user_dir)
+
+
+def reset_current_user_dir(token: Token):
+    _CURRENT_USER_DIR.reset(token)
+
+
+def get_current_user_dir() -> str:
+    """优先返回当前工具上下文中的用户目录，兼容旧的 VOTX_USER_DIR 环境变量。"""
+    return _CURRENT_USER_DIR.get() or os.environ.get("VOTX_USER_DIR", "")
 
 
 # ---- 路径安全 ----
@@ -40,13 +56,27 @@ def safe_path(raw_path: str) -> Path | None:
 def check_sandbox(p: Path, allowed_roots: list | None = None) -> Path | None:
     """检查路径是否在允许的根目录内。返回 resolved Path 或 None。
 
-    沙箱已关闭：允许访问任意路径。
-    如需重新启用，取消下方注释即可。
+    默认允许项目根目录和当前用户目录。使用 realpath/resolve 后再判断，
+    防止通过符号链接或 .. 跳出沙箱。
     """
     try:
-        return p.resolve()
+        resolved = p.resolve()
     except Exception:
         return None
+    roots = [Path(x) for x in (allowed_roots or []) if x]
+    if not roots:
+        roots.append(_PROJECT_ROOT)
+        user_dir = get_current_user_dir()
+        if user_dir:
+            roots.append(Path(user_dir))
+    for root in roots:
+        try:
+            resolved_root = root.resolve()
+        except Exception:
+            continue
+        if resolved == resolved_root or resolved.is_relative_to(resolved_root):
+            return resolved
+    return None
 
 
 # ---- SSRF 防护 ----
@@ -201,8 +231,8 @@ def sanitize_env() -> dict[str, str]:
 
 # ---- 工具日志 ----
 
-def _log_path() -> str | None:
-    user_dir = os.environ.get("VOTX_USER_DIR")
+def _log_path(user_dir: str | None = None) -> str | None:
+    user_dir = user_dir or get_current_user_dir()
     if not user_dir:
         return None
     log_dir = os.path.join(user_dir, "history", "log")
@@ -229,8 +259,8 @@ def _get_tool_log_max() -> int:
     return _TOOL_LOG_MAX_CACHE
 
 
-def log_tool_call(name: str, args: dict, result: str, success: bool, elapsed: float):
-    path = _log_path()
+def log_tool_call(name: str, args: dict, result: str, success: bool, elapsed: float, user_dir: str | None = None):
+    path = _log_path(user_dir)
     if not path:
         return
     _sensitive_keys = {"api_key", "key", "token", "secret", "password", "authorization", "auth"}
