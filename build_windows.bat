@@ -148,20 +148,19 @@ echo   React frontend built successfully
 
 REM ---- 清理 web/ 中构建不需要的文件（只保留 dist/）----
 echo [CLEANUP] Stripping web source and node_modules from package...
-rmdir /s /q distotx-agent\web
-ode_modules 2>nul
-rmdir /s /q distotx-agent\web\src 2>nul
-rmdir /s /q distotx-agent\weboutes 2>nul
-rmdir /s /q distotx-agent\web\__pycache__ 2>nul
-del /q distotx-agent\web\package.json 2>nul
-del /q distotx-agent\web\package-lock.json 2>nul
-del /q distotx-agent\web	sconfig.json 2>nul
-del /q distotx-agent\webite.config.ts 2>nul
-del /q distotx-agent\web\index.html 2>nul
-del /q distotx-agent\web\__init__.py 2>nul
-del /q distotx-agent\web\commands.py 2>nul
-del /q distotx-agent\web\session.py 2>nul
-del /q distotx-agent\web\server.py 2>nul
+rmdir /s /q dist\votx-agent\web\node_modules 2>nul
+rmdir /s /q dist\votx-agent\web\src 2>nul
+rmdir /s /q dist\votx-agent\web\routes 2>nul
+rmdir /s /q dist\votx-agent\web\__pycache__ 2>nul
+del /q dist\votx-agent\web\package.json 2>nul
+del /q dist\votx-agent\web\package-lock.json 2>nul
+del /q dist\votx-agent\web\tsconfig.json 2>nul
+del /q dist\votx-agent\web\vite.config.ts 2>nul
+del /q dist\votx-agent\web\index.html 2>nul
+del /q dist\votx-agent\web\__init__.py 2>nul
+del /q dist\votx-agent\web\commands.py 2>nul
+del /q dist\votx-agent\web\session.py 2>nul
+del /q dist\votx-agent\web\server.py 2>nul
 
 REM ---- 打包 ----
 echo.
