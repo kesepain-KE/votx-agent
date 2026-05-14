@@ -23,7 +23,7 @@
         "result_truncate": 500
     },
     "context_window": {
-        "max_tokens": 900000,
+        "max_tokens": 1000000,
         "safe_ratio": 0.85
     }
 }
