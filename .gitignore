@@ -21,7 +21,7 @@ __pycache__/
 .venv/
 venv/
 env/
-dist/
+/dist/
 build/
 .coverage
 htmlcov/
@@ -92,7 +92,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-web/dist/
 web/build/
 web/dist-ssr/
 *.local

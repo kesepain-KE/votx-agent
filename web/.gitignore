@@ -1,6 +1,5 @@
 node_modules/
 *.tsbuildinfo
-dist/
 dist-ssr/
 .env.local
 *.local
