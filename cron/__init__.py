@@ -23,7 +23,7 @@ def start_cron(root: str, core_config: dict, web_mode: bool = False):
     from cron.scheduler import _scheduler_loop
     _scheduler_thread = threading.Thread(
         target=_scheduler_loop,
-        args=(root, _core_config, _stop_event, web_mode),
+        args=(root, core_config, _stop_event, web_mode),
         daemon=True,
         name="cron-scheduler",
     )
