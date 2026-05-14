@@ -807,7 +807,8 @@ export function useAppActions() {
     const closeMenus = () => set((s) => ({ menu: { ...s.menu, show: false }, themeMenu: false }))
     document.addEventListener('click', closeMenus)
     return () => document.removeEventListener('click', closeMenus)
-  }, [set, loadUsers, restoreSession])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => { const applied = applyTheme(state.theme); if (applied !== state.theme) set({ theme: applied }) }, [set, state.theme])
   useEffect(() => { autoResize() }, [state.input])
