@@ -1,4 +1,4 @@
-"""定时任务 API — GET/POST/DELETE 管理 corn tasks"""
+"""定时任务 API — GET/POST/DELETE 管理 cron tasks"""
 import json
 import os
 
@@ -9,6 +9,7 @@ from web.session import _root, get_session, get_active_user
 
 
 def _get_user_dir():
+    """执行 get_user_dir 内部辅助逻辑。"""
     user_name = flask_session.get("user_name") or get_active_user()
     session_data = get_session(user_name)
     if not session_data:
@@ -18,17 +19,19 @@ def _get_user_dir():
 
 @app.route("/api/tasks", methods=["GET"])
 def api_tasks_list():
+    """处理 api_tasks_list 相关逻辑。"""
     user_dir = _get_user_dir()
     if not user_dir:
         return jsonify({"error": "未选择用户"}), 400
 
-    from corn.tasks import load_tasks
+    from cron.tasks import load_tasks
     tasks = load_tasks(user_dir)
     return jsonify(tasks)
 
 
 @app.route("/api/tasks", methods=["POST"])
 def api_tasks_create():
+    """处理 api_tasks_create 相关逻辑。"""
     user_dir = _get_user_dir()
     if not user_dir:
         return jsonify({"error": "未选择用户"}), 400
@@ -43,7 +46,7 @@ def api_tasks_create():
     if task_type not in ("daily", "once"):
         return jsonify({"error": f"无效的任务类型: {task_type}"}), 400
 
-    from corn.tasks import create_task
+    from cron.tasks import create_task
     task = create_task(user_dir, {
         "type": task_type,
         "time": time,
@@ -54,11 +57,12 @@ def api_tasks_create():
 
 @app.route("/api/tasks/<task_id>", methods=["DELETE"])
 def api_tasks_delete(task_id):
+    """处理 api_tasks_delete 相关逻辑。"""
     user_dir = _get_user_dir()
     if not user_dir:
         return jsonify({"error": "未选择用户"}), 400
 
-    from corn.tasks import delete_task
+    from cron.tasks import delete_task
     ok = delete_task(user_dir, task_id)
     if not ok:
         return jsonify({"error": f"任务不存在: {task_id}"}), 404

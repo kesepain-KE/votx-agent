@@ -1,3 +1,4 @@
+/** web/src/components/Chat/MainChat.tsx 模块。 */
 import { useAppStore } from '@/store/useAppStore'
 import type { Conversation, Message } from '@/types'
 import type { ChangeEvent, DragEvent, ClipboardEvent, KeyboardEvent } from 'react'
@@ -5,6 +6,7 @@ import { TopBar } from './TopBar'
 import { MessageList } from './MessageList'
 import { Composer } from './Composer'
 
+/** 描述 Props 数据结构。 */
 interface Props {
   saveChat: () => Promise<void>
   newChat: () => Promise<void>
@@ -29,6 +31,7 @@ interface Props {
   uploadRef: React.RefObject<HTMLInputElement>
 }
 
+/** 渲染 MainChat 组件。 */
 export function MainChat({
   saveChat, newChat, continueAfterMaxRounds, sendMessage, stopRun, sendCommand,
   continueConversation, loadConversation, removeAttach, onUploadFiles, onPaste,

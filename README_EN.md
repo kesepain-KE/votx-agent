@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/badge/license-MIT-orange)](./LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![Multi-LLM](https://img.shields.io/badge/LLM-OpenAI%20%7C%20Anthropic-brightgreen)](https://platform.deepseek.com/)
-[![Flask](https://img.shields.io/badge/web-Flask%20%2B%20Vue%203-lightgrey)](https://flask.palletsprojects.com/)
+[![Flask](https://img.shields.io/badge/web-Flask%20%2B%20React%20%2B%20TypeScript-lightgrey)](https://flask.palletsprojects.com/)
 [![Docker](https://img.shields.io/badge/docker-ready-blue)](https://www.docker.com/)
 
 [中文](./README.md) | English
@@ -39,7 +39,7 @@ Most AI Agent frameworks on GitHub are built for single-user, English-first scen
 - **Multi-vendor access**: DeepSeek / Anthropic / Azure / SiliconFlow / Groq / Xiaomi Mimo — switch by changing `base_url`
 - **Multi-user isolation**: each user has an independent persona (`self_soul.md`), conversation history, long-term memory, knowledge base, and file space
 - **Dual-level knowledge base**: user-level (default read/write) + global-level (read-only shared), hierarchical index navigation, PDF/Excel retrieval support
-- **Dual client support**: Vue 3 Web UI and CLI terminal share the same `run/engine.py` conversation engine with consistent behavior
+- **Dual client support**: React Web UI and CLI terminal share the same `run/engine.py` conversation engine with consistent behavior
 - **Task planning**: complex requests auto-decomposed into step-by-step plans with Web UI progress bubble, approval/pause/abort support
 - **Self-learning**: both successful and failed tool executions generate learning records, automatically injected into future conversations for continuous improvement
 - **Cron scheduler**: scheduled tasks with cron expressions and forgetting curve management, integrated in Web UI status panel
@@ -226,12 +226,23 @@ votx-agent/
 │   ├── server.py               # Flask + SSE event stream
 │   ├── session.py              # Multi-user session isolation (sharded by user_name)
 │   ├── routes/                 # API routes (chat / config / conversations / files / system / task_plan)
-│   │   └── conversations.py    # Conversation list, archive preview, continue from history, rename, delete
-│   └── templates/index.html    # Vue 3 single-page frontend
+│   ├── index.html              # Vite entry
+│   ├── vite.config.ts          # Vite build config
+│   ├── package.json            # npm dependencies
+│   └── src/                    # React frontend (TypeScript + Zustand)
+│       ├── App.tsx             # Main app (thin shell, layout composition)
+│       ├── main.tsx            # React entry
+│       ├── api/client.ts       # HTTP client wrapper
+│       ├── types/index.ts      # TypeScript type definitions
+│       ├── utils/format.ts     # Markdown / KaTeX formatting
+│       ├── store/useAppStore.ts# Zustand global state
+│       ├── hooks/useAppActions.ts # Business logic hook
+│       ├── styles/global.css   # Global styles (15 themes)
+│       └── components/         # Components (Sidebar / Chat / RightPanel / Shared)
 │
 ├── skills/                     # 28 Skills (13 tool + 15 instruction)
 ├── agents/                     # Sub-agents (task_plan / auto_improve)
-├── corn/                       # Cron scheduler (scheduled tasks + forgetting curve)
+├── cron/                       # Cron scheduler (scheduled tasks + forgetting curve)
 ├── config/                     # Global configuration and AI execution rules
 ├── tmp/                        # Agent temp files (scripts, runtime artifacts, pushable)
 ├── users/                      # User data, personas, history, memory, files
@@ -305,6 +316,7 @@ After a user is created, `users/<name>/` contains that user's independent person
 ## Dependencies
 
 - Python 3.10+ · Flask ≥ 3.0 · openai ≥ 1.0 · anthropic ≥ 0.30
+- Node.js ≥ 18 (frontend development / build)
 - requests · yt-dlp · python-docx · pyyaml, and more
 
 See [requirements.txt](./requirements.txt) for the full list.
@@ -312,9 +324,17 @@ See [requirements.txt](./requirements.txt) for the full list.
 ## Development
 
 ```bash
+# Backend
 python setup.py --check     # Check environment only
 python setup.py --skip-env  # Skip .env configuration
 pytest                      # Run tests
+
+# Frontend
+cd web
+npm install                 # Install dependencies
+npm run dev                 # Vite dev server (localhost:5173, proxies Flask backend)
+npm run build               # Production build → dist/
+npx tsc --noEmit            # TypeScript type check
 ```
 
 Maintainer docs in `开发文档/` are gitignored and not included in the public repository. [`AGENTS.md`](./AGENTS.md) is the operation manual for AI coding agents.

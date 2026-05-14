@@ -83,6 +83,7 @@ def package_skill(skill_path, output_dir=None):
 
 
 def main():
+    """执行命令行入口流程。"""
     if len(sys.argv) < 2:
         print("Usage: python utils/package_skill.py <path/to/skill-folder> [output-directory]")
         print("\nExample:")

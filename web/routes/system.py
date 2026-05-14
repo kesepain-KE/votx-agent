@@ -13,6 +13,7 @@ from run.prompt_cache import invalidate_prompt_cache
 
 @app.route("/api/messages")
 def api_messages():
+    """处理 api_messages 相关逻辑。"""
     user_name = flask_session.get("user_name") or get_active_user()
     session_data = get_session(user_name)
     if not session_data:
@@ -25,6 +26,7 @@ def api_messages():
 
 @app.route("/api/system-prompt")
 def api_system_prompt():
+    """处理 api_system_prompt 相关逻辑。"""
     user_name = flask_session.get("user_name") or get_active_user()
     session_data = get_session(user_name)
     if not session_data:
@@ -212,6 +214,7 @@ def api_system_prompt():
 
 @app.route("/api/export-markdown")
 def api_export_markdown():
+    """处理 api_export_markdown 相关逻辑。"""
     user_name = flask_session.get("user_name") or get_active_user()
     session_data = get_session(user_name)
     if not session_data:
@@ -280,6 +283,7 @@ def api_export_markdown():
 
 @app.route("/api/stats")
 def api_stats():
+    """处理 api_stats 相关逻辑。"""
     user_name = flask_session.get("user_name") or get_active_user()
     session_data = get_session(user_name)
     if not session_data or not session_data.get("chat"):
@@ -312,6 +316,7 @@ def api_stats():
 
 @app.route("/api/tool-logs")
 def api_tool_logs():
+    """处理 api_tool_logs 相关逻辑。"""
     user_name = flask_session.get("user_name") or get_active_user()
     session_data = get_session(user_name)
     if not session_data or not session_data.get("chat"):

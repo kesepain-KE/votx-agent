@@ -1,12 +1,15 @@
+/** 描述 Props 数据结构。 */
 import { useAppStore } from '@/store/useAppStore'
 import type { Conversation } from '@/types'
 
+/** 描述 Props 数据结构。 */
 interface Props {
   loadFromManager: (c: Conversation) => Promise<void>
   deleteConversation: (id: string) => Promise<void>
   renameConv: (c: Conversation) => Promise<void>
 }
 
+/** 渲染 ConversationManager 组件。 */
 export function ConversationManager({ loadFromManager, deleteConversation, renameConv }: Props) {
   const conversations = useAppStore((s) => s.conversations)
   const activeConv = useAppStore((s) => s.activeConv)

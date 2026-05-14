@@ -26,6 +26,7 @@ from provider.schema import ProviderResponse, ToolCall
 
 # 加载 .env
 def _load_dotenv():
+    """执行 load_dotenv 内部辅助逻辑。"""
     try:
         from paths import get_project_root
         root = Path(get_project_root())
@@ -60,6 +61,7 @@ class ResponsesProvider(BaseProvider):
     """OpenAI Responses API Provider — 自动回退到 Chat Completions"""
 
     def __init__(self, user_config: dict, core_config: dict | None = None):
+        """执行 init 内部辅助逻辑。"""
         core = core_config or {}
         cfg = user_config.get("provider", {})
 
@@ -98,6 +100,7 @@ class ResponsesProvider(BaseProvider):
     def respond(
         self, messages: list[dict], tools: list[dict] | None = None
     ) -> ProviderResponse:
+        """处理 respond 相关逻辑。"""
         if self._use_responses and self._responses_available is not False:
             try:
                 return self._respond_via_responses(messages, tools)
@@ -109,6 +112,7 @@ class ResponsesProvider(BaseProvider):
     def respond_stream(
         self, messages: list[dict], tools: list[dict] | None = None
     ) -> Generator[dict, None, None]:
+        """处理 respond_stream 相关逻辑。"""
         if self._use_responses and self._responses_available is not False:
             try:
                 yield from self._respond_stream_via_responses(messages, tools)
@@ -122,6 +126,7 @@ class ResponsesProvider(BaseProvider):
     def _respond_via_responses(
         self, messages: list[dict], tools: list[dict] | None
     ) -> ProviderResponse:
+        """执行 respond_via_responses 内部辅助逻辑。"""
         instructions, inp = _to_responses_input(messages)
         resp_tools = _to_responses_tools(tools) if tools else None
 
@@ -162,6 +167,7 @@ class ResponsesProvider(BaseProvider):
     def _respond_stream_via_responses(
         self, messages: list[dict], tools: list[dict] | None
     ) -> Generator[dict, None, None]:
+        """执行 respond_stream_via_responses 内部辅助逻辑。"""
         instructions, inp = _to_responses_input(messages)
         resp_tools = _to_responses_tools(tools) if tools else None
 
@@ -240,6 +246,7 @@ class ResponsesProvider(BaseProvider):
     def _respond_via_chat(
         self, messages: list[dict], tools: list[dict] | None
     ) -> ProviderResponse:
+        """执行 respond_via_chat 内部辅助逻辑。"""
         from provider.openai_api import DeepSeekProvider
         # 创建一个临时 Chat Completions Provider
         p = DeepSeekProvider.__new__(DeepSeekProvider)
@@ -255,6 +262,7 @@ class ResponsesProvider(BaseProvider):
     def _respond_stream_via_chat(
         self, messages: list[dict], tools: list[dict] | None
     ) -> Generator[dict, None, None]:
+        """执行 respond_stream_via_chat 内部辅助逻辑。"""
         from provider.openai_api import DeepSeekProvider
         p = DeepSeekProvider.__new__(DeepSeekProvider)
         p.client = self.client
@@ -452,6 +460,7 @@ def _is_not_supported(error: APIError) -> bool:
 
 
 def _safe_json_parse(s: str) -> dict:
+    """执行 safe_json_parse 内部辅助逻辑。"""
     try:
         return json.loads(s)
     except (json.JSONDecodeError, TypeError):

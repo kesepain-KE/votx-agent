@@ -27,7 +27,7 @@ def run_forget(user_dir: str, forget_time: int):
             try:
                 if now - os.path.getmtime(fp) > forget_time:
                     os.remove(fp)
-                    print(f"[corn:forget] 已删除过期文件: {fp}")
+                    print(f"[cron:forget] 已删除过期文件: {fp}")
             except OSError:
                 pass
 
@@ -84,7 +84,7 @@ def run_auto_improve_trigger(root: str, user_dir: str, core_config: dict):
         if messages:
             result = run_auto_improve(provider, messages, user_dir)
             if result.get("summary"):
-                print(f"[corn:auto_improve] {result['summary']}")
+                print(f"[cron:auto_improve] {result['summary']}")
 
         # 记录时间戳
         os.makedirs(os.path.dirname(timestamp_file), exist_ok=True)
@@ -92,4 +92,4 @@ def run_auto_improve_trigger(root: str, user_dir: str, core_config: dict):
             f.write(str(now))
 
     except Exception as e:
-        print(f"[corn:auto_improve] 触发失败: {e}")
+        print(f"[cron:auto_improve] 触发失败: {e}")

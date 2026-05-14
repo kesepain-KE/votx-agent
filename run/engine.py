@@ -12,6 +12,7 @@ from skills import register_all
 
 
 def _load_max_tool_rounds():
+    """执行 load_max_tool_rounds 内部辅助逻辑。"""
     try:
         from paths import get_project_root
         config_path = os.path.join(get_project_root(), "config", "config_core.json")

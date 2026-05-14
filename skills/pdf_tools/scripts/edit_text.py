@@ -115,6 +115,7 @@ def replace_text_simple(pdf_path, output_path, find_text, replace_text):
 
 
 def main():
+    """执行命令行入口流程。"""
     parser = argparse.ArgumentParser(
         description='Edit text in PDF files',
         formatter_class=argparse.RawDescriptionHelpFormatter,

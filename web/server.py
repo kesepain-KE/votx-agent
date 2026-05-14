@@ -47,17 +47,20 @@ app.secret_key = _secret
 
 @app.errorhandler(500)
 def handle_500(e):
+    """处理 handle_500 相关逻辑。"""
     traceback.print_exc()
     return jsonify({"error": f"服务器内部错误: {e}"}), 500
 
 
 @app.errorhandler(404)
 def handle_404(e):
+    """处理 handle_404 相关逻辑。"""
     return jsonify({"error": "接口不存在"}), 404
 
 
 @app.errorhandler(Exception)
 def handle_all(e):
+    """处理 handle_all 相关逻辑。"""
     traceback.print_exc()
     return jsonify({"error": f"请求处理错误: {e}"}), 500
 
@@ -70,17 +73,18 @@ from web.routes import chat, files, conversations, system, config, tasks, task_p
 # ---- Runner ----
 
 def run_server(port=13579, host="0.0.0.0"):
+    """处理 run_server 相关逻辑。"""
     import atexit
 
-    # 启动 corn 后台调度
+    # 启动 cron 后台调度
     import json
     from paths import get_project_root
     _root = get_project_root()
     with open(os.path.join(_root, "config", "config_core.json"), encoding="utf-8") as f:
         _core_config = json.load(f)
-    from corn import start_corn, stop_corn
-    start_corn(_root, _core_config, web_mode=True)
-    atexit.register(stop_corn)
+    from cron import start_cron, stop_cron
+    start_cron(_root, _core_config, web_mode=True)
+    atexit.register(stop_cron)
 
     print(f"\n  votx-agent Web UI  →  http://localhost:{port}\n")
     app.run(host=host, port=port, debug=False, threaded=True)

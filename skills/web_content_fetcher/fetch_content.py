@@ -72,6 +72,7 @@ def fetch_with_fallback(url: str) -> str:
     return f"错误: {error_msg}"
 
 def main():
+    """执行命令行入口流程。"""
     parser = argparse.ArgumentParser(description="网页内容获取工具")
     parser.add_argument("url", help="要获取的网页 URL")
     parser.add_argument("--method", "-m", choices=["jina", "markdown", "defuddle", "all"],

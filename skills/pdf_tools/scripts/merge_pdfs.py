@@ -39,6 +39,7 @@ def merge_pdfs(pdf_files, output_path):
 
 
 def main():
+    """执行命令行入口流程。"""
     parser = argparse.ArgumentParser(description='Merge multiple PDF files')
     parser.add_argument('pdfs', nargs='+', help='PDF files to merge')
     parser.add_argument('-o', '--output', required=True, help='Output PDF file path')

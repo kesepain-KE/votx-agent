@@ -1,13 +1,16 @@
+/** 描述 Props 数据结构。 */
 import { THEMES, useAppStore } from '@/store/useAppStore'
 import type { ThemeId } from '@/types'
 import { createPortal } from 'react-dom'
 import type { MouseEvent as ReactMouseEvent } from 'react'
 
+/** 描述 Props 数据结构。 */
 interface Props {
   toggleThemeMenu: (e: ReactMouseEvent<HTMLButtonElement>) => void
   chooseTheme: (id: ThemeId) => void
 }
 
+/** 渲染 ThemePicker 组件。 */
 export function ThemePicker({ toggleThemeMenu, chooseTheme }: Props) {
   const theme = useAppStore((s) => s.theme)
   const themeMenu = useAppStore((s) => s.themeMenu)

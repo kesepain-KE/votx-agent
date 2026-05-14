@@ -1,3 +1,4 @@
+/** 定义 ThemeId 类型。 */
 export type ThemeId =
   | 'dark'
   | 'light'
@@ -15,6 +16,7 @@ export type ThemeId =
   | 'lavender-latte'
   | 'sea-salt-cheese'
 
+/** 描述 ThemeDef 数据结构。 */
 export interface ThemeDef {
   id: ThemeId
   label: string
@@ -23,12 +25,14 @@ export interface ThemeDef {
   c2: string
 }
 
+/** 描述 AttachChip 数据结构。 */
 export interface AttachChip {
   name: string
   path?: string
   dir?: string
 }
 
+/** 描述 ToolCard 数据结构。 */
 export interface ToolCard {
   _key: number
   name: string
@@ -40,6 +44,7 @@ export interface ToolCard {
   open: boolean
 }
 
+/** 描述 UsageInfo 数据结构。 */
 export interface UsageInfo {
   _prompt: number
   _completion: number
@@ -51,6 +56,7 @@ export interface UsageInfo {
   time: string
 }
 
+/** 描述 Message 数据结构。 */
 export interface Message {
   id: number
   type: 'sys' | 'error' | 'warn' | 'msg'
@@ -67,6 +73,7 @@ export interface Message {
   copied?: boolean
 }
 
+/** 描述 Conversation 数据结构。 */
 export interface Conversation {
   id: string
   summary?: string
@@ -76,6 +83,7 @@ export interface Conversation {
   msg_count?: number
 }
 
+/** 描述 UserConfig 数据结构。 */
 export interface UserConfig {
   type: 'openai' | 'anthropic'
   apiStyle: string
@@ -87,12 +95,14 @@ export interface UserConfig {
   acceptTask: boolean
 }
 
+/** 描述 LogEntry 数据结构。 */
 export interface LogEntry {
   _key: string | number
   text: string
   success: boolean
 }
 
+/** 描述 Task 数据结构。 */
 export interface Task {
   id: string
   type: string
@@ -101,6 +111,7 @@ export interface Task {
   last_run?: string
 }
 
+/** 描述 PlanStep 数据结构。 */
 export interface PlanStep {
   id: string
   status?: 'pending' | 'in_progress' | 'completed' | 'skipped' | 'failed' | string
@@ -109,6 +120,7 @@ export interface PlanStep {
   error?: string
 }
 
+/** 描述 Plan 数据结构。 */
 export interface Plan {
   id: string
   title: string
@@ -117,6 +129,7 @@ export interface Plan {
   steps: PlanStep[]
 }
 
+/** 描述 FileItem 数据结构。 */
 export interface FileItem {
   name: string
   path: string
@@ -129,6 +142,7 @@ export interface FileItem {
   mtimeStr: string
 }
 
+/** 描述 ContextMenuState 数据结构。 */
 export interface ContextMenuState {
   show: boolean
   id: string
@@ -137,6 +151,7 @@ export interface ContextMenuState {
   y: number
 }
 
+/** 描述 AppStore 数据结构。 */
 export interface AppStore {
   users: string[]
   selectedUser: string
@@ -149,6 +164,9 @@ export interface AppStore {
   dragging: boolean
   userScrolledUp: boolean
   dragCounter: number
+  msgId: number
+  toastTimer: number | undefined
+  abortCtrl: AbortController | null
   running: boolean
   showToolCalls: boolean
   showThinking: boolean
@@ -183,3 +201,56 @@ export interface AppStore {
   menu: ContextMenuState
 }
 
+/** 描述后端返回的归档对话原始数据。 */
+export interface RawConversation {
+  id: string
+  summary?: string
+  label?: string
+  raw_label?: string
+  msg_count?: number
+  size?: number
+  mtime?: number
+}
+
+/** 描述后端返回的原始消息数据。 */
+export interface RawMessage {
+  role: string
+  content?: string
+  reasoning_content?: string
+  tool_calls?: Array<{
+    function?: { name: string; arguments: string }
+  }>
+}
+
+/** 描述 SSE 流事件的联合类型。 */
+export type SSEEvent =
+  | { type: 'tool_call'; name: string; args: unknown; elapsed: number; success: boolean }
+  | { type: 'text_chunk' | 'thinking_chunk'; content: string }
+  | { type: 'text_done' | 'thinking_done' | 'done' | 'deadlock_warning' | 'max_rounds' }
+  | { type: 'text' | 'thinking' | 'error'; content: string }
+  | { type: 'usage'; data: { prompt_tokens: number; completion_tokens: number; cached_tokens: number; total_elapsed_ms?: number; elapsed?: number } }
+  | { type: 'plan_created'; plan_id: string; plan: Plan }
+  | { type: 'plan_started' | 'plan_complete' | 'plan_pause' | 'plan_aborted'; plan_id: string }
+  | { type: 'plan_step'; plan_id: string; step: PlanStep }
+
+/** 描述后端返回的配置原始数据。 */
+export interface RawConfig {
+  error?: string
+  provider?: {
+    type: string
+    api_style: string
+    think: boolean
+    stream: boolean
+    model: string
+    base_url: string
+  }
+  task_plan?: { accept_task: boolean }
+}
+
+/** 描述后端返回的工具日志原始数据。 */
+export interface RawToolLog {
+  ts?: string
+  success: boolean
+  tool: string
+  args?: Record<string, unknown>
+}

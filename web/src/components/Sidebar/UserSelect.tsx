@@ -1,9 +1,12 @@
+/** 描述 Props 数据结构。 */
 import { useAppStore } from '@/store/useAppStore'
 
+/** 描述 Props 数据结构。 */
 interface Props {
   selectUser: () => Promise<void>
 }
 
+/** 渲染 UserSelect 组件。 */
 export function UserSelect({ selectUser }: Props) {
   const users = useAppStore((s) => s.users)
   const selectedUser = useAppStore((s) => s.selectedUser)

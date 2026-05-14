@@ -40,6 +40,7 @@ class ToolRunner:
     """工具执行器 — 权限校验 / 限流 / 日志"""
 
     def __init__(self, core_config: dict[str, Any], user_config: dict[str, Any] = None, user_dir: str | None = None):
+        """执行 init 内部辅助逻辑。"""
         tool_cfg = core_config.get("tool", {})
         self.max_total = tool_cfg.get("tool_max_per_type", 80)     # 单轮总上限
         self.max_per_tool = tool_cfg.get("tool_max_per_tool", 80)  # 单工具上限
@@ -82,6 +83,7 @@ class ToolRunner:
         return None
 
     def _count(self, name: str):
+        """执行 count 内部辅助逻辑。"""
         self.call_count += 1
         self.per_tool_count[name] = self.per_tool_count.get(name, 0) + 1
 
@@ -165,9 +167,11 @@ class ToolRunner:
         return results, details
 
     def reset_count(self):
+        """处理 reset_count 相关逻辑。"""
         self.call_count = 0
         self.per_tool_count.clear()
 
 
 def _tool_msg(tool_call_id: str, content: str) -> dict:
+    """执行 tool_msg 内部辅助逻辑。"""
     return {"role": "tool", "tool_call_id": tool_call_id, "content": content}

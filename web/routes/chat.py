@@ -103,11 +103,13 @@ def _diff_plans(prev: dict, curr: dict) -> list[dict]:
 
 @app.route("/")
 def index():
+    """处理 index 相关逻辑。"""
     return render_template("index.html")
 
 
 @app.route("/api/users")
 def api_users():
+    """处理 api_users 相关逻辑。"""
     users_dir = os.path.join(_root, "users")
     try:
         names = sorted(os.listdir(users_dir))
@@ -118,6 +120,7 @@ def api_users():
 
 @app.route("/api/select-user", methods=["POST"])
 def api_select_user():
+    """处理 api_select_user 相关逻辑。"""
     data = request.get_json() or {}
     user_name = data.get("user", "").strip()
     if not user_name:
@@ -146,6 +149,7 @@ def api_select_user():
 
 @app.route("/api/session")
 def api_session():
+    """处理 api_session 相关逻辑。"""
     user_name = flask_session.get("user_name") or get_active_user()
     session_data = get_session(user_name)
     if not session_data or not session_data.get("chat"):
@@ -192,6 +196,7 @@ def api_chat():
     chat.refresh_system_prompt(_root)
 
     def generate():
+        """处理 generate 相关逻辑。"""
         user_dir = session_data.get("user_dir", "")
         # 用户发送新消息时自动将暂停的计划恢复为执行中
         _auto_resume_paused_plans(user_dir)

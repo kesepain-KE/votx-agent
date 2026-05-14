@@ -58,6 +58,7 @@ def get_pdf_info(pdf_path, format='text'):
 
 
 def main():
+    """执行命令行入口流程。"""
     parser = argparse.ArgumentParser(description='Get PDF metadata and structure info')
     parser.add_argument('pdf', help='Path to PDF file')
     parser.add_argument('-f', '--format', choices=['text', 'json'], default='text',

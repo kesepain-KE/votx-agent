@@ -1,3 +1,4 @@
+/** 渲染 Brand 组件。 */
 export function Brand() {
   return (
     <div className="brand">

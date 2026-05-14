@@ -16,6 +16,7 @@ _CURRENT_USER_DIR: ContextVar[str | None] = ContextVar("votx_current_user_dir", 
 
 
 def err(msg: str) -> str:
+    """处理 err 相关逻辑。"""
     return f"ERROR: {msg}"
 
 
@@ -32,6 +33,7 @@ def set_current_user_dir(user_dir: str | None) -> Token:
 
 
 def reset_current_user_dir(token: Token):
+    """处理 reset_current_user_dir 相关逻辑。"""
     _CURRENT_USER_DIR.reset(token)
 
 
@@ -98,6 +100,7 @@ MAX_RESPONSE_BYTES = 10 * 1024 * 1024  # 10 MB
 
 
 def _is_ip_blocked(host: str) -> bool:
+    """执行 is_ip_blocked 内部辅助逻辑。"""
     try:
         addr = ipaddress.ip_address(host)
     except ValueError:
@@ -232,6 +235,7 @@ def sanitize_env() -> dict[str, str]:
 # ---- 工具日志 ----
 
 def _log_path(user_dir: str | None = None) -> str | None:
+    """执行 log_path 内部辅助逻辑。"""
     user_dir = user_dir or get_current_user_dir()
     if not user_dir:
         return None
@@ -244,6 +248,7 @@ _TOOL_LOG_MAX_CACHE = None
 
 
 def _get_tool_log_max() -> int:
+    """执行 get_tool_log_max 内部辅助逻辑。"""
     global _TOOL_LOG_MAX_CACHE
     if _TOOL_LOG_MAX_CACHE is not None:
         return _TOOL_LOG_MAX_CACHE
@@ -260,6 +265,7 @@ def _get_tool_log_max() -> int:
 
 
 def log_tool_call(name: str, args: dict, result: str, success: bool, elapsed: float, user_dir: str | None = None):
+    """处理 log_tool_call 相关逻辑。"""
     path = _log_path(user_dir)
     if not path:
         return

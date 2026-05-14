@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/badge/license-MIT-orange)](./LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![Multi-LLM](https://img.shields.io/badge/LLM-OpenAI%20%7C%20Anthropic-brightgreen)](https://platform.deepseek.com/)
-[![Flask](https://img.shields.io/badge/web-Flask%20%2B%20Vue%203-lightgrey)](https://flask.palletsprojects.com/)
+[![Flask](https://img.shields.io/badge/web-Flask%20%2B%20React%20%2B%20TypeScript-lightgrey)](https://flask.palletsprojects.com/)
 [![Docker](https://img.shields.io/badge/docker-ready-blue)](https://www.docker.com/)
 
 中文 | [English](./README_EN.md)
@@ -39,7 +39,7 @@ Github 上现有的 AI Agent 框架大多面向单用户、英文场景，交互
 - **多厂商接入**：DeepSeek / Anthropic / Azure / 硅基流动 / Groq / 小米 mimo 等，改 base_url 即切
 - **多用户隔离**：每个用户独立人设（`self_soul.md`）、对话历史、长期记忆、知识库和文件空间
 - **双层知识库**：用户级（默认读写）+ 全局级（只读共享），分层索引导航，支持 PDF/Excel 检索
-- **双端支持**：Vue 3 Web UI + CLI 终端，共用 `run/engine.py` 对话引擎，行为完全一致
+- **双端支持**：React Web UI + CLI 终端，共用 `run/engine.py` 对话引擎，行为完全一致
 - **任务计划**：复杂请求自动分解为分步计划，Web UI 进度气泡实时追踪，支持批准/暂停/中止
 - **自学习**：工具调用成功/失败均生成学习记录，下次对话自动注入相关教训，形成正向迭代
 - **定时任务**：cron 定时调度、遗忘曲线管理，Web UI 状态面板集成
@@ -225,12 +225,23 @@ votx-agent/
 │   ├── server.py               # Flask + SSE 事件流
 │   ├── session.py              # 多用户 session 隔离（按 user_name 分桶）
 │   ├── routes/                 # API 路由（chat / config / conversations / files / system / task_plan）
-│   │   └── conversations.py    # 对话列表、归档预览、从历史继续、重命名、删除
-│   └── templates/index.html    # Vue 3 单页前端
+│   ├── index.html              # Vite 入口
+│   ├── vite.config.ts          # Vite 构建配置
+│   ├── package.json            # npm 依赖
+│   └── src/                    # React 前端源码（TypeScript + Zustand）
+│       ├── App.tsx             # 主应用（薄壳，组合布局）
+│       ├── main.tsx            # React 入口
+│       ├── api/client.ts       # HTTP 封装
+│       ├── types/index.ts      # TypeScript 类型定义
+│       ├── utils/format.ts     # Markdown / KaTeX 格式化
+│       ├── store/useAppStore.ts# Zustand 全局状态
+│       ├── hooks/useAppActions.ts # 业务逻辑 hook
+│       ├── styles/global.css   # 全局样式（15 种主题）
+│       └── components/         # 组件（Sidebar / Chat / RightPanel / Shared）
 │
 ├── skills/                     # 28 个 Skill（13 工具型 + 15 指令型）
 ├── agents/                     # 子代理（task_plan 任务规划 / auto_improve 记忆审阅）
-├── corn/                       # 定时任务调度（cron 表达式 + 遗忘曲线）
+├── cron/                       # 定时任务调度（cron 表达式 + 遗忘曲线）
 ├── config/                     # 全局配置与 AI 执行规则
 ├── tmp/                        # 智能体临时文件（脚本、运行时产物，可推送）
 ├── users/                      # 用户数据（人设、历史、记忆、文件）
@@ -304,6 +315,7 @@ votx-agent/
 ## 依赖
 
 - Python 3.10+ · Flask ≥ 3.0 · openai ≥ 1.0 · anthropic ≥ 0.30
+- Node.js ≥ 18（前端开发/构建）
 - requests · yt-dlp · python-docx · pyyaml 等
 
 完整清单见 [requirements.txt](./requirements.txt)。
@@ -311,9 +323,17 @@ votx-agent/
 ## 开发
 
 ```bash
+# 后端
 python setup.py --check    # 仅检查环境
 python setup.py --skip-env # 跳过 .env 配置
 pytest                     # 运行测试
+
+# 前端
+cd web
+npm install                # 安装依赖
+npm run dev                # Vite 开发服务器（localhost:5173，代理 Flask 后端）
+npm run build              # 生产构建 → dist/
+npx tsc --noEmit           # TypeScript 类型检查
 ```
 
 维护者文档（`开发文档/`）已 gitignored，不进入公开仓库。[`AGENTS.md`](./AGENTS.md) 是面向 AI 编码 Agent 的操作手册。

@@ -62,6 +62,7 @@ HANDLERS = {"get_time": get_time, "sleep": sleep}
 
 
 def register():
+    """处理 register 相关逻辑。"""
     for s in SCHEMAS:
         name = s["function"]["name"]
         register_tool(s, HANDLERS[name])

@@ -11,6 +11,7 @@ from web.session import get_session, get_active_user
 
 @app.route("/api/config")
 def api_get_config():
+    """处理 api_get_config 相关逻辑。"""
     user_name = flask_session.get("user_name") or get_active_user()
     session_data = get_session(user_name)
     if not session_data or not session_data.get("chat"):
@@ -29,6 +30,7 @@ def api_get_config():
 
 @app.route("/api/config", methods=["POST"])
 def api_update_config():
+    """处理 api_update_config 相关逻辑。"""
     user_name = flask_session.get("user_name") or get_active_user()
     session_data = get_session(user_name)
     if not session_data or not session_data.get("chat"):

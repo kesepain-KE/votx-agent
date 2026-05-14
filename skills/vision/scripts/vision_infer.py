@@ -14,6 +14,7 @@ import os, sys, base64, json, platform, ssl
 # ======== 路径/URL 解析 ========
 
 def get_project_root():
+    """处理 get_project_root 相关逻辑。"""
     script_dir = os.path.dirname(os.path.abspath(__file__))
     return os.path.abspath(os.path.join(script_dir, "..", "..", ".."))
 

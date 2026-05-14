@@ -102,4 +102,5 @@ SCHEMA = {
 
 
 def register():
+    """处理 register 相关逻辑。"""
     register_tool(SCHEMA, download_video)

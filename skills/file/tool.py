@@ -114,6 +114,7 @@ def delete_file(path: str) -> str:
         return err(f"删除失败: {e}")
 
 def _fmt_size(n: int) -> str:
+    """执行 fmt_size 内部辅助逻辑。"""
     if n < 1024:
         return f"{n} B"
     elif n < 1024 * 1024:

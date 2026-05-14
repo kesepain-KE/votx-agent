@@ -19,6 +19,7 @@ from pathlib import Path
 # ──── 内部辅助 ────
 
 def _load_agent_md() -> str:
+    """执行 load_agent_md 内部辅助逻辑。"""
     root = Path(__file__).resolve().parent.parent.parent
     agent_md_path = root / "agents" / "task_plan" / "AGENT.md"
     if agent_md_path.exists():

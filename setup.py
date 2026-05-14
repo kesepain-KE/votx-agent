@@ -120,7 +120,7 @@ def setup_env() -> bool:
 def verify_imports() -> bool:
     """验证关键模块可导入"""
     sys.path.insert(0, str(ROOT))
-    modules = ["provider.openai_api", "run.chat", "run.tool", "run.engine", "skills", "corn", "agents", "web"]
+    modules = ["provider.openai_api", "run.chat", "run.tool", "run.engine", "skills", "cron", "agents", "web"]
     failed = []
     for mod in modules:
         try:
@@ -158,6 +158,7 @@ def check_users() -> bool:
 
 
 def main():
+    """执行命令行入口流程。"""
     check_only = "--check" in sys.argv
     skip_env = "--skip-env" in sys.argv
 

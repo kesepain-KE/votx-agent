@@ -271,6 +271,7 @@ def init_skill(skill_name, path):
 
 
 def main():
+    """执行命令行入口流程。"""
     if len(sys.argv) < 4 or sys.argv[2] != '--path':
         print("Usage: init_skill.py <skill-name> --path <path>")
         print("\nSkill name requirements:")

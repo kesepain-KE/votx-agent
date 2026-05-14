@@ -4,7 +4,7 @@
     python start.py           # CLI 模式（选择用户 → subprocess main.py）
     python start.py --web     # Web UI 模式（端口 13579）
     python start.py --web --port=8080   # Web UI 自定义端口
-    python start.py --user <name> --prompt "<text>" --once  # 非交互单轮执行（corn 用）
+    python start.py --user <name> --prompt "<text>" --once  # 非交互单轮执行（cron 用）
 """
 import os
 import subprocess
@@ -60,7 +60,7 @@ def main_web():
 
 
 def main_once(user_name: str, prompt: str):
-    """非交互模式：发送一条消息，执行一轮 tool calling，保存后退出。供 corn scheduler 调用。"""
+    """非交互模式：发送一条消息，执行一轮 tool calling，保存后退出。供 cron scheduler 调用。"""
     import json
 
     users_dir = os.path.join(root, "users")

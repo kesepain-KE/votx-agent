@@ -70,6 +70,7 @@ def split_pdf(pdf_path, output_dir, mode='pages', ranges=None):
 
 
 def main():
+    """执行命令行入口流程。"""
     parser = argparse.ArgumentParser(description='Split PDF into separate files')
     parser.add_argument('pdf', help='Path to input PDF')
     parser.add_argument('-o', '--output-dir', required=True, help='Output directory')

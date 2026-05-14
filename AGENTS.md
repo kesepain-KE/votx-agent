@@ -14,7 +14,7 @@
 ```
 ├── provider/     # 多 LLM 后端接入 (OpenAI/Anthropic等)
 ├── run/          # 对话引擎、历史管理、工具调度
-├── web/          # Flask 后端 + Vue3 前端
+├── web/          # Flask 后端 + React (TypeScript + Vite) 前端
 ├── skills/       # 所有技能（工具与指令）
 ├── config/       # 全局配置与基座人格
 ├── users/<name>/ # 用户数据沙箱（记录、记忆、知识库）

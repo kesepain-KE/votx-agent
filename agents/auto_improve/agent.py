@@ -25,10 +25,12 @@ _VALID_SUBS = ("memory", "self-improving", "ontology")
 
 
 def _improve_dir(user_dir: str) -> str:
+    """执行 improve_dir 内部辅助逻辑。"""
     return os.path.join(user_dir, "improve")
 
 
 def _safe_filename(name: str) -> str:
+    """执行 safe_filename 内部辅助逻辑。"""
     safe = re.sub(r'[^\w\-.]', '_', name)
     return safe.strip("_") or "untitled"
 
@@ -72,12 +74,14 @@ def _read_files_by_tier(user_dir: str, tier: str) -> dict[str, str]:
 
 
 def _ensure_dirs(user_dir: str):
+    """执行 ensure_dirs 内部辅助逻辑。"""
     for sub in _VALID_SUBS:
         for tier in ("temporary", "permanent"):
             os.makedirs(os.path.join(_improve_dir(user_dir), sub, tier), exist_ok=True)
 
 
 def _load_agent_md() -> str:
+    """执行 load_agent_md 内部辅助逻辑。"""
     root = Path(__file__).resolve().parent.parent.parent
     agent_md_path = root / "agents" / "auto_improve" / "AGENT.md"
     if agent_md_path.exists():

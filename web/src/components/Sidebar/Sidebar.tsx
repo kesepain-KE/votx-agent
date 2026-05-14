@@ -1,3 +1,4 @@
+/** web/src/components/Sidebar/Sidebar.tsx 模块。 */
 import { useAppStore } from '@/store/useAppStore'
 import type { Conversation, ThemeId } from '@/types'
 import type { MouseEvent as ReactMouseEvent } from 'react'
@@ -8,6 +9,7 @@ import { ConvItem } from './ConvItem'
 import { ConversationManager } from './ConversationManager'
 import { ThemePicker } from './ThemePicker'
 
+/** 描述 Props 数据结构。 */
 interface Props {
   profileInitial: string
   selectUser: () => Promise<void>
@@ -23,6 +25,7 @@ interface Props {
   chooseTheme: (id: ThemeId) => void
 }
 
+/** 渲染 Sidebar 组件。 */
 export function Sidebar(props: Props) {
   const showConvManager = useAppStore((s) => s.showConvManager)
   const conversations = useAppStore((s) => s.conversations)

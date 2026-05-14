@@ -18,12 +18,14 @@ from datetime import datetime, timezone
 
 
 def _tasks_dir(user_dir: str) -> str:
+    """执行 tasks_dir 内部辅助逻辑。"""
     d = os.path.join(user_dir, "tasks")
     os.makedirs(d, exist_ok=True)
     return d
 
 
 def _now_iso() -> str:
+    """执行 now_iso 内部辅助逻辑。"""
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
 
 

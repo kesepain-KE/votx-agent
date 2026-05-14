@@ -1,10 +1,10 @@
-"""corn — 后台定时调度系统
+"""cron — 后台定时调度系统
 
 启动/停止入口:
-    from corn import start_corn, stop_corn
-    start_corn(root, core_config)
+    from cron import start_cron, stop_cron
+    start_cron(root, core_config)
     ...
-    stop_corn()
+    stop_cron()
 """
 import threading
 
@@ -12,7 +12,7 @@ _scheduler_thread = None
 _stop_event = threading.Event()
 
 
-def start_corn(root: str, core_config: dict, web_mode: bool = False):
+def start_cron(root: str, core_config: dict, web_mode: bool = False):
     """启动后台调度线程（daemon，随主进程退出）"""
     global _scheduler_thread, _stop_event
 
@@ -20,18 +20,18 @@ def start_corn(root: str, core_config: dict, web_mode: bool = False):
         return
 
     _stop_event.clear()
-    from corn.scheduler import _scheduler_loop
+    from cron.scheduler import _scheduler_loop
     _scheduler_thread = threading.Thread(
         target=_scheduler_loop,
-        args=(root, core_config, _stop_event, web_mode),
+        args=(root, _core_config, _stop_event, web_mode),
         daemon=True,
-        name="corn-scheduler",
+        name="cron-scheduler",
     )
     _scheduler_thread.start()
-    print(f"[corn] 后台调度已启动 (web_mode={web_mode})")
+    print(f"[cron] 后台调度已启动 (web_mode={web_mode})")
 
 
-def stop_corn():
+def stop_cron():
     """停止后台调度线程"""
     global _scheduler_thread, _stop_event
     if _scheduler_thread is None:
@@ -39,4 +39,4 @@ def stop_corn():
     _stop_event.set()
     _scheduler_thread.join(timeout=5)
     _scheduler_thread = None
-    print("[corn] 后台调度已停止")
+    print("[cron] 后台调度已停止")

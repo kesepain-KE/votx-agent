@@ -13,13 +13,13 @@ def _collect_tree(rel: str) -> list[tuple[str, str]]:
         return []
     result = []
     for f in src.rglob("*"):
-        if f.is_file() and "__pycache__" not in f.parts and ".pyc" not in f.suffix:
+        if f.is_file() and "__pycache__" not in f.parts and "node_modules" not in f.parts and ".pyc" not in f.suffix:
             result.append((str(f), str(f.relative_to(_root))))
     return result
 
 # 数据文件：（源路径, 目标相对路径）
 datas = []
-for d in ["web", "config", "skills", "provider", "tools", "run", "corn", "agents"]:
+for d in ["web", "config", "skills", "provider", "tools", "run", "cron", "agents"]:
     datas.extend(_collect_tree(d))
 datas.append((str(_root / "paths.py"), "paths.py"))
 datas.append((str(_root / "AGENTS.md"), "AGENTS.md"))
@@ -27,6 +27,15 @@ datas.append((str(_root / ".env.example"), ".env.example"))
 
 # ── 隐藏导入（动态 importlib / __import__ 加载的模块） ──
 hiddenimports = [
+    # 调度器
+    "cron",
+    "cron.scheduler",
+    "cron.tasks",
+    "cron.forget",
+    # Provider 适配器
+    "provider.openai_api",
+    "provider.responses_api",
+    "provider.anthropic_adapter",
     # Skill tool.py 动态依赖
     "skills._common",
     # 可选工具包

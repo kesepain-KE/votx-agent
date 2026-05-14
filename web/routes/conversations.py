@@ -17,7 +17,7 @@ from web.session import get_session, get_active_user
 
 # ---- 路径安全 ----
 
-_VALID_ARCHIVE_FILE = re.compile(r'^(?:history|corn)_\d{8}T\d{6}_\w+\.json(?:\.gz)?$')
+_VALID_ARCHIVE_FILE = re.compile(r'^(?:history|cron|corn)_\d{8}T\d{6}_\w+\.json(?:\.gz)?$')
 
 
 def _validate_conv_id(user_dir: str, conv_id: str) -> tuple[str | None, str | None]:
@@ -78,6 +78,7 @@ def _read_conv_messages(kind: str, path: str) -> list[dict]:
 
 @app.route("/api/conversations")
 def api_conversations():
+    """处理 api_conversations 相关逻辑。"""
     user_name = flask_session.get("user_name") or get_active_user()
     session_data = get_session(user_name)
     if not session_data or not session_data.get("chat"):
@@ -302,6 +303,7 @@ def api_conversations_preview_state():
 
 @app.route("/api/conversations/<conv_id>", methods=["DELETE"])
 def api_delete_conversation(conv_id):
+    """处理 api_delete_conversation 相关逻辑。"""
     user_name = flask_session.get("user_name") or get_active_user()
     session_data = get_session(user_name)
     if not session_data or not session_data.get("chat"):
@@ -330,6 +332,7 @@ def api_delete_conversation(conv_id):
 
 @app.route("/api/conversations/<conv_id>/rename", methods=["POST"])
 def api_rename_conversation(conv_id):
+    """处理 api_rename_conversation 相关逻辑。"""
     user_name = flask_session.get("user_name") or get_active_user()
     session_data = get_session(user_name)
     if not session_data or not session_data.get("chat"):
@@ -372,6 +375,7 @@ def api_rename_conversation(conv_id):
 
 @app.route("/api/conversations", methods=["DELETE"])
 def api_delete_all_conversations():
+    """处理 api_delete_all_conversations 相关逻辑。"""
     user_name = flask_session.get("user_name") or get_active_user()
     session_data = get_session(user_name)
     if not session_data or not session_data.get("chat"):

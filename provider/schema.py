@@ -22,4 +22,5 @@ class ProviderResponse:
 
     @property
     def has_tool_calls(self) -> bool:
+        """处理 has_tool_calls 相关逻辑。"""
         return len(self.tool_calls) > 0

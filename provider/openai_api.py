@@ -63,6 +63,7 @@ class DeepSeekProvider(BaseProvider):
     """LLM Provider - 支持 OpenAI 兼容接口 (Chat Completions API)"""
 
     def __init__(self, user_config: dict, core_config: dict | None = None):
+        """执行 init 内部辅助逻辑。"""
         core = core_config or {}
         cfg = user_config.get("provider", {})
         # API Key: config > DEEPSEEK_API_KEY > OPENAI_API_KEY

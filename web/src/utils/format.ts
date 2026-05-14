@@ -1,3 +1,4 @@
+/** web/src/utils/format.ts 模块。 */
 declare global {
   interface Window {
     katex?: {
@@ -9,6 +10,7 @@ declare global {
   }
 }
 
+/** 定义 StashedBlock 类型。 */
 type StashedBlock =
   | { type: 'code'; content: string; lang?: string }
   | { type: 'inlineCode'; content: string }
@@ -16,6 +18,7 @@ type StashedBlock =
   | { type: 'mathBlock'; content: string }
   | { type: 'mathInline'; content: string }
 
+/** 处理 escHtml 相关逻辑。 */
 export function escHtml(s: string): string {
   return String(s || '')
     .replace(/&/g, '&amp;')
@@ -24,6 +27,7 @@ export function escHtml(s: string): string {
     .replace(/"/g, '&quot;')
 }
 
+/** 处理 fmtSize 相关逻辑。 */
 export function fmtSize(n: number): string {
   if (!n) return ''
   if (n < 1024) return `${n} B`
@@ -31,6 +35,7 @@ export function fmtSize(n: number): string {
   return `${(n / 1048576).toFixed(1)} MB`
 }
 
+/** 处理 formatNumber 相关逻辑。 */
 export function formatNumber(n: number): string {
   if (!n && n !== 0) return ''
   if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`
@@ -38,6 +43,7 @@ export function formatNumber(n: number): string {
   return String(n)
 }
 
+/** 处理 fmtTime 相关逻辑。 */
 export function fmtTime(ts: number): string {
   if (!ts) return ''
   const d = new Date(ts * 1000)
@@ -48,6 +54,7 @@ export function fmtTime(ts: number): string {
   return d.toLocaleDateString('zh-CN')
 }
 
+/** 处理 fmtMs 相关逻辑。 */
 export function fmtMs(ms: number): string {
   if (!ms && ms !== 0) return ''
   if (ms < 1000) return `${ms}ms`
@@ -55,10 +62,12 @@ export function fmtMs(ms: number): string {
   return `${(ms / 60000).toFixed(1)}min`
 }
 
+/** 处理 isImageFile 相关逻辑。 */
 export function isImageFile(name: string): boolean {
   return /\.(png|jpe?g|gif|webp|svg|bmp|ico)$/i.test(name)
 }
 
+/** 处理 renderMath 相关逻辑。 */
 function renderMath(content: string, displayMode: boolean): string {
   try {
     if (!window.katex) throw new Error('KaTeX not loaded')
@@ -74,6 +83,7 @@ function renderMath(content: string, displayMode: boolean): string {
   }
 }
 
+/** 处理 formatContent 相关逻辑。 */
 export function formatContent(input: string): string {
   let text = String(input || '')
 
@@ -277,6 +287,11 @@ export function formatContent(input: string): string {
     text = text.split(ph).join(html)
   }
 
+  text = text.replace(/<a\s+href="([^"]*)"/g, (_all: string, url: string) => {
+    const safe = /^(https?:|mailto:|#|\/)/i.test(url.trim())
+    if (safe) return `<a href="${url}" target="_blank" rel="noopener noreferrer"`
+    return `<span class="unsafe-link" title="已屏蔽不安全的链接">${escHtml(url)}</span>`
+  })
+
   return text
 }
-

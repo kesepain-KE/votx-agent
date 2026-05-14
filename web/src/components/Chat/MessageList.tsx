@@ -1,13 +1,16 @@
+/** 描述 Props 数据结构。 */
 import type { Message, ToolCard } from '@/types'
 import { formatContent } from '@/utils/format'
 import { useAppStore } from '@/store/useAppStore'
 
+/** 描述 Props 数据结构。 */
 interface Props {
   message: Message
   patchMessage: (id: number, patch: Partial<Message> | ((m: Message) => Message)) => void
   copyMsg: (m: Message) => void
 }
 
+/** 渲染 ThinkBlock 组件。 */
 function ThinkBlock({ message, patchMessage }: { message: Message; patchMessage: Props['patchMessage'] }) {
   const showThinking = useAppStore((s) => s.showThinking)
   if (!message.think || !showThinking) return null
@@ -21,6 +24,7 @@ function ThinkBlock({ message, patchMessage }: { message: Message; patchMessage:
   )
 }
 
+/** 渲染 ToolCallCard 组件。 */
 function ToolCallCard({ tc, message, patchMessage }: { tc: ToolCard; message: Message; patchMessage: Props['patchMessage'] }) {
   const showToolCalls = useAppStore((s) => s.showToolCalls)
   return (
@@ -40,6 +44,7 @@ function ToolCallCard({ tc, message, patchMessage }: { tc: ToolCard; message: Me
   )
 }
 
+/** 渲染 UserMessage 组件。 */
 function UserMessage({ message, copyMsg }: { message: Message; copyMsg: Props['copyMsg'] }) {
   return (
     <div className="bubble-wrap">
@@ -56,6 +61,7 @@ function UserMessage({ message, copyMsg }: { message: Message; copyMsg: Props['c
   )
 }
 
+/** 渲染 AssistantMessage 组件。 */
 function AssistantMessage({ message, patchMessage, copyMsg }: Props) {
   return (
     <div className="bubble-wrap">
@@ -91,6 +97,7 @@ function AssistantMessage({ message, patchMessage, copyMsg }: Props) {
   )
 }
 
+/** 描述 MessageListProps 数据结构。 */
 interface MessageListProps {
   patchMessage: (id: number, patch: Partial<Message> | ((m: Message) => Message)) => void
   copyMsg: (m: Message) => void
@@ -99,6 +106,7 @@ interface MessageListProps {
   onChatScroll: () => void
 }
 
+/** 渲染 MessageList 组件。 */
 export function MessageList({ patchMessage, copyMsg, continueAfterMaxRounds, chatRef, onChatScroll }: MessageListProps) {
   const messages = useAppStore((s) => s.messages)
 

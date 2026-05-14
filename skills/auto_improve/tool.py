@@ -24,10 +24,12 @@ def set_auto_improve_context(provider=None, chat=None, user_name: str = ""):
 
 
 def _improve_dir(user_id: str) -> Path:
+    """执行 improve_dir 内部辅助逻辑。"""
     return _PROJECT_ROOT / "users" / user_id / "improve"
 
 
 def _sanitize_key(key: str) -> str:
+    """执行 sanitize_key 内部辅助逻辑。"""
     safe = re.sub(r'[^\w\-.]', '_', key)
     return safe.strip("_") or "untitled"
 
@@ -355,6 +357,7 @@ HANDLERS = {
 
 
 def register():
+    """处理 register 相关逻辑。"""
     for s in SCHEMAS:
         name = s["function"]["name"]
         register_tool(s, HANDLERS[name])

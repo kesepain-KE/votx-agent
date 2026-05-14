@@ -7,10 +7,12 @@ from run.io_utils import atomic_write_json
 
 
 def index_path(user_dir: str) -> str:
+    """处理 index_path 相关逻辑。"""
     return os.path.join(user_dir, "history", "history_save_data.json")
 
 
 def load_index(user_dir: str) -> dict:
+    """处理 load_index 相关逻辑。"""
     path = index_path(user_dir)
     if os.path.exists(path):
         try:
@@ -22,6 +24,7 @@ def load_index(user_dir: str) -> dict:
 
 
 def save_index(user_dir: str, index: dict):
+    """处理 save_index 相关逻辑。"""
     path = index_path(user_dir)
     atomic_write_json(path, index, indent=2)
 

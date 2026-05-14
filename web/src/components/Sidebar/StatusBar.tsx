@@ -1,5 +1,7 @@
+/** 渲染 StatusBar 组件。 */
 import { useAppStore } from '@/store/useAppStore'
 
+/** 渲染 StatusBar 组件。 */
 export function StatusBar() {
   const stats = useAppStore((s) => s.stats)
   return (

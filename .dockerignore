@@ -4,7 +4,17 @@ __pycache__
 .gitignore
 .vscode
 .idea
-tmp
+/tmp
+/build
+/dist
+/.venv
+/users
 .env
+*.log
 *.md
+!AGENTS.md
 !requirements.txt
+
+# React 前端（Docker 构建阶段需要 web/src，运行镜像不需要 node_modules）
+web/node_modules
+web/.vscode

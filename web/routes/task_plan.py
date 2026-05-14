@@ -35,6 +35,7 @@ def _validate_plan_id(user_dir: str, plan_id: str) -> tuple[str | None, str | No
 
 
 def _load_plan(path: str) -> dict | None:
+    """执行 load_plan 内部辅助逻辑。"""
     try:
         with open(path, encoding="utf-8") as f:
             return json.load(f)
@@ -43,6 +44,7 @@ def _load_plan(path: str) -> dict | None:
 
 
 def _save_plan(path: str, plan: dict):
+    """执行 save_plan 内部辅助逻辑。"""
     with open(path, "w", encoding="utf-8") as f:
         json.dump(plan, f, ensure_ascii=False, indent=2)
 
@@ -52,6 +54,7 @@ def _save_plan(path: str, plan: dict):
 
 @app.route("/api/task-plan")
 def api_task_plan_list():
+    """处理 api_task_plan_list 相关逻辑。"""
     user_name = flask_session.get("user_name") or get_active_user()
     session_data = get_session(user_name)
     if not session_data or not session_data.get("chat"):
@@ -76,6 +79,7 @@ def api_task_plan_list():
 
 @app.route("/api/task-plan/<plan_id>")
 def api_task_plan_get(plan_id):
+    """处理 api_task_plan_get 相关逻辑。"""
     user_name = flask_session.get("user_name") or get_active_user()
     session_data = get_session(user_name)
     if not session_data or not session_data.get("chat"):
@@ -96,6 +100,7 @@ def api_task_plan_get(plan_id):
 
 @app.route("/api/task-plan/<plan_id>/pause", methods=["POST"])
 def api_task_plan_pause(plan_id):
+    """处理 api_task_plan_pause 相关逻辑。"""
     user_name = flask_session.get("user_name") or get_active_user()
     session_data = get_session(user_name)
     if not session_data or not session_data.get("chat"):
@@ -119,6 +124,7 @@ def api_task_plan_pause(plan_id):
 
 @app.route("/api/task-plan/<plan_id>/resume", methods=["POST"])
 def api_task_plan_resume(plan_id):
+    """处理 api_task_plan_resume 相关逻辑。"""
     user_name = flask_session.get("user_name") or get_active_user()
     session_data = get_session(user_name)
     if not session_data or not session_data.get("chat"):
@@ -143,6 +149,7 @@ def api_task_plan_resume(plan_id):
 
 @app.route("/api/task-plan/<plan_id>/abort", methods=["POST"])
 def api_task_plan_abort(plan_id):
+    """处理 api_task_plan_abort 相关逻辑。"""
     user_name = flask_session.get("user_name") or get_active_user()
     session_data = get_session(user_name)
     if not session_data or not session_data.get("chat"):
@@ -169,6 +176,7 @@ def api_task_plan_abort(plan_id):
 
 @app.route("/api/task-plan/<plan_id>/edit-step", methods=["POST"])
 def api_task_plan_edit_step(plan_id):
+    """处理 api_task_plan_edit_step 相关逻辑。"""
     user_name = flask_session.get("user_name") or get_active_user()
     session_data = get_session(user_name)
     if not session_data or not session_data.get("chat"):

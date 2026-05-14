@@ -1,7 +1,9 @@
+/** 描述 Props 数据结构。 */
 import { useAppStore } from '@/store/useAppStore'
 import type { KeyboardEvent, ChangeEvent, ClipboardEvent } from 'react'
 import { COMMANDS, planStepIcon } from '@/hooks/useAppActions'
 
+/** 描述 Props 数据结构。 */
 interface Props {
   sendCommand: (cmd: string) => Promise<void>
   sendMessage: () => Promise<void>
@@ -16,6 +18,7 @@ interface Props {
   uploadRef: React.RefObject<HTMLInputElement>
 }
 
+/** 渲染 Composer 组件。 */
 export function Composer({ sendCommand, sendMessage, stopRun, continueConversation, loadConversation, removeAttach, onUploadFiles, onPaste, onTextareaKeyDown, textRef, uploadRef }: Props) {
   const input = useAppStore((s) => s.input)
   const set = useAppStore.setState

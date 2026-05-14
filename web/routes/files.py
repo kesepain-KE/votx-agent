@@ -11,6 +11,7 @@ from web.session import get_session, get_active_user
 # ---- Helpers ----
 
 def _resolve_file_dir(session_data, subdir="file"):
+    """执行 resolve_file_dir 内部辅助逻辑。"""
     user_dir = session_data.get("user_dir", "")
     if subdir == "download":
         d = os.path.join(user_dir, "download")
@@ -26,6 +27,7 @@ def _resolve_file_dir(session_data, subdir="file"):
 
 
 def _file_rel_path(session_data, name, subdir="file"):
+    """执行 file_rel_path 内部辅助逻辑。"""
     user = session_data.get("user_name", "")
     if subdir == "download":
         return os.path.join("users", user, "download", name).replace("\\", "/")
@@ -57,6 +59,7 @@ def _check_file_path(file_dir, filename):
 
 @app.route("/api/upload", methods=["POST"])
 def api_upload():
+    """处理 api_upload 相关逻辑。"""
     user_name = flask_session.get("user_name") or get_active_user()
     session_data = get_session(user_name)
     if not session_data:
@@ -97,6 +100,7 @@ def api_upload():
 
 @app.route("/api/files")
 def api_files():
+    """处理 api_files 相关逻辑。"""
     user_name = flask_session.get("user_name") or get_active_user()
     session_data = get_session(user_name)
     if not session_data or not session_data.get("chat"):
@@ -120,6 +124,7 @@ def api_files():
 
 @app.route("/api/files/download/<filename>")
 def api_file_download(filename):
+    """处理 api_file_download 相关逻辑。"""
     user_name = flask_session.get("user_name") or get_active_user()
     session_data = get_session(user_name)
     if not session_data or not session_data.get("chat"):
@@ -134,6 +139,7 @@ def api_file_download(filename):
 
 @app.route("/api/files/view/<filename>")
 def api_file_view(filename):
+    """处理 api_file_view 相关逻辑。"""
     user_name = flask_session.get("user_name") or get_active_user()
     session_data = get_session(user_name)
     if not session_data or not session_data.get("chat"):
@@ -155,6 +161,7 @@ def api_file_view(filename):
 
 @app.route("/api/files/<filename>", methods=["DELETE"])
 def api_delete_file(filename):
+    """处理 api_delete_file 相关逻辑。"""
     user_name = flask_session.get("user_name") or get_active_user()
     session_data = get_session(user_name)
     if not session_data or not session_data.get("chat"):
@@ -173,6 +180,7 @@ def api_delete_file(filename):
 
 @app.route("/api/files", methods=["DELETE"])
 def api_delete_files_batch():
+    """处理 api_delete_files_batch 相关逻辑。"""
     user_name = flask_session.get("user_name") or get_active_user()
     session_data = get_session(user_name)
     if not session_data or not session_data.get("chat"):

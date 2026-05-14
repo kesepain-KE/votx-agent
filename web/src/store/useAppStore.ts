@@ -1,3 +1,4 @@
+/** web/src/store/useAppStore.ts 模块。 */
 import { create } from 'zustand'
 import type { AppStore, ThemeDef } from '@/types'
 
@@ -19,6 +20,7 @@ export const THEMES: ThemeDef[] = [
   { id: 'sea-salt-cheese', label: '海盐酪', scheme: 'light', c1: '#f5f6f8', c2: '#6e8097' },
 ]
 
+/** 处理 defaultPromptData 相关逻辑。 */
 export const defaultPromptData = {
   system: '选择用户后加载 system prompt...',
   soul: '选择用户后加载 soul prompt...',
@@ -26,6 +28,7 @@ export const defaultPromptData = {
   other: '选择用户后加载其他注入摘要...',
 }
 
+/** 提供 useAppStore Hook 的业务能力。 */
 export const useAppStore = create<AppStore>(() => ({
   users: [],
   selectedUser: '',
@@ -38,6 +41,9 @@ export const useAppStore = create<AppStore>(() => ({
   dragging: false,
   userScrolledUp: false,
   dragCounter: 0,
+  msgId: 1,
+  toastTimer: undefined,
+  abortCtrl: null,
   running: false,
   showToolCalls: true,
   showThinking: true,
@@ -80,4 +86,3 @@ export const useAppStore = create<AppStore>(() => ({
   toastVisible: false,
   menu: { show: false, id: '', label: '', x: 0, y: 0 },
 }))
-

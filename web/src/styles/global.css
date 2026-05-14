@@ -1,8 +1,8 @@
 ﻿/* =============================================
-       Design System 鈥?CSS Custom Properties
+       Design System - CSS Custom Properties
        ============================================= */
 
-    /* 楂樼骇榛?(default) */
+    /* 高级黑 (default) */
     :root {
       --bg-root: #000000;
       --bg-soft: #0a0a0a;
@@ -42,7 +42,7 @@
       --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
     }
 
-    /* 楂樼骇鐧?*/
+    /* 高级白 */
     body[data-color-scheme="light"] {
       --bg-root: #ffffff;
       --bg-soft: #fafafa;
@@ -72,7 +72,7 @@
       --shadow-button: 0 6px 18px rgba(0, 0, 0, 0.08);
     }
 
-    /* ---- 濂舵补绫?---- */
+    /* ---- 奶油米 ---- */
     body[data-theme="cream"] {
       --bg-root: #faf2e0;
       --bg-soft: #f0e8d6;
@@ -86,7 +86,7 @@
       --accent-2-glow: rgba(14, 97, 172, 0.08);
     }
 
-    /* ---- 闆剧伆绱?---- */
+    /* ---- 雾灰紫 ---- */
     body[data-theme="slate"] {
       --bg-root: #e4e4e6;
       --bg-soft: #dadadd;
@@ -100,7 +100,7 @@
       --accent-2-glow: rgba(111, 120, 153, 0.08);
     }
 
-    /* ---- 鎶硅尪浜戦《绯?---- */
+    /* ---- 抹茶糕 ---- */
     body[data-theme="matcha-cake"] {
       --bg-root: #f4f8df;
       --bg-soft: #d9edb8;
@@ -114,7 +114,7 @@
       --accent-2-glow: rgba(167, 207, 95, 0.18);
     }
 
-    /* ---- 妞版ぐ钖勮嵎楗?---- */
+    /* ---- 薄荷饮 ---- */
     body[data-theme="coconut-mint"] {
       --bg-root: #e9fcfa;
       --bg-soft: #deeeff;
@@ -128,7 +128,7 @@
       --accent-2-glow: rgba(85, 216, 201, 0.22);
     }
 
-    /* ---- 闆剧传鑺嬫偿閰?---- */
+    /* ---- 芋泥酪 ---- */
     body[data-theme="taro-mousse"] {
       --bg-root: #f5eefb;
       --bg-soft: #e3e3fa;
@@ -142,7 +142,7 @@
       --accent-2-glow: rgba(193, 120, 217, 0.22);
     }
 
-    /* ---- 钃濇煈妯辫姳閰?---- */
+    /* ---- 樱花酪 ---- */
     body[data-theme="blue-sakura"] {
       --bg-root: #fceff3;
       --bg-soft: #ccdcff;
@@ -156,7 +156,7 @@
       --accent-2-glow: rgba(240, 143, 178, 0.20);
     }
 
-    /* ---- 鑽夎帗濂舵补铔嬬硶 ---- */
+    /* ---- 草莓糕 ---- */
     body[data-theme="strawberry-cake"] {
       --bg-root: #fff5ef;
       --bg-soft: #ffdce5;
@@ -170,7 +170,7 @@
       --accent-2-glow: rgba(255, 138, 162, 0.20);
     }
 
-    /* ---- 楂樼骇鎰烾I 鈥?鍐疯皟钃濈伆 ---- */
+    /* ---- 蓝灰调 ---- */
     body[data-theme="cool-blue-gray"] {
       --bg-root: #feffff;
       --bg-soft: #afc8da;
@@ -188,7 +188,7 @@
 
 
 
-    /* ---- 铚滄涔岄緳 ---- */
+    /* ---- 蜜桃茶 ---- */
     body[data-theme="peach-oolong"] {
       --bg-root: #fff0e8;
       --bg-soft: #ffd8c9;
@@ -202,7 +202,7 @@
       --accent-2-glow: rgba(242, 166, 95, 0.18);
     }
 
-    /* ---- 鐒︾硸鐜涘鏈?---- */
+    /* ---- 焦糖咖 ---- */
     body[data-theme="caramel-macchiato"] {
       --bg-root: #faf3eb;
       --bg-soft: #ead4bd;
@@ -217,7 +217,7 @@
     }
 
 
-    /* ---- 鐜懓鑽旀灊鍐?---- */
+    /* ---- 荔枝冻 ---- */
     body[data-theme="rose-lychee"] {
       --bg-root: #fff0f3;
       --bg-soft: #ffd5de;
@@ -231,7 +231,7 @@
       --accent-2-glow: rgba(255, 154, 141, 0.18);
     }
 
-    /* ---- 钖拌。鑽夋嬁閾?---- */
+    /* ---- 薰衣草 ---- */
     body[data-theme="lavender-latte"] {
       --bg-root: #f5f0fa;
       --bg-soft: #e5ddef;
@@ -245,7 +245,7 @@
       --accent-2-glow: rgba(180, 154, 208, 0.16);
     }
 
-    /* ---- 娴风洂鑺濆＋ ---- */
+    /* ---- 海盐酪 ---- */
     body[data-theme="sea-salt-cheese"] {
       --bg-root: #f5f6f8;
       --bg-soft: #e2e7ee;
@@ -413,7 +413,7 @@
 
     .stat:hover { border-color: var(--glass-border-hover); }
 
-    /* 绱 Token 缁熻妯悜闈㈡澘 */
+    /* 累计 Token 统计横向面板 */
     .tks-row { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
     .tks-chip { flex: 1 1 60px; min-width: 55px; padding: 6px 5px; border-radius: 10px;
       background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border);
@@ -443,7 +443,7 @@
       color: var(--text-primary);
     }
 
-    /* 鈹€鈹€ 瀵硅瘽绠＄悊浜岀骇椤甸潰 鈹€鈹€ */
+    /* ── 对话管理二级页面 ── */
     .conv-mgr {
       position: absolute; inset: 0; z-index: 10;
       display: flex; flex-direction: column; gap: 14px;
@@ -906,7 +906,7 @@
     .sys-error { color: var(--danger); font-size: 12px; padding: 6px; }
     .sys-warn { color: var(--warning); font-size: 12px; padding: 6px; }
 
-    /* 鈹€鈹€ 娑堟伅搴曢儴锛氱粺璁℃潯 + 澶嶅埗鎸夐挳 鈹€鈹€ */
+    /* ── 消息底部：统计条 + 复制按钮 ── */
     .msg-footer {
       display: flex; align-items: center; justify-content: space-between;
       padding: 4px 0 0;

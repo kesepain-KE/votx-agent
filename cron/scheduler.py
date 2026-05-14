@@ -7,8 +7,8 @@ import time as _time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from corn.tasks import mark_run, delete_task
-from corn.forget import run_forget, run_auto_improve_trigger
+from cron.tasks import mark_run, delete_task
+from cron.forget import run_forget, run_auto_improve_trigger
 
 
 def _parse_task_time(task: dict) -> tuple[int, int] | None:
@@ -24,6 +24,7 @@ def _parse_task_time(task: dict) -> tuple[int, int] | None:
 
 
 def _now() -> datetime:
+    """执行 now 内部辅助逻辑。"""
     return datetime.now()
 
 
@@ -101,9 +102,9 @@ def _run_task(root: str, task: dict):
             cwd=root,
         )
     except subprocess.TimeoutExpired:
-        print(f"[corn] 任务超时: {task['id']} — {command}")
+        print(f"[cron] 任务超时: {task['id']} — {command}")
     except Exception as e:
-        print(f"[corn] 任务执行失败: {task['id']} — {e}")
+        print(f"[cron] 任务执行失败: {task['id']} — {e}")
 
 
 def _run_task_web(root: str, core_config: dict, task: dict):
@@ -124,7 +125,7 @@ def _run_task_web(root: str, core_config: dict, task: dict):
         from provider.factory import create_provider
         provider = create_provider(user_config, core_config)
     except Exception as e:
-        print(f"[corn:web] 创建 provider 失败: {e}")
+        print(f"[cron:web] 创建 provider 失败: {e}")
         return
 
     # 创建 ChatManager，加载历史
@@ -155,25 +156,25 @@ def _run_task_web(root: str, core_config: dict, task: dict):
     response_text = ""
     for event in run_chat_turn(chat, tool_runner, provider, tools):
         if event["type"] == "tool_call":
-            print(f"  [corn:web] {event['line']}")
+            print(f"  [cron:web] {event['line']}")
         elif event["type"] == "text_chunk":
             response_text += event["content"]
         elif event["type"] == "text":
             response_text = event["content"]
         elif event["type"] == "error":
-            print(f"  [corn:web] Provider 错误: {event['content']}")
+            print(f"  [cron:web] Provider 错误: {event['content']}")
 
     # 生成摘要
     from run.summarize import generate_summary, load_index, save_index
     summary = generate_summary(provider, chat.messages)
     if not summary:
-        summary = f"corn: {command}"[:50]
+        summary = f"cron: {command}"[:50]
 
     # 保存为归档文件
     ts = _dt.now(_tz.utc).strftime("%Y%m%dT%H%M%S")
     archive_dir = os.path.join(user_dir, "history", "archive")
     os.makedirs(archive_dir, exist_ok=True)
-    archive_name = f"corn_{ts}_{task['id']}.json"
+    archive_name = f"cron_{ts}_{task['id']}.json"
     archive_path = os.path.join(archive_dir, archive_name)
 
     from run.io_utils import atomic_write_json
@@ -189,7 +190,7 @@ def _run_task_web(root: str, core_config: dict, task: dict):
     }
     save_index(user_dir, index)
 
-    print(f"[corn:web] 任务 {task['id']} 完成 → {archive_name} ({summary})")
+    print(f"[cron:web] 任务 {task['id']} 完成 → {archive_name} ({summary})")
 
 
 def _scan_users(root: str) -> list[str]:
@@ -255,7 +256,7 @@ def _scheduler_loop(root: str, core_config: dict, stop_event, web_mode: bool = F
                                     except Exception:
                                         pass
 
-                            print(f"[corn] 执行任务: {task['id']} — {task['command']}")
+                            print(f"[cron] 执行任务: {task['id']} — {task['command']}")
                             if web_mode:
                                 run_task(root, core_config, task)
                             else:
@@ -264,7 +265,7 @@ def _scheduler_loop(root: str, core_config: dict, stop_event, web_mode: bool = F
 
                         if _is_expired(task):
                             os.remove(filepath)
-                            print(f"[corn] 过期任务已删除: {task['id']}")
+                            print(f"[cron] 过期任务已删除: {task['id']}")
 
                 # ── 清理临时记忆 ──
                 run_forget(user_dir, forget_time)
@@ -273,6 +274,6 @@ def _scheduler_loop(root: str, core_config: dict, stop_event, web_mode: bool = F
                 run_auto_improve_trigger(root, user_dir, core_config)
 
         except Exception as e:
-            print(f"[corn] 调度循环异常: {e}")
+            print(f"[cron] 调度循环异常: {e}")
 
         stop_event.wait(heartbeat)

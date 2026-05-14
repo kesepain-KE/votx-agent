@@ -9,6 +9,7 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 
 
 def show_help():
+    """处理 show_help 相关逻辑。"""
     print("votx-agent 命令")
     print()
     print("用法: votx [子命令]")
@@ -26,6 +27,7 @@ def show_help():
 
 
 def main():
+    """执行命令行入口流程。"""
     argv = sys.argv[1:]
     cmd = argv[0] if argv else ""
 

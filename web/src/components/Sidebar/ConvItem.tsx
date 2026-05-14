@@ -1,7 +1,9 @@
+/** 描述 Props 数据结构。 */
 import { useAppStore } from '@/store/useAppStore'
 import type { Conversation } from '@/types'
 import type { MouseEvent } from 'react'
 
+/** 描述 Props 数据结构。 */
 interface Props {
   loadConversation: (c: Conversation | { id: '__current__' }) => Promise<void>
   renameConv: (c: Conversation) => Promise<void>
@@ -9,6 +11,7 @@ interface Props {
   openConvMenu: (e: MouseEvent, c: Conversation) => void
 }
 
+/** 渲染 ConvItem 组件。 */
 export function ConvItem({ c, active, loadConversation, openConvMenu, renameConv, deleteConversation }: Props & { c: Conversation; active: boolean }) {
   return (
     <div

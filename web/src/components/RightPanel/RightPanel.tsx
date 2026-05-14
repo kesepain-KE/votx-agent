@@ -1,7 +1,9 @@
+/** 描述 Props 数据结构。 */
 import { useAppStore } from '@/store/useAppStore'
-import type { FileItem } from '@/types'
+import type { AppStore, FileItem } from '@/types'
 import { planStatusColor, planStatusLabel, planStepIcon, PROMPT_TABS } from '@/hooks/useAppActions'
 
+/** 描述 Props 数据结构。 */
 interface Props {
   toggleConfigSwitch: (key: 'think' | 'stream' | 'accept_task') => Promise<void>
   saveConfigField: (key: string, value: unknown) => Promise<void>
@@ -24,6 +26,7 @@ interface Props {
   toast: (text: string) => void
 }
 
+/** 导出 PANEL_TABS 常量配置。 */
 const PANEL_TABS = [
   { id: 'overview' as const, label: '概览' },
   { id: 'debug' as const, label: '调试' },
@@ -31,6 +34,7 @@ const PANEL_TABS = [
   { id: 'files' as const, label: '文件' },
 ]
 
+/** 渲染 RightPanel 组件。 */
 export function RightPanel(props: Props) {
   const activeTab = useAppStore((s) => s.activeTab)
   const promptTab = useAppStore((s) => s.promptTab)
@@ -105,25 +109,25 @@ export function RightPanel(props: Props) {
               <div className="debug-grid" style={{ marginTop: 10 }}>
                 <div className="form-row">
                   <label>接口协议</label>
-                  <select value={config.type} onChange={(e) => { const v = e.target.value as 'openai' | 'anthropic'; set((s: any) => ({ config: { ...s.config, type: v } })); void props.saveConfigField('type', v) }}>
+                  <select value={config.type} onChange={(e) => { const v = e.target.value as 'openai' | 'anthropic'; set((s: AppStore) => ({ config: { ...s.config, type: v } })); void props.saveConfigField('type', v) }}>
                     <option value="openai">OpenAI 协议 (Chat Completions)</option>
                     <option value="anthropic">Anthropic 协议 (Messages)</option>
                   </select>
                 </div>
                 <div className="form-row">
                   <label>api 模型</label>
-                  <input value={config.model} onChange={(e) => set((s: any) => ({ config: { ...s.config, model: e.target.value } }))} onBlur={() => props.saveConfigField('model', get().config.model)} />
+                  <input value={config.model} onChange={(e) => set((s: AppStore) => ({ config: { ...s.config, model: e.target.value } }))} onBlur={() => props.saveConfigField('model', get().config.model)} />
                 </div>
                 {config.type !== 'anthropic' && (
                   <div className="form-row">
                     <label>base-url</label>
-                    <input value={config.baseUrl} onChange={(e) => set((s: any) => ({ config: { ...s.config, baseUrl: e.target.value } }))} onBlur={() => props.saveConfigField('base_url', get().config.baseUrl)} />
+                    <input value={config.baseUrl} onChange={(e) => set((s: AppStore) => ({ config: { ...s.config, baseUrl: e.target.value } }))} onBlur={() => props.saveConfigField('base_url', get().config.baseUrl)} />
                   </div>
                 )}
                 {config.type !== 'anthropic' && (
                   <div className="form-row">
                     <label>api 风格</label>
-                    <select value={config.apiStyle} onChange={(e) => { set((s: any) => ({ config: { ...s.config, apiStyle: e.target.value } })); void props.saveConfigField('api_style', e.target.value) }}>
+                    <select value={config.apiStyle} onChange={(e) => { set((s: AppStore) => ({ config: { ...s.config, apiStyle: e.target.value } })); void props.saveConfigField('api_style', e.target.value) }}>
                       <option value="responses">Responses API (完整推理，较慢)</option>
                       <option value="chat">Chat Completions API (流式，较快)</option>
                     </select>
@@ -133,8 +137,8 @@ export function RightPanel(props: Props) {
                   <label>key</label>
                   <div className="key-shell">
                     <input type="password" placeholder="输入密钥，回车或点保存生效" value={config.keyDraft}
-                      onChange={(e) => set((s: any) => ({ config: { ...s.config, keyDraft: e.target.value } }))}
-                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void props.saveConfigField('api_key', get().config.keyDraft); set((s: any) => ({ config: { ...s.config, keyDraft: '' } })); props.toast('密钥已保存') } }}
+                      onChange={(e) => set((s: AppStore) => ({ config: { ...s.config, keyDraft: e.target.value } }))}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void props.saveConfigField('api_key', get().config.keyDraft); set((s: AppStore) => ({ config: { ...s.config, keyDraft: '' } })); props.toast('密钥已保存') } }}
                     />
                   </div>
                   <div className="key-hint">密钥不显示明文，回车或点"保存"生效</div>

@@ -103,6 +103,7 @@ def _write_if_missing(path: Path, content: str):
 
 
 def _read_config(user_dir: Path) -> dict:
+    """执行 read_config 内部辅助逻辑。"""
     cfg_path = user_dir / "config.json"
     if cfg_path.exists():
         return json.loads(cfg_path.read_text(encoding="utf-8"))
@@ -110,6 +111,7 @@ def _read_config(user_dir: Path) -> dict:
 
 
 def _write_config(user_dir: Path, config: dict):
+    """执行 write_config 内部辅助逻辑。"""
     cfg_path = user_dir / "config.json"
     cfg_path.write_text(
         json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -117,6 +119,7 @@ def _write_config(user_dir: Path, config: dict):
 
 
 def _read_soul(user_dir: Path) -> str:
+    """执行 read_soul 内部辅助逻辑。"""
     soul_path = user_dir / "self_soul.md"
     if soul_path.exists():
         return soul_path.read_text(encoding="utf-8")
@@ -124,6 +127,7 @@ def _read_soul(user_dir: Path) -> str:
 
 
 def _write_soul(user_dir: Path, content: str):
+    """执行 write_soul 内部辅助逻辑。"""
     (user_dir / "self_soul.md").write_text(content, encoding="utf-8")
 
 
@@ -159,6 +163,7 @@ def _pick_model(default: str = "") -> str:
 
 
 def _model_to_key(model: str) -> str:
+    """执行 model_to_key 内部辅助逻辑。"""
     for k, (name, _) in MODELS.items():
         if name == model:
             return k
@@ -342,6 +347,7 @@ def menu():
 # ── 入口 ────────────────────────────────────────
 
 def main():
+    """执行命令行入口流程。"""
     args = sys.argv[1:]
 
     if not args:

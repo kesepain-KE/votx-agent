@@ -29,10 +29,12 @@ def set_task_plan_context(provider=None, chat=None, user_name: str = ""):
 # ---- 内部辅助 ----
 
 def _plans_dir(user_name: str) -> Path:
+    """执行 plans_dir 内部辅助逻辑。"""
     return _PROJECT_ROOT / "users" / user_name / "task-plan"
 
 
 def _load_plan(user_name: str, plan_id: str) -> dict | None:
+    """执行 load_plan 内部辅助逻辑。"""
     fp = _plans_dir(user_name) / plan_id
     if not fp.exists():
         return None
@@ -43,6 +45,7 @@ def _load_plan(user_name: str, plan_id: str) -> dict | None:
 
 
 def _save_plan(user_name: str, plan_id: str, plan: dict):
+    """执行 save_plan 内部辅助逻辑。"""
     d = _plans_dir(user_name)
     d.mkdir(parents=True, exist_ok=True)
     plan_path = d / plan_id
@@ -583,6 +586,7 @@ HANDLERS = {
 
 
 def register():
+    """处理 register 相关逻辑。"""
     for s in SCHEMAS:
         name = s["function"]["name"]
         register_tool(s, HANDLERS[name])

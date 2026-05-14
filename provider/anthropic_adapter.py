@@ -29,6 +29,7 @@ class AnthropicProvider(BaseProvider):
     """Anthropic Claude Provider — Messages API"""
 
     def __init__(self, user_config: dict, core_config: dict | None = None):
+        """执行 init 内部辅助逻辑。"""
         core = core_config or {}
         cfg = user_config.get("provider", {})
 

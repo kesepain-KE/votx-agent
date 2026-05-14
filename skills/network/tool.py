@@ -57,6 +57,7 @@ def _get_proxy() -> str | None:
 class _SafeRedirectHandler(_req.HTTPRedirectHandler):
     """在跟随重定向前校验目标 URL 安全性，防止 SSRF 重定向绕过。"""
     def redirect_request(self, req, fp, code, msg, headers, newurl):
+        """处理 redirect_request 相关逻辑。"""
         url_err = validate_url(newurl)
         if url_err:
             raise urllib.error.URLError(f"SSRF 阻断: 重定向目标不安全 - {url_err}")
@@ -195,6 +196,7 @@ HANDLERS = {"http_get": http_get, "http_post": http_post}
 
 
 def register():
+    """处理 register 相关逻辑。"""
     for s in SCHEMAS:
         name = s["function"]["name"]
         register_tool(s, HANDLERS[name])

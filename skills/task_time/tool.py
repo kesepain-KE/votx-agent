@@ -1,4 +1,4 @@
-"""task_time Skill — corn 定时任务管理工具"""
+"""task_time Skill — cron 定时任务管理工具"""
 import uuid
 
 from run.tool import register_tool
@@ -6,6 +6,7 @@ from skills._common import err, get_current_user_dir
 
 
 def _get_user_dir():
+    """执行 get_user_dir 内部辅助逻辑。"""
     return get_current_user_dir()
 
 
@@ -21,7 +22,7 @@ def task_time_create(type: str = "daily", time: str = "09:00", command: str = ""
     if not command.strip():
         return err("任务命令不能为空")
 
-    from corn.tasks import create_task
+    from cron.tasks import create_task
 
     task = create_task(user_dir, {
         "id": uuid.uuid4().hex[:8],
@@ -44,7 +45,7 @@ def task_time_list() -> str:
     if not user_dir:
         return err("未设置用户目录")
 
-    from corn.tasks import load_tasks
+    from cron.tasks import load_tasks
 
     tasks = load_tasks(user_dir)
     if not tasks:
@@ -70,7 +71,7 @@ def task_time_delete(task_id: str) -> str:
     if not task_id.strip():
         return err("请指定要删除的任务 ID")
 
-    from corn.tasks import delete_task, get_task
+    from cron.tasks import delete_task, get_task
 
     task = get_task(user_dir, task_id.strip())
     if task is None:
@@ -89,7 +90,7 @@ def task_time_update(task_id: str, time: str = None, command: str = None, type: 
     if not task_id.strip():
         return err("请指定要修改的任务 ID")
 
-    from corn.tasks import update_task
+    from cron.tasks import update_task
 
     updates = {}
     if time is not None:
@@ -122,7 +123,7 @@ SCHEMAS = [
         "type": "function",
         "function": {
             "name": "task_time_create",
-            "description": "创建 corn 定时任务（daily=每日执行 / once=单次执行）",
+            "description": "创建 cron 定时任务（daily=每日执行 / once=单次执行）",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -137,7 +138,7 @@ SCHEMAS = [
                     },
                     "command": {
                         "type": "string",
-                        "description": "任务命令/prompt，corn 执行时发送给 AI 的消息内容",
+                        "description": "任务命令/prompt，cron 执行时发送给 AI 的消息内容",
                     },
                 },
                 "required": ["type", "time", "command"],
@@ -148,7 +149,7 @@ SCHEMAS = [
         "type": "function",
         "function": {
             "name": "task_time_list",
-            "description": "列出当前用户的所有 corn 定时任务",
+            "description": "列出当前用户的所有 cron 定时任务",
             "parameters": {
                 "type": "object",
                 "properties": {},
@@ -160,7 +161,7 @@ SCHEMAS = [
         "type": "function",
         "function": {
             "name": "task_time_delete",
-            "description": "删除指定的 corn 定时任务",
+            "description": "删除指定的 cron 定时任务",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -177,7 +178,7 @@ SCHEMAS = [
         "type": "function",
         "function": {
             "name": "task_time_update",
-            "description": "修改 corn 定时任务的时间、命令或类型",
+            "description": "修改 cron 定时任务的时间、命令或类型",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -214,6 +215,7 @@ HANDLERS = {
 
 
 def register():
+    """处理 register 相关逻辑。"""
     for s in SCHEMAS:
         name = s["function"]["name"]
         register_tool(s, HANDLERS[name])

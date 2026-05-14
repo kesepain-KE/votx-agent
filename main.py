@@ -14,6 +14,7 @@ from run.tool import ToolRunner, load_tool_schemas
 
 
 def main():
+    """执行命令行入口流程。"""
     user_dir = os.environ.get("VOTX_USER_DIR")
     if not user_dir:
         print("错误: 未指定用户目录")
@@ -27,9 +28,9 @@ def main():
     with open(os.path.join(root, "config", "config_core.json"), encoding="utf-8") as f:
         core_config = json.load(f)
 
-    # 启动 corn 后台调度
-    from corn import start_corn, stop_corn
-    start_corn(root, core_config)
+    # 启动 cron 后台调度
+    from cron import start_cron, stop_cron
+    start_cron(root, core_config)
     with open(os.path.join(user_dir, "config.json"), encoding="utf-8") as f:
         user_config = json.load(f)
 
@@ -54,11 +55,12 @@ def main():
 
     # 退出时保存（含摘要）
     def _on_exit():
+        """执行 on_exit 内部辅助逻辑。"""
         try:
             summarize_and_store(provider, chat.messages, user_dir)
             chat.save_history()
             chat.save_log(chat.build_messages())
-            stop_corn()
+            stop_cron()
         except Exception:
             pass
 
@@ -70,6 +72,7 @@ def main():
 
     # 执行一轮对话
     def _run_turn(user_text: str):
+        """执行 run_turn 内部辅助逻辑。"""
         chat.add_user_message(user_text)
         tool_runner.reset_count()
         chat.refresh_system_prompt(root)
@@ -104,6 +107,7 @@ def main():
 
     # 命令分发
     def _dispatch(cmd: str) -> bool | None:
+        """执行 dispatch 内部辅助逻辑。"""
         cmd = cmd.strip().lower()
         if cmd in ("/exit", "/quit", "/q"):
             print("正在生成摘要…")

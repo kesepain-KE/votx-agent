@@ -54,6 +54,7 @@ def extract_text(pdf_path, pages=None, output=None):
 
 
 def main():
+    """执行命令行入口流程。"""
     parser = argparse.ArgumentParser(description='Extract text from PDF files')
     parser.add_argument('pdf', help='Path to PDF file')
     parser.add_argument('-p', '--pages', type=int, nargs='+', 

@@ -1,3 +1,5 @@
+"""convert_pdf_to_images 模块，负责项目内对应功能的组织与协调。"""
+
 import os
 import sys
 
@@ -8,6 +10,7 @@ from pdf2image import convert_from_path
 
 
 def convert(pdf_path, output_dir, max_dim=1000):
+    """处理 convert 相关逻辑。"""
     images = convert_from_path(pdf_path, dpi=200)
 
     for i, image in enumerate(images):

@@ -61,6 +61,7 @@ def rotate_pdf(pdf_path, output_path, rotation=90, pages=None):
 
 
 def main():
+    """执行命令行入口流程。"""
     parser = argparse.ArgumentParser(description='Rotate pages in a PDF')
     parser.add_argument('pdf', help='Path to input PDF')
     parser.add_argument('-o', '--output', required=True, help='Output PDF file path')

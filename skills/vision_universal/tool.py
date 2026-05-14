@@ -37,6 +37,7 @@ def _load_user_config() -> dict:
 
 
 def _detect_mime(suffix: str) -> str:
+    """执行 detect_mime 内部辅助逻辑。"""
     return {
         '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
         '.png': 'image/png', '.gif': 'image/gif',
@@ -119,4 +120,5 @@ HANDLERS = {"analyze_image": analyze_image}
 
 
 def register():
+    """处理 register 相关逻辑。"""
     register_tool(SCHEMA, HANDLERS["analyze_image"])

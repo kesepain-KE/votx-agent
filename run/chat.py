@@ -11,6 +11,7 @@ class ChatManager:
     """管理对话消息列表和历史记录"""
 
     def __init__(self, user_dir: str, core_config: dict[str, Any], user_config: dict[str, Any]):
+        """执行 init 内部辅助逻辑。"""
         hist_cfg = core_config["history"]
         self.max_history = hist_cfg["history_max"]
         ctx_cfg = core_config.get("context_window", {})
@@ -63,9 +64,11 @@ class ChatManager:
     # ---- system prompt ----
 
     def set_system_prompt(self, prompt: str):
+        """处理 set_system_prompt 相关逻辑。"""
         self.system_prompt = prompt
 
     def refresh_system_prompt(self, root: str):
+        """处理 refresh_system_prompt 相关逻辑。"""
         from run.prompt_cache import build_cached_system_prompt
         self.system_prompt = build_cached_system_prompt(root, self.user_dir)
 
@@ -219,10 +222,12 @@ class ChatManager:
     # ---- 添加消息 ----
 
     def add_user_message(self, content: str):
+        """处理 add_user_message 相关逻辑。"""
         self._trim_if_needed()
         self.messages.append({"role": "user", "content": content})
 
     def add_assistant_message(self, content: str, reasoning_content: str = ""):
+        """处理 add_assistant_message 相关逻辑。"""
         msg: dict[str, Any] = {"role": "assistant", "content": content}
         if reasoning_content:
             msg["reasoning_content"] = reasoning_content
@@ -262,6 +267,7 @@ class ChatManager:
         self.messages.append(msg)
 
     def add_tool_results(self, tool_outputs: list[dict[str, Any]]):
+        """处理 add_tool_results 相关逻辑。"""
         self._trim_if_needed()
         self.messages.extend(tool_outputs)
 
@@ -566,6 +572,7 @@ class ChatManager:
 
 
 def _fmt_bytes(n: int) -> str:
+    """执行 fmt_bytes 内部辅助逻辑。"""
     if n < 1024:
         return f"{n} B"
     elif n < 1024 * 1024:
