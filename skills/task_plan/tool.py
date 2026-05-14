@@ -45,7 +45,16 @@ def _load_plan(user_name: str, plan_id: str) -> dict | None:
 def _save_plan(user_name: str, plan_id: str, plan: dict):
     d = _plans_dir(user_name)
     d.mkdir(parents=True, exist_ok=True)
-    (d / plan_id).write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
+    plan_path = d / plan_id
+    # 防竞态：如果用户已中止此计划，不再覆写（避免 SSE 流中的旧操作覆盖中止状态）
+    if plan_path.exists():
+        try:
+            current = json.loads(plan_path.read_text(encoding="utf-8"))
+            if current.get("status") == "aborted":
+                return
+        except Exception:
+            pass
+    plan_path.write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def _find_active_plan(user_name: str) -> tuple[dict | None, str | None]:
@@ -280,7 +289,9 @@ def task_plan_step_done(plan_id: str, step_id: str, result: str = "") -> str:
     if not found:
         return err(f"步骤不存在: {step_id}")
 
-    # 更新 current_step
+    # 更新 current_step；如果计划被暂停则恢复为执行中
+    if plan.get("status") == "paused":
+        plan["status"] = "in_progress"
     steps = plan["steps"]
     for i, s in enumerate(steps):
         if s["status"] != "completed":
@@ -409,6 +420,9 @@ def task_plan_edit(plan_id: str, step_id: str | None = None,
         if description:
             plan["description"] = description
 
+    # 编辑后若计划被暂停则恢复为执行中
+    if plan.get("status") == "paused":
+        plan["status"] = "in_progress"
     plan["updated_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     _save_plan(user_name, f"{plan_id}.json", plan)
 

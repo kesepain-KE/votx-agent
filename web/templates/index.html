@@ -3002,22 +3002,39 @@ createApp({
                 break;
               case 'plan_created':
                 if (ev.plan) {
-                  this.activePlan = ev.plan;
-                  this.planPhase = 'review';
+                  // 如果已经是活跃计划则更新数据，但不回退 phase（避免把 executing 切回 review）
+                  if (this.activePlan && this.activePlan.id === ev.plan_id) {
+                    Object.assign(this.activePlan, ev.plan);
+                  } else {
+                    this.activePlan = ev.plan;
+                    this.planPhase = 'review';
+                  }
                   this.loadTaskPlans();
                 }
                 break;
               case 'plan_started':
                 if (this.activePlan && ev.plan_id === this.activePlan.id) {
                   this.activePlan.status = 'in_progress';
-                  this.planPhase = 'executing';
+                  if (this.planPhase !== 'executing') this.planPhase = 'executing';
                 }
                 break;
               case 'plan_step':
                 if (this.activePlan && ev.plan_id === this.activePlan.id && ev.step) {
                   const s = this.activePlan.steps.find(x => x.id === ev.step.id);
                   if (s) Object.assign(s, ev.step);
-                  if (this.planPhase === 'review') this.planPhase = 'executing';
+                  // 仅在步骤状态进入 in_progress 或 completed 时从 review 切换到 executing
+                  // 避免修改描述时（status 未变）提前切换
+                  if (this.planPhase === 'review' && (ev.step.status === 'in_progress' || ev.step.status === 'completed')) {
+                    this.planPhase = 'executing';
+                  }
+                }
+                // 同时更新状态栏的计划列表
+                if (ev.step) {
+                  const tp = this.taskPlans.find(p => p.id === ev.plan_id);
+                  if (tp) {
+                    const ts = tp.steps.find(x => x.id === ev.step.id);
+                    if (ts) Object.assign(ts, ev.step);
+                  }
                 }
                 break;
               case 'plan_complete':
@@ -3274,7 +3291,12 @@ createApp({
       if (!confirm('确定中止此计划？未完成的步骤将被跳过。')) return;
       try {
         await this.api('/api/task-plan/' + planId + '/abort', { method: 'POST' });
-        this.loadTaskPlans();
+        // 如果中止的是当前活跃计划，清除气泡
+        if (this.activePlan && this.activePlan.id === planId) {
+          this.activePlan = null;
+          this.planPhase = null;
+        }
+        await this.loadTaskPlans();
         this.toast('计划已中止');
       } catch (e) { this.toast('中止失败: ' + e.message); }
     },
@@ -3297,6 +3319,10 @@ createApp({
         await this.api('/api/task-plan/' + this.activePlan.id + '/resume', { method: 'POST' });
         this.activePlan.status = 'in_progress';
         this.planPhase = 'executing';
+        // 将第一个 pending 步骤标记为 in_progress，确保气泡立即反映执行态
+        const firstPending = this.activePlan.steps.find(s => s.status === 'pending');
+        if (firstPending) firstPending.status = 'in_progress';
+        await this.$nextTick();
         this.toast('计划已批准，开始执行');
         this.input = '执行计划';
         this.sendMessage();
@@ -3320,16 +3346,20 @@ createApp({
     async exitAbortPlan() {
       if (!this.activePlan) return;
       if (!confirm('确定退出并终止此计划？未完成的步骤将被跳过。')) return;
+      // 先中止当前正在执行的 SSE 流
+      if (this.running) this.stopRun();
       try {
         await this.api('/api/task-plan/' + this.activePlan.id + '/abort', { method: 'POST' });
         this.activePlan = null;
         this.planPhase = null;
-        this.loadTaskPlans();
+        await this.loadTaskPlans();
         this.toast('计划已终止');
       } catch (e) { this.toast('操作失败: ' + e.message); }
     },
     async stopModifyPlan() {
       if (!this.activePlan) return;
+      // 先中止当前正在执行的 SSE 流
+      if (this.running) this.stopRun();
       try {
         await this.api('/api/task-plan/' + this.activePlan.id + '/pause', { method: 'POST' });
         this.activePlan.status = 'paused';

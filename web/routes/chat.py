@@ -28,6 +28,27 @@ def _snapshot_plans(user_dir: str) -> dict[str, dict]:
     return snap
 
 
+def _auto_resume_paused_plans(user_dir: str):
+    """用户发送新消息时，自动将所有已暂停的计划恢复为执行中"""
+    import json as _json, os as _os
+    plans_dir = _os.path.join(user_dir, "task-plan")
+    if not _os.path.isdir(plans_dir):
+        return
+    for name in sorted(_os.listdir(plans_dir)):
+        if not name.endswith(".json"):
+            continue
+        plan_path = _os.path.join(plans_dir, name)
+        try:
+            with open(plan_path, encoding="utf-8") as f:
+                plan = _json.load(f)
+            if plan.get("status") == "paused":
+                plan["status"] = "in_progress"
+                with open(plan_path, "w", encoding="utf-8") as f:
+                    _json.dump(plan, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
+
+
 def _diff_plans(prev: dict, curr: dict) -> list[dict]:
     """比较前后快照，返回需要推送的 SSE 事件列表"""
     events = []
@@ -60,12 +81,21 @@ def _diff_plans(prev: dict, curr: dict) -> list[dict]:
         new_steps = {s["id"]: s for s in new.get("steps", [])}
         for sid, ns in new_steps.items():
             os = old_steps.get(sid, {})
-            if os.get("status") != ns.get("status"):
+            # 检测步骤的任何变化（状态、描述、参数、结果）
+            if (os.get("status") != ns.get("status")
+                    or os.get("description") != ns.get("description")
+                    or os.get("result") != ns.get("result")
+                    or os.get("error") != ns.get("error")):
                 events.append({
                     "type": "plan_step",
                     "plan_id": pid,
-                    "step": {"id": sid, "status": ns["status"],
-                             "result": ns.get("result"), "error": ns.get("error")},
+                    "step": {
+                        "id": sid,
+                        "status": ns["status"],
+                        "description": ns.get("description", ""),
+                        "result": ns.get("result"),
+                        "error": ns.get("error"),
+                    },
                 })
 
     return events
@@ -163,6 +193,8 @@ def api_chat():
 
     def generate():
         user_dir = session_data.get("user_dir", "")
+        # 用户发送新消息时自动将暂停的计划恢复为执行中
+        _auto_resume_paused_plans(user_dir)
         prev_snap = _snapshot_plans(user_dir)
         try:
             for event in run_chat_turn(chat, tool_runner, provider, tools):

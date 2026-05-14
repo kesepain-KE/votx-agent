@@ -48,6 +48,11 @@ def api_update_config():
             tp = config.setdefault("task_plan", {})
             tp["accept_task"] = bool(data["accept_task"])
 
+        # 工具超时设置
+        if "tool_timeout" in data:
+            tool_cfg = config.setdefault("tool", {})
+            tool_cfg["tool_timeout"] = int(data["tool_timeout"])
+
         provider = config.setdefault("provider", {})
 
         # Provider 字段白名单
@@ -77,6 +82,13 @@ def api_update_config():
             if provider_obj:
                 for key in allowed & data.keys():
                     setattr(provider_obj, key, data[key])
+
+        # 工具超时变更 → 同步更新 tool_runner
+        if "tool_timeout" in data:
+            session_data["user_config"] = config
+            tr = session_data.get("tool_runner")
+            if tr:
+                tr.tool_timeout = int(data["tool_timeout"])
 
         return jsonify({"ok": True})
     except Exception as e:

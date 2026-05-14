@@ -260,8 +260,10 @@ def build_system_prompt(root: str, user_dir: str) -> str:
 
             if status == "in_progress":
                 system_prompt += (
-                    "\n**请按计划逐步执行。完成每步后调用 task_plan_step_done(plan_id, step_id, result)。"
-                    "如遇失败调用 task_plan_step_fail。全部完成后计划自动标记为 completed。**\n"
+                    "\n**请连续执行所有待完成的步骤，不要中断。完成每步后立即调用 "
+                    "task_plan_step_done(plan_id, step_id, result) 并接着执行下一步，"
+                    "直到全部步骤完成（计划自动标记为 completed）。"
+                    "如遇失败调用 task_plan_step_fail。不要在步骤之间停下来询问用户。**\n"
                 )
             elif status == "pending":
                 system_prompt += (
@@ -270,7 +272,9 @@ def build_system_prompt(root: str, user_dir: str) -> str:
                 )
             elif status == "paused":
                 system_prompt += (
-                    "\n**此计划已暂停，请等待用户指令后再继续。**\n"
+                    "\n**此计划已暂停。如果用户提出修改要求，先调用 task_plan_view 查看计划，"
+                    "然后调用 task_plan_edit 修改对应步骤。修改完成后告知用户并询问是否继续执行。"
+                    "不要主动执行步骤，等待用户确认继续。**\n"
                 )
 
     return system_prompt

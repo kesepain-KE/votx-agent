@@ -112,6 +112,8 @@ def api_task_plan_pause(plan_id):
 
     plan["status"] = "paused"
     _save_plan(path, plan)
+    from run.prompt_cache import invalidate_prompt_cache
+    invalidate_prompt_cache(user_dir)
     return jsonify({"ok": True})
 
 
@@ -133,6 +135,9 @@ def api_task_plan_resume(plan_id):
 
     plan["status"] = "in_progress"
     _save_plan(path, plan)
+    # 强制刷新 system prompt 缓存，确保 agent 立即看到新状态
+    from run.prompt_cache import invalidate_prompt_cache
+    invalidate_prompt_cache(user_dir)
     return jsonify({"ok": True})
 
 
@@ -157,6 +162,8 @@ def api_task_plan_abort(plan_id):
         if step["status"] in ("pending", "in_progress"):
             step["status"] = "skipped"
     _save_plan(path, plan)
+    from run.prompt_cache import invalidate_prompt_cache
+    invalidate_prompt_cache(user_dir)
     return jsonify({"ok": True})
 
 
@@ -196,6 +203,8 @@ def api_task_plan_edit_step(plan_id):
         return jsonify({"error": f"步骤不存在: {step_id}"}), 404
 
     _save_plan(path, plan)
+    from run.prompt_cache import invalidate_prompt_cache
+    invalidate_prompt_cache(user_dir)
     return jsonify({"ok": True})
 
 
