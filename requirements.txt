@@ -9,7 +9,9 @@ pytest>=7.0.0
 # 多 Provider 支持 (可选，按需安装)
 anthropic>=0.30.0        # Anthropic Claude (Messages API)
 
-# 可选依赖（按需安装）
-# pdfplumber>=0.11.0     # pdf-tools Skill (extract_text / pdf_info)
-# PyPDF2>=3.0.0          # pdf-tools Skill (edit_text / merge / rotate / split)
-# reportlab              # pdf-tools Skill (edit_text，PDF 生成)
+# 文档处理
+markitdown                # markdown_converter Skill（文档转 Markdown）
+pdf2image                 # kb_retriever Skill（PDF 转图片）
+pdfplumber>=0.11.0        # pdf-tools Skill (extract_text / pdf_info)
+PyPDF2>=3.0.0             # pdf-tools Skill (edit_text / merge / rotate / split)
+reportlab                 # pdf-tools Skill (PDF 生成)
