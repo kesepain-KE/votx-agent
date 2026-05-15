@@ -52,10 +52,24 @@ class MessageRuntime:
 
         onebot_cfg = self.config.get("platforms", {}).get("onebot", {})
         if onebot_cfg.get("enabled"):
-            from message.routes.onebot import OneBotRouter
-            router = OneBotRouter(self.root, self.config, onebot_cfg, service)
-            self.routers["onebot"] = router
-            self._tasks.append(asyncio.create_task(router.start(), name="onebot-router"))
+            # Start client mode (connect to NapCat) - only if ws_url is configured
+            ws_url = onebot_cfg.get("ws_url", "")
+            if ws_url:
+                from message.routes.onebot import OneBotRouter
+                router = OneBotRouter(self.root, self.config, onebot_cfg, service)
+                self.routers["onebot"] = router
+                self._tasks.append(asyncio.create_task(router.start(), name="onebot-router"))
+                print(f"[message] 正向连接已启用: {ws_url}")
+            else:
+                print("[message] 正向连接未配置（ws_url 为空），跳过")
+
+            # Start server mode (reverse WebSocket, NapCat connects to us)
+            if onebot_cfg.get("server_enabled", False):
+                from message.routes.onebot_server import OneBotServer
+                server = OneBotServer(self.root, self.config, onebot_cfg, service)
+                self.routers["onebot-server"] = server
+                self._tasks.append(asyncio.create_task(server.start(), name="onebot-server"))
+                print(f"[message] 反向服务器已启用: ws://{onebot_cfg.get('server_host', '0.0.0.0')}:{onebot_cfg.get('server_port', 8082)}")
 
         if self.config.get("push", {}).get("enabled", True):
             self._tasks.append(asyncio.create_task(self._push_loop(), name="message-push-queue"))
@@ -81,9 +95,14 @@ class MessageRuntime:
 
         while not self._stop.is_set():
             for item in queue.pending():
-                router = self.routers.get(item.get("platform"))
+                # Try all routers to find the right platform
+                platform = item.get("platform")
+                router = self.routers.get(platform)
+                # Also try server variant
+                if not router or (hasattr(router, "is_ready") and not router.is_ready()):
+                    router = self.routers.get(f"{platform}-server")
                 if not router:
-                    queue.fail(item["id"], f"平台未启用: {item.get('platform')}", retry_times)
+                    queue.fail(item["id"], f"平台未启用: {platform}", retry_times)
                     continue
                 if hasattr(router, "is_ready") and not router.is_ready():
                     continue

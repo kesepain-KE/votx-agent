@@ -84,7 +84,7 @@ for offset in range(max_tries):
     if not _check_users():
         sys.exit(1)
 
-    run_server(port=try_port)
+    run_server(port=try_port, host="127.0.0.1")
     break
 else:
     print(f"ERROR: 端口 {port}~{port + max_tries - 1} 全部被占用，无法启动")

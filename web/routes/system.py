@@ -65,9 +65,11 @@ def api_system_prompt():
         full = chat.system_prompt
 
     # 从 web 显示中剥离临时 improve（LLM 可见，web 不显示）
+    # 不能用 .*? 遇到 ## 就停 —— 临时记忆文件内容里可能含 ## 子标题
+    # 临时章节之后只会出现「会话状态」或「活跃任务计划」这两个顶层 section
     import re
     display_full = re.sub(
-        r'\n\n## 临时(?:记忆|规则|知识图谱)（待审阅）\n.*?(?=\n\n## |\Z)',
+        r'\n\n## 临时(?:记忆|规则|知识图谱)（待审阅）\n.*?(?=\n\n## (?:会话状态|活跃任务计划)|\Z)',
         '',
         full,
         flags=re.DOTALL,
