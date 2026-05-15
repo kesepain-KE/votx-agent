@@ -52,6 +52,12 @@ export default function App() {
             chatRef={a.chatRef}
             textRef={a.textRef}
             uploadRef={a.uploadRef}
+            rejectPlan={a.rejectPlan}
+            approvePlan={a.approvePlan}
+            modifyPlan={a.modifyPlan}
+            exitAbortPlan={a.exitAbortPlan}
+            stopModifyPlan={a.stopModifyPlan}
+            exitPlan={a.exitPlan}
           />
         </ErrorBoundary>
 

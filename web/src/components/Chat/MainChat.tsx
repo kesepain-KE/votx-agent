@@ -29,6 +29,12 @@ interface Props {
   chatRef: React.RefObject<HTMLDivElement>
   textRef: React.RefObject<HTMLTextAreaElement>
   uploadRef: React.RefObject<HTMLInputElement>
+  rejectPlan: () => Promise<void>
+  approvePlan: () => Promise<void>
+  modifyPlan: () => void
+  exitAbortPlan: () => Promise<void>
+  stopModifyPlan: () => Promise<void>
+  exitPlan: () => void
 }
 
 /** 渲染 MainChat 组件。 */
@@ -37,6 +43,7 @@ export function MainChat({
   continueConversation, loadConversation, removeAttach, onUploadFiles, onPaste,
   onTextareaKeyDown, onDragEnter, onDragLeave, onDrop, onChatScroll,
   patchMessage, copyMsg, chatRef, textRef, uploadRef,
+  rejectPlan, approvePlan, modifyPlan, exitAbortPlan, stopModifyPlan, exitPlan,
 }: Props) {
   const dragging = useAppStore((s) => s.dragging)
 
@@ -62,6 +69,8 @@ export function MainChat({
         continueConversation={continueConversation} loadConversation={loadConversation}
         removeAttach={removeAttach} onUploadFiles={onUploadFiles} onPaste={onPaste}
         onTextareaKeyDown={onTextareaKeyDown} textRef={textRef} uploadRef={uploadRef}
+        rejectPlan={rejectPlan} approvePlan={approvePlan} modifyPlan={modifyPlan}
+        exitAbortPlan={exitAbortPlan} stopModifyPlan={stopModifyPlan} exitPlan={exitPlan}
       />
     </main>
   )

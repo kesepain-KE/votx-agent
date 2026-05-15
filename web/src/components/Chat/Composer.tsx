@@ -16,10 +16,16 @@ interface Props {
   onTextareaKeyDown: (e: KeyboardEvent<HTMLTextAreaElement>) => void
   textRef: React.RefObject<HTMLTextAreaElement>
   uploadRef: React.RefObject<HTMLInputElement>
+  rejectPlan: () => Promise<void>
+  approvePlan: () => Promise<void>
+  modifyPlan: () => void
+  exitAbortPlan: () => Promise<void>
+  stopModifyPlan: () => Promise<void>
+  exitPlan: () => void
 }
 
 /** 渲染 Composer 组件。 */
-export function Composer({ sendCommand, sendMessage, stopRun, continueConversation, loadConversation, removeAttach, onUploadFiles, onPaste, onTextareaKeyDown, textRef, uploadRef }: Props) {
+export function Composer({ sendCommand, sendMessage, stopRun, continueConversation, loadConversation, removeAttach, onUploadFiles, onPaste, onTextareaKeyDown, textRef, uploadRef, rejectPlan, approvePlan, modifyPlan, exitAbortPlan, stopModifyPlan, exitPlan }: Props) {
   const input = useAppStore((s) => s.input)
   const set = useAppStore.setState
   const userActive = useAppStore((s) => s.userActive)
@@ -29,8 +35,6 @@ export function Composer({ sendCommand, sendMessage, stopRun, continueConversati
   const activePlan = useAppStore((s) => s.activePlan)
   const planPhase = useAppStore((s) => s.planPhase)
   const planDoneCount = useAppStore((s) => s.activePlan?.steps.filter((step) => step.status === 'completed').length || 0)
-
-  const toast = (text: string) => { set({ toastText: text, toastVisible: true }); window.setTimeout(() => set({ toastVisible: false }), 2200) }
 
   return (
     <footer className="composer">
@@ -82,18 +86,18 @@ export function Composer({ sendCommand, sendMessage, stopRun, continueConversati
           <div className="plan-bubble-actions">
             {planPhase === 'review' && (
               <>
-                <button className="btn btn-danger small" onClick={() => toast('拒绝')}>拒绝</button>
-                <button className="btn btn-ghost small" onClick={() => toast('请直接发送修改要求')}>修改</button>
-                <button className="btn btn-primary small" onClick={() => toast('批准')}>批准</button>
+                <button className="btn btn-danger small" onClick={rejectPlan}>拒绝</button>
+                <button className="btn btn-ghost small" onClick={modifyPlan}>修改</button>
+                <button className="btn btn-primary small" onClick={approvePlan}>批准</button>
               </>
             )}
             {(planPhase === 'executing' || planPhase === 'paused') && (
               <>
-                <button className="btn btn-danger small" onClick={() => toast('退出并终止')}>退出并终止</button>
-                <button className="btn btn-ghost small" onClick={() => toast('停止并修改')}>停止并修改</button>
+                <button className="btn btn-danger small" onClick={exitAbortPlan}>退出并终止</button>
+                <button className="btn btn-ghost small" onClick={stopModifyPlan}>停止并修改</button>
               </>
             )}
-            {planPhase === 'completed' && <button className="btn btn-primary small" onClick={() => toast('退出任务')}>退出任务</button>}
+            {planPhase === 'completed' && <button className="btn btn-primary small" onClick={exitPlan}>退出任务</button>}
           </div>
         </div>
       )}
