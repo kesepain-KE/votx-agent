@@ -100,7 +100,7 @@ Edit `.env` in the project directory, add your key, then restart:
 docker compose restart
 ```
 
-After configuration, visit `http://localhost:1478`.
+After configuration, visit `http://localhost:14780`.
 
 To connect Docker deployment to an external NapCat container/process, edit
 `message-runtime/config.json` and set a forward WebSocket URL reachable from
@@ -121,7 +121,7 @@ bash install.sh
 Start after installation:
 
 ```bash
-votx        # Start Web UI at http://localhost:1478
+votx        # Start Web UI at http://localhost:14780
 ```
 
 ### Manual Installation
@@ -143,7 +143,7 @@ If you wish to package this project as a standalone executable directory on Wind
 build_windows.bat
 ```
 
-The script installs Python dependencies, checks and installs `pyinstaller`, builds the frontend, and bundles the project. After the build completes, it produces `dist\votx-agent-windows.zip`; unzip it and run `votx-agent.exe` to start the Web UI (you can also pass startup parameters like `--port=1478` via command line).
+The script installs Python dependencies, checks and installs `pyinstaller`, builds the frontend, and bundles the project. After the build completes, it produces `dist\votx-agent-windows.zip`; unzip it and run `votx-agent.exe` to start the Web UI (you can also pass startup parameters like `--port=14780` via command line).
 
 `.env` template (fallback only, `config.json` takes priority):
 
@@ -166,19 +166,19 @@ DEEPSEEK_API_KEY=sk-your-key-here
 
 ```bash
 # Ubuntu, after install.sh
-votx                   # Web UI at http://localhost:1478
+votx                   # Web UI at http://localhost:14780
 votx web               # Same as above
 votx cli               # Terminal chat mode
 votx help              # Show help
 votx web --port=8080   # Custom port
 
 # Manual / Windows
-python start_web.py              # Web UI at http://localhost:1478
+python start_web.py              # Web UI at http://localhost:14780
 python start_web.py --port=8080  # Custom port, auto-increments on conflict
 python start.py                  # CLI mode
 ```
 
-Open `http://localhost:1478` in your browser and select a user from the left sidebar to start chatting.
+Open `http://localhost:14780` in your browser and select a user from the left sidebar to start chatting.
 
 ### Slash Commands
 
@@ -283,7 +283,7 @@ votx-agent/
 │       ├── styles/global.css   # Global styles (15 themes)
 │       └── components/         # Components (Sidebar / Chat / RightPanel / Shared)
 │
-├── skills/                     # 28 Skills (13 tool + 15 instruction)
+├── skills/                     # 30 Skills (15 tool + 15 instruction)
 ├── agents/                     # Sub-agents (task_plan / auto_improve)
 ├── cron/                       # Cron scheduler (scheduled tasks + forgetting curve)
 ├── config/                     # Global configuration and AI execution rules
@@ -296,7 +296,7 @@ votx-agent/
 
 | Category | Count | Description |
 |---|---:|---|
-| Tool Skills | 13 | Register function calling tools: file read/write, HTTP requests, shell execution, time, Word documents, video download, web search, hotboard query, long-term memory, ontology, universal vision, Markdown conversion, and task planning |
+| Tool Skills | 15 | Register function calling tools: file read/write, HTTP requests, shell execution, time, Word documents, video download, web search, hotboard query, long-term memory, ontology, universal vision, Markdown conversion, task planning, QQ/TG message sending, QQ/TG file upload |
 | Instruction Skills | 15 | Inject system prompt behavior guides: vision recognition, file search, PDF processing, web content fetching, self-improvement memory, knowledge base retrieval, OpenCLI adapter authoring & auto-fix, browser automation, smart search routing, and more |
 
 All Skills are located in the `skills/` directory and can be extended as needed.
