@@ -8,6 +8,7 @@ from flask import Response, jsonify, render_template, request, stream_with_conte
 from web.server import app
 from web.session import _root, get_session, get_active_user, clear_session, init_user_session
 from web.commands import _dispatch
+from run.user_locks import get_user_lock
 
 
 def _snapshot_plans(user_dir: str) -> dict[str, dict]:
@@ -180,7 +181,8 @@ def api_chat():
         return jsonify({"error": "消息不能为空"}), 400
 
     if message.startswith("/"):
-        result = _dispatch(message, session_data)
+        with get_user_lock(session_data.get("user_name", "")):
+            result = _dispatch(message, session_data)
         if result is None:
             result = {"type": "command_result", "content": f"未知命令: {message}"}
         return jsonify(result)
@@ -191,41 +193,41 @@ def api_chat():
     provider = session_data["provider"]
     tools = session_data["tools"]
 
-    chat.add_user_message(message)
-    tool_runner.reset_count()
-    chat.refresh_system_prompt(_root)
-
     def generate():
         """处理 generate 相关逻辑。"""
-        user_dir = session_data.get("user_dir", "")
-        # 用户发送新消息时自动将暂停的计划恢复为执行中
-        _auto_resume_paused_plans(user_dir)
-        prev_snap = _snapshot_plans(user_dir)
-        try:
-            for event in run_chat_turn(chat, tool_runner, provider, tools):
-                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
-                # 工具调用后检查计划文件变化
-                if event.get("type") == "tool_call":
+        with get_user_lock(session_data.get("user_name", "")):
+            chat.add_user_message(message)
+            tool_runner.reset_count()
+            chat.refresh_system_prompt(_root)
+            user_dir = session_data.get("user_dir", "")
+            # 用户发送新消息时自动将暂停的计划恢复为执行中
+            _auto_resume_paused_plans(user_dir)
+            prev_snap = _snapshot_plans(user_dir)
+            try:
+                for event in run_chat_turn(chat, tool_runner, provider, tools):
+                    yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+                    # 工具调用后检查计划文件变化
+                    if event.get("type") == "tool_call":
+                        curr_snap = _snapshot_plans(user_dir)
+                        for pe in _diff_plans(prev_snap, curr_snap):
+                            yield f"data: {json.dumps(pe, ensure_ascii=False)}\n\n"
+                        prev_snap = curr_snap
+            except Exception as e:
+                yield f"data: {json.dumps({'type': 'error', 'content': str(e)}, ensure_ascii=False)}\n\n"
+            finally:
+                # 最终检查一次计划变化
+                try:
                     curr_snap = _snapshot_plans(user_dir)
                     for pe in _diff_plans(prev_snap, curr_snap):
                         yield f"data: {json.dumps(pe, ensure_ascii=False)}\n\n"
-                    prev_snap = curr_snap
-        except Exception as e:
-            yield f"data: {json.dumps({'type': 'error', 'content': str(e)}, ensure_ascii=False)}\n\n"
-        finally:
-            # 最终检查一次计划变化
-            try:
-                curr_snap = _snapshot_plans(user_dir)
-                for pe in _diff_plans(prev_snap, curr_snap):
-                    yield f"data: {json.dumps(pe, ensure_ascii=False)}\n\n"
-            except Exception:
-                pass
-            try:
-                chat.save_history()
-                chat.save_log(chat.build_messages())
-            except Exception:
-                pass
-            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+                except Exception:
+                    pass
+                try:
+                    chat.save_history()
+                    chat.save_log(chat.build_messages())
+                except Exception:
+                    pass
+                yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
     return Response(
         stream_with_context(generate()),
@@ -254,7 +256,8 @@ def api_command():
     if not cmd:
         return jsonify({"error": "命令不能为空"}), 400
 
-    result = _dispatch(cmd, session_data)
+    with get_user_lock(session_data.get("user_name", "")):
+        result = _dispatch(cmd, session_data)
     if result is None:
         result = {"type": "command_result", "content": f"未知命令: {cmd}"}
     return jsonify(result)

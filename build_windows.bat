@@ -107,6 +107,7 @@ echo [COPY] Copying project files...
 xcopy /E /I /Y agents dist\votx-agent\agents\ >nul
 xcopy /E /I /Y config dist\votx-agent\config\ >nul
 xcopy /E /I /Y cron dist\votx-agent\cron\ >nul
+xcopy /E /I /Y message dist\votx-agent\message\ >nul
 xcopy /E /I /Y provider dist\votx-agent\provider\ >nul
 xcopy /E /I /Y run dist\votx-agent\run\ >nul
 xcopy /E /I /Y skills dist\votx-agent\skills\ >nul

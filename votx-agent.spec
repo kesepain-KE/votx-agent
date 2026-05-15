@@ -19,7 +19,7 @@ def _collect_tree(rel: str) -> list[tuple[str, str]]:
 
 # 数据文件：（源路径, 目标相对路径）
 datas = []
-for d in ["web", "config", "skills", "provider", "tools", "run", "cron", "agents"]:
+for d in ["web", "config", "skills", "provider", "tools", "run", "cron", "agents", "message"]:
     datas.extend(_collect_tree(d))
 datas.append((str(_root / "paths.py"), "paths.py"))
 datas.append((str(_root / "AGENTS.md"), "AGENTS.md"))
@@ -32,6 +32,16 @@ hiddenimports = [
     "cron.scheduler",
     "cron.tasks",
     "cron.forget",
+    # 外部消息路由
+    "message",
+    "message.runtime",
+    "message.agent_service",
+    "message.config",
+    "message.identity",
+    "message.permissions",
+    "message.push_queue",
+    "message.routes.onebot",
+    "websockets",
     # Provider 适配器
     "provider.openai_api",
     "provider.responses_api",

@@ -1,0 +1,11 @@
+{
+  "mappings": {
+    "qq:123456789": {
+      "platform": "onebot",
+      "external_id": "123456789",
+      "internal_user": "kesepain",
+      "display_name": "Kesepain",
+      "role": "admin"
+    }
+  }
+}

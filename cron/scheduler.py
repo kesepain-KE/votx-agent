@@ -96,15 +96,21 @@ def _run_task(root: str, task: dict):
     command = task.get("command", "")
     start_py = os.path.join(root, "start.py")
     try:
-        subprocess.run(
+        result = subprocess.run(
             [sys.executable, start_py, "--user", user_name, "--prompt", command, "--once"],
             timeout=300,
             cwd=root,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
         )
+        return (result.stdout or result.stderr or "").strip()
     except subprocess.TimeoutExpired:
         print(f"[cron] 任务超时: {task['id']} — {command}")
     except Exception as e:
         print(f"[cron] 任务执行失败: {task['id']} — {e}")
+    return ""
 
 
 def _run_task_web(root: str, core_config: dict, task: dict):
@@ -191,6 +197,7 @@ def _run_task_web(root: str, core_config: dict, task: dict):
     save_index(user_dir, index)
 
     print(f"[cron:web] 任务 {task['id']} 完成 → {archive_name} ({summary})")
+    return response_text.strip()
 
 
 def _scan_users(root: str) -> list[str]:
@@ -257,11 +264,14 @@ def _scheduler_loop(root: str, core_config: dict, stop_event, web_mode: bool = F
                                         pass
 
                             print(f"[cron] 执行任务: {task['id']} — {task['command']}")
-                            if web_mode:
-                                run_task(root, core_config, task)
-                            else:
-                                run_task(root, task)
-                            mark_run(user_dir, task["id"])
+                            from run.user_locks import get_user_lock
+                            with get_user_lock(task.get("user", "")):
+                                if web_mode:
+                                    result_text = run_task(root, core_config, task)
+                                else:
+                                    result_text = run_task(root, task)
+                                mark_run(user_dir, task["id"])
+                            _enqueue_task_result(root, task, result_text or "")
 
                         if _is_expired(task):
                             os.remove(filepath)
@@ -277,3 +287,39 @@ def _scheduler_loop(root: str, core_config: dict, stop_event, web_mode: bool = F
             print(f"[cron] 调度循环异常: {e}")
 
         stop_event.wait(heartbeat)
+
+
+def _enqueue_task_result(root: str, task: dict, result_text: str):
+    """If a task came from an external router, enqueue its completion notice."""
+    source = task.get("source") or {}
+    if not source:
+        return
+    try:
+        from message.config import load_config
+        cfg = load_config(root)
+        if not cfg.get("enabled"):
+            return
+        integration = cfg.get("task_integration", {})
+        if not integration.get("notify_on_task_complete", True):
+            return
+        push_cfg = cfg.get("push", {})
+        if not push_cfg.get("enabled", True):
+            return
+
+        message = (
+            "定时任务执行完成\n\n"
+            f"任务: {task.get('command', '')}\n\n"
+            f"结果:\n{result_text or '任务已完成，但没有生成文本输出。'}"
+        )
+        from message.push_queue import enqueue_message
+        enqueue_message(
+            root,
+            push_cfg.get("queue_dir", "message/push_queue"),
+            source.get("platform", "onebot"),
+            source.get("chat_type", "private"),
+            source.get("chat_id") or source.get("external_id"),
+            message,
+            source=source,
+        )
+    except Exception as e:
+        print(f"[cron] 推送任务结果入队失败: {task.get('id')} — {e}")

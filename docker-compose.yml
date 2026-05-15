@@ -8,6 +8,10 @@ services:
       - "1478:1478"
     volumes:
       - ./users:/app/users          # 用户数据持久化
+      - ./message-runtime:/app/message-runtime  # 外部消息路由配置与推送队列
     environment:
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - VOTX_MESSAGE_CONFIG=/app/message-runtime/config.json
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped

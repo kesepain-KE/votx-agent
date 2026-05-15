@@ -86,6 +86,10 @@ def run_server(port=13579, host="0.0.0.0"):
     start_cron(_root, _core_config, web_mode=True)
     atexit.register(stop_cron)
 
+    from message import start_message_router, stop_message_router
+    start_message_router(_root, _core_config)
+    atexit.register(stop_message_router)
+
     print(f"\n  votx-agent Web UI  →  http://localhost:{port}\n")
     app.run(host=host, port=port, debug=False, threaded=True)
 

@@ -44,6 +44,7 @@ def check_deps() -> bool:
         "docx": "python-docx",
         "yaml": "pyyaml",
         "flask": "flask",
+        "websockets": "websockets",
     }
     missing = []
     for mod, pkg in deps.items():
@@ -120,7 +121,18 @@ def setup_env() -> bool:
 def verify_imports() -> bool:
     """验证关键模块可导入"""
     sys.path.insert(0, str(ROOT))
-    modules = ["provider.openai_api", "run.chat", "run.tool", "run.engine", "skills", "cron", "agents", "web"]
+    modules = [
+        "provider.openai_api",
+        "run.chat",
+        "run.tool",
+        "run.engine",
+        "skills",
+        "cron",
+        "agents",
+        "web",
+        "message",
+        "message.routes.onebot",
+    ]
     failed = []
     for mod in modules:
         try:

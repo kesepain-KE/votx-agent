@@ -41,6 +41,8 @@ def create_task(user_dir: str, task_def: dict) -> dict:
         "created_at": task_def.get("created_at", _now_iso()),
         "last_run": task_def.get("last_run"),
     }
+    if task_def.get("source"):
+        task["source"] = task_def["source"]
     filepath = os.path.join(_tasks_dir(user_dir), f"{task_id}.json")
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(task, f, ensure_ascii=False, indent=2)
@@ -77,7 +79,7 @@ def update_task(user_dir: str, task_id: str, updates: dict) -> dict | None:
     task = get_task(user_dir, task_id)
     if task is None:
         return None
-    for key in ("time", "command", "type"):
+    for key in ("time", "command", "type", "source"):
         if key in updates and updates[key] is not None:
             task[key] = updates[key]
     filepath = os.path.join(_tasks_dir(user_dir), f"{task_id}.json")

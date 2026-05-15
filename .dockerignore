@@ -14,6 +14,9 @@ __pycache__
 *.md
 !AGENTS.md
 !requirements.txt
+!config/*.md
+!knowledge/**/*.md
+!skills/**/SKILL.md
 
 # React 前端（Docker 构建阶段需要 web/src，运行镜像不需要 node_modules）
 web/node_modules

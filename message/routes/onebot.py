@@ -1,0 +1,336 @@
+"""OneBot/NapCat WebSocket router."""
+from __future__ import annotations
+
+import asyncio
+import json
+import re
+import uuid
+from typing import Any
+
+from message.identity import IdentityStore
+from message.permissions import is_admin, message_mentions_bot, onebot_text, split_message
+
+CRON_RE = re.compile(r"^/cron\s+(list|add|update|delete)\s*(.*)$", re.IGNORECASE | re.DOTALL)
+CRON_ADD_RE = re.compile(r"^(daily|once)\s+(\d{2}:\d{2})\s+(.+)$", re.IGNORECASE | re.DOTALL)
+CRON_UPDATE_RE = re.compile(r"^(\w+)\s+(time|command|type)\s+(.+)$", re.IGNORECASE | re.DOTALL)
+PLAN_RE = re.compile(r"^/plan\s+(list|view|approve|abort)\s*(.*)$", re.IGNORECASE | re.DOTALL)
+
+
+class OneBotRouter:
+    def __init__(self, root: str, app_config: dict[str, Any], config: dict[str, Any], agent_service):
+        self.root = root
+        self.app_config = app_config
+        self.config = config
+        self.agent = agent_service
+        self.ws_url = config.get("ws_url", "ws://127.0.0.1:3001")
+        self.access_token = config.get("access_token", "")
+        self.reconnect_interval = int(config.get("reconnect_interval", 5))
+        self.api_timeout = int(config.get("api_timeout", 15))
+        self.ws = None
+        self.running = False
+        self.self_id: str | None = None
+        self.identity = IdentityStore(root, app_config)
+        self._pending: dict[str, asyncio.Future] = {}
+
+    async def start(self):
+        self.running = True
+        while self.running:
+            try:
+                await self._connect_once()
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                print(f"[message:onebot] 连接断开: {e}，{self.reconnect_interval}s 后重连")
+                await asyncio.sleep(self.reconnect_interval)
+
+    def stop(self):
+        self.running = False
+        if self.ws:
+            try:
+                asyncio.create_task(self.ws.close())
+            except Exception:
+                pass
+
+    def is_ready(self) -> bool:
+        return self.ws is not None and not getattr(self.ws, "closed", False)
+
+    async def _connect_once(self):
+        import websockets
+
+        headers = {}
+        if self.access_token:
+            headers["Authorization"] = f"Bearer {self.access_token}"
+
+        kwargs = {"ping_interval": 20, "ping_timeout": 20, "max_size": 16 * 1024 * 1024}
+        try:
+            async with websockets.connect(self.ws_url, extra_headers=headers, **kwargs) as ws:
+                await self._serve(ws)
+        except TypeError:
+            async with websockets.connect(self.ws_url, additional_headers=headers, **kwargs) as ws:
+                await self._serve(ws)
+
+    async def _serve(self, ws):
+        self.ws = ws
+        print(f"[message:onebot] 已连接 NapCat: {self.ws_url}")
+        asyncio.create_task(self._load_login_info())
+        try:
+            async for raw in ws:
+                await self._handle_raw(raw)
+        finally:
+            if self.ws is ws:
+                self.ws = None
+
+    async def _load_login_info(self):
+        try:
+            result = await self.call_api("get_login_info", {})
+            data = result.get("data") or result
+            user_id = data.get("user_id") or data.get("self_id")
+            if user_id:
+                self.self_id = str(user_id)
+                print(f"[message:onebot] bot self_id={self.self_id}")
+        except Exception as e:
+            print(f"[message:onebot] 获取登录信息失败: {e}")
+
+    async def _handle_raw(self, raw: str):
+        try:
+            msg = json.loads(raw)
+        except json.JSONDecodeError:
+            return
+
+        echo = msg.get("echo")
+        if echo and echo in self._pending:
+            fut = self._pending.pop(echo)
+            if not fut.done():
+                fut.set_result(msg)
+            return
+
+        if msg.get("post_type") == "meta_event":
+            return
+        if msg.get("post_type") == "message":
+            asyncio.create_task(self._handle_message_event(msg))
+
+    async def _handle_message_event(self, msg: dict[str, Any]):
+        user_id = str(msg.get("user_id", ""))
+        if not user_id or (self.self_id and user_id == self.self_id):
+            return
+
+        identity = self.identity.resolve_onebot(user_id)
+        if not identity:
+            return
+
+        message_type = msg.get("message_type", "private")
+        group_id = msg.get("group_id")
+        chat_type = "group" if message_type == "group" else "private"
+        chat_id = str(group_id if chat_type == "group" else user_id)
+        text = onebot_text(msg, self.self_id)
+        if not text:
+            return
+
+        is_command = text.startswith(("/cron", "/plan"))
+        allowed, reason = self._check_access(identity, msg, chat_type, is_command)
+        if not allowed:
+            if is_command:
+                await self._reply(chat_type, chat_id, reason)
+            return
+
+        source = {
+            "platform": "onebot",
+            "external_id": user_id,
+            "chat_type": chat_type,
+            "chat_id": chat_id,
+            "message_id": msg.get("message_id"),
+            "group_id": str(group_id) if group_id else "",
+        }
+
+        try:
+            if is_command:
+                response = await asyncio.to_thread(self._handle_command, identity, text, source)
+            else:
+                response = await asyncio.to_thread(
+                    self.agent.chat, identity["internal_user"], text, source
+                )
+        except Exception as e:
+            response = f"处理失败: {e}"
+
+        await self._reply(chat_type, chat_id, response)
+
+    def _check_access(self, identity: dict[str, Any], msg: dict[str, Any],
+                      chat_type: str, is_command: bool) -> tuple[bool, str]:
+        if is_command and not self.app_config.get("commands", {}).get("enabled", True):
+            return False, "外部命令未启用。"
+
+        if chat_type == "private":
+            return True, ""
+
+        group_cfg = self.app_config.get("group_mode", {}).get("qq", {})
+        if not group_cfg.get("enabled", True):
+            return False, "群聊消息路由未启用。"
+
+        if group_cfg.get("require_at_bot", True) and not message_mentions_bot(msg, self.self_id):
+            return False, "群聊中请先 @机器人。"
+
+        if is_command and not self.app_config.get("commands", {}).get("allow_in_group", True):
+            return False, "群聊命令未启用。"
+
+        if is_admin(identity):
+            return True, ""
+
+        if not is_command and not group_cfg.get("allow_agent_chat", True):
+            return False, "群聊普通对话未启用。"
+
+        return True, ""
+
+    def _handle_command(self, identity: dict[str, Any], text: str, source: dict[str, Any]) -> str:
+        username = identity["internal_user"]
+        cron_match = CRON_RE.match(text)
+        if cron_match:
+            return self._handle_cron(username, cron_match.group(1).lower(), cron_match.group(2).strip(), source)
+
+        plan_match = PLAN_RE.match(text)
+        if plan_match:
+            return self._handle_plan(username, plan_match.group(1).lower(), plan_match.group(2).strip(), source)
+
+        return "命令格式错误。可用: /cron list|add|update|delete 或 /plan list|view|approve|abort"
+
+    def _handle_cron(self, username: str, action: str, args: str, source: dict[str, Any]) -> str:
+        if action == "list":
+            tasks = self.agent.list_tasks(username)
+            if not tasks:
+                return "当前没有定时任务。"
+            lines = [f"定时任务列表（{len(tasks)} 个）:"]
+            for task in tasks:
+                lines.append(f"- [{task.get('id')}] {task.get('type')} {task.get('time')} — {task.get('command')}")
+            return "\n".join(lines)
+
+        if action == "add":
+            match = CRON_ADD_RE.match(args)
+            if not match:
+                return "格式错误: /cron add daily|once HH:MM 命令内容"
+            task_type, time_text, command = match.group(1).lower(), match.group(2), match.group(3).strip()
+            task = self.agent.create_task(username, task_type, time_text, command, source)
+            return f"定时任务已创建\nID: {task['id']}\n类型: {task['type']}\n时间: {task['time']}\n命令: {task['command']}"
+
+        if action == "update":
+            match = CRON_UPDATE_RE.match(args)
+            if not match:
+                return "格式错误: /cron update <task_id> time|command|type <新值>"
+            task_id, field, value = match.group(1), match.group(2).lower(), match.group(3).strip()
+            updated = self.agent.update_task(username, task_id, {field: value})
+            if not updated:
+                return f"未找到任务: {task_id}"
+            return f"任务已更新\nID: {updated['id']}\n类型: {updated['type']}\n时间: {updated['time']}\n命令: {updated['command']}"
+
+        if action == "delete":
+            task_id = args.strip()
+            if not task_id:
+                return "格式错误: /cron delete <task_id>"
+            if not self.agent.delete_task(username, task_id):
+                return f"未找到任务: {task_id}"
+            return f"任务已删除: {task_id}"
+
+        return "未知 cron 命令。"
+
+    def _handle_plan(self, username: str, action: str, args: str, source: dict[str, Any]) -> str:
+        if action == "list":
+            plans = self.agent.list_plans(username)
+            if not plans:
+                return "当前没有任务计划。"
+            lines = [f"任务计划列表（{len(plans)} 个）:"]
+            for plan in plans:
+                steps = plan.get("steps", [])
+                done = sum(1 for step in steps if step.get("status") == "completed")
+                lines.append(f"- [{plan.get('id')}] {plan.get('title', '?')} ({done}/{len(steps)}) — {plan.get('status')}")
+            return "\n".join(lines)
+
+        if action == "view":
+            plan_id = args.strip()
+            if not plan_id:
+                return "格式错误: /plan view <plan_id>"
+            plan = self.agent.view_plan(username, plan_id)
+            if not plan:
+                return f"未找到计划: {plan_id}"
+            lines = [
+                f"计划: {plan.get('title', '?')}",
+                f"ID: {plan.get('id', plan_id)}",
+                f"状态: {plan.get('status', '?')}",
+                f"描述: {plan.get('description', '')}",
+                "步骤:",
+            ]
+            for step in plan.get("steps", []):
+                lines.append(f"- [{step.get('status')}] {step.get('id')}: {step.get('description')}")
+            return "\n".join(lines)
+
+        if action == "approve":
+            plan_id = args.strip()
+            if not plan_id:
+                return "格式错误: /plan approve <plan_id>"
+            if not self.agent.approve_plan(username, plan_id):
+                return f"未找到计划: {plan_id}"
+            result = self.agent.chat(username, f"任务计划 {plan_id} 已批准，请继续执行该计划。", source)
+            return f"计划已批准，开始执行: {plan_id}\n\n{result}"
+
+        if action == "abort":
+            plan_id = args.strip()
+            if not plan_id:
+                return "格式错误: /plan abort <plan_id>"
+            if not self.agent.abort_plan(username, plan_id):
+                return f"未找到计划: {plan_id}"
+            return f"计划已中止: {plan_id}"
+
+        return "未知 plan 命令。"
+
+    async def _reply(self, chat_type: str, chat_id: str, text: str):
+        limit = int(self.app_config.get("group_mode", {}).get("qq", {}).get("max_message_length", 4096))
+        for chunk in split_message(text or "（空回复）", limit):
+            if chat_type == "group":
+                await self.send_group_msg(int(chat_id), chunk)
+            else:
+                await self.send_private_msg(int(chat_id), chunk)
+
+    async def send_private_msg(self, user_id: int, message: str):
+        return await self.call_api("send_private_msg", {"user_id": user_id, "message": message})
+
+    async def send_group_msg(self, group_id: int, message: str):
+        return await self.call_api("send_group_msg", {"group_id": group_id, "message": message})
+
+    async def dispatch_push(self, item: dict[str, Any]) -> dict[str, Any]:
+        if item.get("type") == "message":
+            await self._reply(item.get("chat_type", "private"), str(item["chat_id"]), item.get("message", ""))
+            return {"ok": True}
+        if item.get("type") == "file":
+            return await self.send_file(item)
+        raise ValueError(f"未知推送类型: {item.get('type')}")
+
+    async def send_file(self, item: dict[str, Any]) -> dict[str, Any]:
+        chat_type = item.get("chat_type", "private")
+        file_path = item.get("file_path", "")
+        name = item.get("name") or file_path.replace("\\", "/").split("/")[-1]
+        if chat_type == "group":
+            return await self.call_api("upload_group_file", {
+                "group_id": int(item["chat_id"]),
+                "file": file_path,
+                "name": name,
+            })
+        return await self.call_api("upload_private_file", {
+            "user_id": int(item["chat_id"]),
+            "file": file_path,
+            "name": name,
+        })
+
+    async def call_api(self, action: str, params: dict[str, Any]) -> dict[str, Any]:
+        if not self.ws:
+            raise RuntimeError("OneBot WebSocket 未连接")
+        echo = f"{action}_{uuid.uuid4().hex}"
+        fut = asyncio.get_running_loop().create_future()
+        self._pending[echo] = fut
+        payload = {"action": action, "params": params, "echo": echo}
+        await self.ws.send(json.dumps(payload, ensure_ascii=False))
+        try:
+            response = await asyncio.wait_for(fut, timeout=self.api_timeout)
+        finally:
+            self._pending.pop(echo, None)
+        status = response.get("status")
+        retcode = response.get("retcode", 0)
+        if status in ("failed", "error") or retcode not in (0, None):
+            raise RuntimeError(response.get("message") or response.get("wording") or str(response))
+        return response

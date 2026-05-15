@@ -1,0 +1,41 @@
+{
+  "enabled": true,
+  "admins": ["kesepain"],
+  "platforms": {
+    "onebot": {
+      "enabled": true,
+      "ws_url": "ws://host.docker.internal:3001",
+      "access_token": "",
+      "reconnect_interval": 5,
+      "api_timeout": 15,
+      "bound_users": {
+        "qq:123456789": "kesepain"
+      }
+    }
+  },
+  "commands": {
+    "enabled": true,
+    "prefix": "/",
+    "allow_in_group": true
+  },
+  "group_mode": {
+    "qq": {
+      "enabled": true,
+      "require_at_bot": true,
+      "admin_full_access": true,
+      "allow_agent_chat": true,
+      "max_message_length": 4096
+    }
+  },
+  "push": {
+    "enabled": true,
+    "queue_dir": "message/push_queue",
+    "retry_times": 3,
+    "retry_interval": 5
+  },
+  "task_integration": {
+    "notify_on_task_complete": true,
+    "notify_on_plan_update": true,
+    "notify_on_step_done": false
+  }
+}

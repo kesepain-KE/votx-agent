@@ -31,6 +31,10 @@ htmlcov/
 # ============================================================
 users/*
 !users/.gitkeep
+message/config.local.json
+message/identity/identity_map.json
+message/push_queue/
+message-runtime/
 
 # ============================================================
 # 会话运行时状态（不提交）
