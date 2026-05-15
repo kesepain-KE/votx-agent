@@ -1,164 +1,131 @@
 #!/usr/bin/env bash
-# votx-agent 一键安装脚本
-# 用法: bash install.sh
+# Native Linux installer for votx-agent.
+# Usage:
+#   bash install.sh
+#   bash install.sh --skip-user
+#   bash install.sh --skip-web
 
-set -e
+set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 VENV_DIR="$REPO_DIR/.venv"
-VOTX_BIN="/usr/local/bin/votx"
+VOTX_BIN="${VOTX_BIN:-/usr/local/bin/votx}"
+SKIP_USER=false
+SKIP_WEB=false
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
+for arg in "$@"; do
+  case "$arg" in
+    --skip-user) SKIP_USER=true ;;
+    --skip-web) SKIP_WEB=true ;;
+    *) echo "Unknown argument: $arg" >&2; exit 2 ;;
+  esac
+done
 
-echo -e "${GREEN}votx-agent 安装脚本${NC}"
-echo ""
+green() { printf '\033[0;32m%s\033[0m\n' "$*"; }
+yellow() { printf '\033[1;33m%s\033[0m\n' "$*"; }
+red() { printf '\033[0;31m%s\033[0m\n' "$*"; }
 
-# ---- 1. 检查 Python ----
-echo "[1/6] 检查 Python..."
-PYTHON=$(which python3 2>/dev/null || which python 2>/dev/null || echo "")
-if [ -z "$PYTHON" ]; then
-    echo -e "${RED}错误: 未找到 Python，请先安装 Python >= 3.10${NC}"
+find_python() {
+  command -v python3 2>/dev/null || command -v python 2>/dev/null || true
+}
+
+ensure_python() {
+  local py="$1"
+  if [ -z "$py" ]; then
+    red "Python >= 3.10 is required."
     exit 1
-fi
+  fi
+  "$py" - <<'PY'
+import sys
+if sys.version_info < (3, 10):
+    raise SystemExit(1)
+print(f"  Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro} [OK]")
+PY
+}
 
-PY_VER=$($PYTHON --version 2>&1 | awk '{print $2}')
-PY_MAJOR=$($PYTHON --version 2>&1 | awk '{print $2}' | cut -d. -f1)
-PY_MINOR=$($PYTHON --version 2>&1 | awk '{print $2}' | cut -d. -f2)
+write_launcher() {
+  local target="$1"
+  local content
+  content="#!/usr/bin/env bash
+exec \"$VENV_DIR/bin/python\" \"$REPO_DIR/votx.py\" \"\$@\"
+"
+  if [ "$(id -u)" -eq 0 ] || [ -w "$(dirname "$target")" ]; then
+    printf '%s' "$content" > "$target"
+    chmod +x "$target"
+    return
+  fi
+  if command -v sudo >/dev/null 2>&1; then
+    printf '%s' "$content" | sudo tee "$target" >/dev/null
+    sudo chmod +x "$target"
+    return
+  fi
+  yellow "Cannot write $target. Add this alias manually:"
+  echo "  alias votx='$VENV_DIR/bin/python $REPO_DIR/votx.py'"
+}
 
-if [ "$PY_MAJOR" -lt 3 ] || { [ "$PY_MAJOR" -eq 3 ] && [ "$PY_MINOR" -lt 10 ]; }; then
-    echo -e "${RED}错误: Python >= 3.10 需要，当前版本: $PY_VER${NC}"
+green "votx-agent Linux installer"
+cd "$REPO_DIR"
+
+echo "[1/7] Checking Python"
+PYTHON="$(find_python)"
+ensure_python "$PYTHON"
+
+echo "[2/7] Creating virtual environment"
+"$PYTHON" -m venv "$VENV_DIR"
+"$VENV_DIR/bin/python" -m pip install --upgrade pip >/dev/null
+
+echo "[3/7] Installing Python dependencies"
+"$VENV_DIR/bin/python" -m pip install -r "$REPO_DIR/requirements.txt"
+
+echo "[4/7] Building Web UI"
+if [ "$SKIP_WEB" = false ]; then
+  if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
+    (cd "$REPO_DIR/web" && npm install && npm run build)
+  elif [ -f "$REPO_DIR/web/dist/index.html" ]; then
+    yellow "Node.js/npm not found; reusing existing web/dist build."
+  else
+    red "Node.js >= 18 and npm are required to build the Web UI."
+    echo "Install Node.js or rerun with --skip-web if you only need CLI/runtime setup."
     exit 1
-fi
-echo "  Python $PY_VER  [OK]"
-
-# ---- 2. 检查 Node.js ----
-echo "[2/6] 检查 Node.js..."
-NODE=$(which node 2>/dev/null || echo "")
-NPM=$(which npm 2>/dev/null || echo "")
-if [ -n "$NODE" ] && [ -n "$NPM" ]; then
-    NODE_VER=$($NODE --version 2>&1)
-    echo "  Node.js $NODE_VER  [OK]"
-    HAS_NODE=true
+  fi
 else
-    echo -e "  ${YELLOW}未找到 Node.js，无法构建 React 前端${NC}"
-    echo "  Web UI 需要 web/dist/index.html。请安装 Node.js >= 18 后重新运行安装脚本，或手动执行: cd web && npm install && npm run build"
-    HAS_NODE=false
+  yellow "Skipping Web UI build."
 fi
 
-# ---- 3. 创建虚拟环境 ----
-echo "[3/6] 创建虚拟环境..."
-$PYTHON -m venv "$VENV_DIR"
-echo "  .venv 已创建"
-
-# ---- 4. 安装依赖 ----
-echo "[4/6] 安装 Python 依赖..."
-"$VENV_DIR/bin/pip" install --quiet -r "$REPO_DIR/requirements.txt"
-echo "  Python 依赖安装完成"
-
-# ---- 4.5 安装并构建前端 ----
-if $HAS_NODE; then
-    echo "  安装并构建 React 前端..."
-    cd "$REPO_DIR/web"
-    if ! $NPM install --silent; then
-        echo -e "  ${RED}npm install 失败，前端无法构建${NC}"
-        exit 1
-    fi
-    if ! $NPM run build; then
-        echo -e "  ${RED}npm run build 失败，Web UI 将不可用${NC}"
-        exit 1
-    fi
-    cd "$REPO_DIR"
-    echo "  React 前端构建完成"
+echo "[5/7] Preparing configuration files"
+if [ ! -f "$REPO_DIR/.env" ] && [ -f "$REPO_DIR/.env.example" ]; then
+  cp "$REPO_DIR/.env.example" "$REPO_DIR/.env"
+  echo "  Created .env from .env.example"
 fi
 
-# ---- 5. 注册 votx 命令 ----
-echo "[5/6] 注册 votx 命令..."
+mkdir -p "$REPO_DIR/users" "$REPO_DIR/tmp" "$REPO_DIR/message/push_queue"
+if [ ! -f "$REPO_DIR/message/config.local.json" ] && [ -f "$REPO_DIR/message/config.example.json" ]; then
+  cp "$REPO_DIR/message/config.example.json" "$REPO_DIR/message/config.local.json"
+  echo "  Created message/config.local.json from the disabled example template"
+fi
 
-if [ "$(id -u)" -eq 0 ] || [ -w /usr/local/bin ]; then
-    cat > "$VOTX_BIN" << ENTRY
-#!/usr/bin/env bash
-exec "$VENV_DIR/bin/python3" "$REPO_DIR/votx.py" "\$@"
-ENTRY
-    chmod +x "$VOTX_BIN"
-    echo "  /usr/local/bin/votx  [OK]"
+echo "[6/7] Registering votx command"
+write_launcher "$VOTX_BIN"
+echo "  $VOTX_BIN [OK]"
+
+echo "[7/7] User setup"
+if [ "$SKIP_USER" = false ]; then
+  if ! find "$REPO_DIR/users" -mindepth 2 -maxdepth 2 -name config.json | grep -q .; then
+    read -r -p "Create a user now? [Y/n] " CREATE_USER
+    CREATE_USER="${CREATE_USER:-y}"
+    if [[ "$CREATE_USER" =~ ^[Yy]$ ]]; then
+      "$VENV_DIR/bin/python" "$REPO_DIR/set_user.py" add
+    fi
+  else
+    echo "  Existing user configuration found."
+  fi
 else
-    echo -e "  ${YELLOW}需要 sudo 写入 /usr/local/bin${NC}"
-    sudo tee "$VOTX_BIN" > /dev/null << ENTRY
-#!/usr/bin/env bash
-exec "$VENV_DIR/bin/python3" "$REPO_DIR/votx.py" "\$@"
-ENTRY
-    sudo chmod +x "$VOTX_BIN"
-    echo "  /usr/local/bin/votx  [OK]"
+  yellow "Skipping interactive user creation."
 fi
 
-# ---- 6. 配置 ----
-ENV_FILE="$REPO_DIR/.env"
-ENV_EXAMPLE="$REPO_DIR/.env.example"
-NEED_CONFIG=false
-
-if [ ! -f "$ENV_FILE" ]; then
-    NEED_CONFIG=true
-    if [ -f "$ENV_EXAMPLE" ]; then
-        cp "$ENV_EXAMPLE" "$ENV_FILE"
-    fi
-elif grep -q "sk-your-key-here" "$ENV_FILE" 2>/dev/null; then
-    NEED_CONFIG=true
-fi
-
-echo ""
-echo "[6/6] 创建用户..."
-echo ""
-echo -e "  votx-agent 支持两种 Key 配置方式:"
-echo "    A) 每用户独立 Key — 通过 set_user.py 创建用户，在用户配置中设置"
-echo "    B) 全局 .env Key  — 在 .env 文件中设置 DEEPSEEK_API_KEY"
-echo ""
-
-read -p "  是否现在创建用户？(Y/n): " -r CREATE_USER
-CREATE_USER=${CREATE_USER:-y}
-
-if [[ "$CREATE_USER" =~ ^[Yy] ]]; then
-    echo ""
-    "$VENV_DIR/bin/python3" "$REPO_DIR/set_user.py" add
-    echo ""
-    echo -e "  ${GREEN}用户创建完成${NC}"
-else
-    if $NEED_CONFIG; then
-        echo ""
-        echo -e "  ${YELLOW}.env 模板已创建，之后可编辑:${NC}"
-        echo "    DEEPSEEK_API_KEY=sk-your-key-here"
-        echo "    获取: https://platform.deepseek.com/api_keys"
-    fi
-    echo ""
-    echo "  之后可随时创建用户:"
-    echo "    python set_user.py add"
-fi
-
-# ---- 完成 ----
-echo ""
-echo -e "${GREEN}安装完成！${NC}"
-echo ""
-echo "使用:"
-echo "  votx       启动 Web UI"
-echo "  votx web   启动 Web UI"
-echo "  votx cli   启动终端对话"
-echo "  votx help  查看帮助"
-echo ""
-if [ ! -f "$REPO_DIR/web/dist/index.html" ]; then
-    echo -e "${YELLOW}注意: 未检测到 web/dist/index.html，Web UI 暂不可用${NC}"
-    echo "      安装 Node.js >= 18 后执行: cd web && npm install && npm run build"
-    echo ""
-fi
-if $HAS_NODE; then
-    echo "前端开发:"
-    echo "  cd web && npm run dev   Vite 开发服务器"
-    echo "  cd web && npm run build 生产构建"
-    echo ""
-fi
-
-# 检查 PATH
-if ! echo "$PATH" | grep -q "/usr/local/bin"; then
-    echo -e "${YELLOW}注意: /usr/local/bin 不在 PATH 中，可能需要重新登录${NC}"
-fi
+green "Install complete"
+echo "Start Web UI:"
+echo "  votx web --port=1478"
+echo "Message router config:"
+echo "  Native Linux: edit $REPO_DIR/message/config.local.json"
+echo "  NapCat must expose forward WebSocket; votx-agent only connects to it."

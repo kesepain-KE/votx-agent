@@ -40,7 +40,9 @@ hiddenimports = [
     "message.identity",
     "message.permissions",
     "message.push_queue",
+    "message.routes._download",
     "message.routes.onebot",
+    "message.routes.telegram",
     "websockets",
     # Provider 适配器
     "provider.openai_api",

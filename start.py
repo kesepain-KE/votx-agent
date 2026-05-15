@@ -40,11 +40,13 @@ def main_cli():
 
 def main_web():
     """Web UI 模式"""
-    port = 13579
+    port = int(os.environ.get("PORT", "1478"))
+    host = os.environ.get("VOTX_HOST", "0.0.0.0")
     for arg in sys.argv:
         if arg.startswith("--port="):
             port = int(arg.split("=")[1])
-            break
+        elif arg.startswith("--host="):
+            host = arg.split("=", 1)[1].strip() or host
     try:
         from web.server import run_server
     except ModuleNotFoundError as e:
@@ -56,7 +58,7 @@ def main_web():
             print("  python -m pip install flask")
             sys.exit(1)
         raise
-    run_server(port=port)
+    run_server(port=port, host=host)
 
 
 def main_once(user_name: str, prompt: str):

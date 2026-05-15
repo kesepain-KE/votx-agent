@@ -6,16 +6,21 @@
   "platforms": {
     "onebot": {
       "enabled": true,
-      "ws_url": "",
+      "ws_url": "ws://100.67.231.56:3001",
       "access_token": "zzzz1111",
       "reconnect_interval": 5,
       "api_timeout": 15,
-      "server_enabled": true,
-      "server_host": "127.0.0.1",
-      "server_port": 8082,
-      "server_path": "/ws",
       "bound_users": {
         "qq:3378126950": "kesepain"
+      }
+    },
+    "telegram": {
+      "enabled": true,
+      "bot_token": "8949113921:AAE05bySxdMU9JWnFMg41Cebs-qYakr-wFE",
+      "poll_interval": 2,
+      "api_timeout": 30,
+      "bound_users": {
+        "tg:6481508324": "kesepain"
       }
     }
   },
@@ -26,6 +31,13 @@
   },
   "group_mode": {
     "qq": {
+      "enabled": true,
+      "require_at_bot": true,
+      "admin_full_access": true,
+      "allow_agent_chat": true,
+      "max_message_length": 4096
+    },
+    "telegram": {
       "enabled": true,
       "require_at_bot": true,
       "admin_full_access": true,

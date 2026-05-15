@@ -11,6 +11,8 @@ services:
       - ./message-runtime:/app/message-runtime  # 外部消息路由配置与推送队列
     environment:
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - PORT=1478
+      - VOTX_HOST=0.0.0.0
       - VOTX_MESSAGE_CONFIG=/app/message-runtime/config.json
     extra_hosts:
       - "host.docker.internal:host-gateway"

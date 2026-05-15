@@ -31,6 +31,9 @@ class AgentService:
 
             from run.engine import run_chat_turn
 
+            # External platform turns reuse the normal Web/CLI session state.
+            # The source prefix gives the model enough context without creating
+            # a second conversation stack for each transport.
             prompt = self._with_source(text, source)
             chat.add_user_message(prompt)
             tool_runner.reset_count()
@@ -39,6 +42,7 @@ class AgentService:
             chunks: list[str] = []
             final_text = ""
             error_text = ""
+            tool_lines: list[str] = []
             try:
                 for event in run_chat_turn(chat, tool_runner, provider, tools):
                     event_type = event.get("type")
@@ -46,6 +50,8 @@ class AgentService:
                         chunks.append(event.get("content", ""))
                     elif event_type == "text":
                         final_text = event.get("content", "")
+                    elif event_type == "tool_call":
+                        tool_lines.append(event.get("line", ""))
                     elif event_type == "error":
                         error_text = event.get("content", "")
                     elif event_type == "max_rounds":
@@ -57,13 +63,20 @@ class AgentService:
                 except Exception as e:
                     print(f"[message] 保存对话失败: {username} — {e}")
 
+            result = ""
             if final_text:
-                return final_text
-            if chunks:
-                return "".join(chunks).strip()
-            if error_text:
-                return f"处理失败: {error_text}"
-            return "已处理，但没有生成文本回复。"
+                result = final_text
+            elif chunks:
+                result = "".join(chunks).strip()
+            elif error_text:
+                result = f"处理失败: {error_text}"
+            else:
+                result = "已处理，但没有生成文本回复。"
+
+            if tool_lines:
+                tc = "\n".join(tool_lines[-12:])  # 最多显示最近 12 次工具调用
+                return f"{tc}\n\n{result}"
+            return result
 
     def list_tasks(self, username: str) -> list[dict[str, Any]]:
         user_dir = self._user_dir(username)

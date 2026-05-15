@@ -82,6 +82,8 @@ class PushQueue:
         final = self.queue_dir / f"{task_id}.json"
         tmp = self.queue_dir / f".{task_id}.{uuid.uuid4().hex}.tmp"
         tmp.write_text(json.dumps(item, ensure_ascii=False, indent=2), encoding="utf-8")
+        # Atomic replace keeps the queue readable if the process exits while a
+        # push is being written on Windows, Linux, or a bind-mounted Docker dir.
         os.replace(tmp, final)
 
 
@@ -94,5 +96,20 @@ def enqueue_message(root: str, queue_dir: str, platform: str, chat_type: str,
         "chat_type": chat_type,
         "chat_id": str(chat_id),
         "message": message,
+        "source": source or {},
+    })
+
+
+def enqueue_file(root: str, queue_dir: str, platform: str, chat_type: str,
+                 chat_id: str | int, file_path: str, name: str = "",
+                 source: dict[str, Any] | None = None) -> str:
+    queue = PushQueue(root, queue_dir)
+    return queue.enqueue({
+        "type": "file",
+        "platform": platform,
+        "chat_type": chat_type,
+        "chat_id": str(chat_id),
+        "file_path": file_path,
+        "name": name,
         "source": source or {},
     })

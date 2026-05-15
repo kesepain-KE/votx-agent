@@ -9,6 +9,11 @@ __pycache__
 /dist
 /.venv
 /users
+message/config.json
+message/config.local.json
+message/identity/identity_map.json
+message/push_queue
+message-runtime
 .env
 *.log
 *.md

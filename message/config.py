@@ -20,7 +20,14 @@ def default_config() -> dict[str, Any]:
                 "reconnect_interval": 5,
                 "api_timeout": 15,
                 "bound_users": {},
-            }
+            },
+            "telegram": {
+                "enabled": False,
+                "bot_token": "",
+                "poll_interval": 2,
+                "api_timeout": 30,
+                "bound_users": {},
+            },
         },
         "commands": {
             "enabled": True,
@@ -34,7 +41,14 @@ def default_config() -> dict[str, Any]:
                 "admin_full_access": True,
                 "allow_agent_chat": True,
                 "max_message_length": 4096,
-            }
+            },
+            "telegram": {
+                "enabled": True,
+                "require_at_bot": True,
+                "admin_full_access": True,
+                "allow_agent_chat": True,
+                "max_message_length": 4096,
+            },
         },
         "push": {
             "enabled": True,
@@ -99,8 +113,11 @@ def load_config(root: str, explicit_path: str | None = None) -> dict[str, Any]:
         _merge(cfg, data)
         break
 
-    onebot_enabled = bool(cfg.get("platforms", {}).get("onebot", {}).get("enabled"))
-    cfg["enabled"] = bool(cfg.get("enabled") or onebot_enabled)
+    any_platform = (
+        bool(cfg.get("platforms", {}).get("onebot", {}).get("enabled"))
+        or bool(cfg.get("platforms", {}).get("telegram", {}).get("enabled"))
+    )
+    cfg["enabled"] = bool(cfg.get("enabled") or any_platform)
     cfg["_config_path"] = str(used_path) if used_path else ""
     return cfg
 
@@ -111,4 +128,7 @@ def sanitized_config(config: dict[str, Any]) -> dict[str, Any]:
     onebot = clone.get("platforms", {}).get("onebot", {})
     if onebot.get("access_token"):
         onebot["access_token"] = "***"
+    telegram = clone.get("platforms", {}).get("telegram", {})
+    if telegram.get("bot_token"):
+        telegram["bot_token"] = "***"
     return clone

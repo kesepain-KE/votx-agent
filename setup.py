@@ -132,6 +132,7 @@ def verify_imports() -> bool:
         "web",
         "message",
         "message.routes.onebot",
+        "message.routes.telegram",
     ]
     failed = []
     for mod in modules:

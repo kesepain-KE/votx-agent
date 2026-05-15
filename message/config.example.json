@@ -1,25 +1,95 @@
 {
-  "enabled": true,
-  "admins": ["kesepain"],
+  "_说明": "本文件为 message/config.json 的配置示例和手册。请复制为 config.json 后修改。",
+
+  "enabled": false,
+  "_enabled": "message 模块总开关，关闭后不启动任何平台路由",
+
+  "admins": ["your_username"],
+  "_admins": "管理员用户名列表（对应 users/<name>/config.json）。管理员在群聊中有完整访问权限",
+
   "platforms": {
+    "_platforms": "=== 消息平台配置，至少启用一个 ===",
+
     "onebot": {
-      "enabled": true,
-      "ws_url": "ws://host.docker.internal:3001",
+      "_onebot": "=== OneBot v11 (NapCat/LLOneBot) — QQ 机器人 ===",
+
+      "enabled": false,
+      "_enabled": "是否启用 OneBot",
+
+      "ws_url": "ws://127.0.0.1:3001",
+      "_ws_url": "NapCat 正向 WS 地址。本机: ws://127.0.0.1:3001，WSL/Docker: 填实际 IP。注意正向模式下 votx-agent 连 NapCat",
+
       "access_token": "",
+      "_access_token": "NapCat 的 access_token（对应 NapCat 配置中 onebot 的 token），不设则留空",
+
       "reconnect_interval": 5,
+      "_reconnect_interval": "断线重连间隔（秒）",
+
       "api_timeout": 15,
+      "_api_timeout": "API 调用超时（秒）",
+
       "bound_users": {
-        "qq:123456789": "kesepain"
-      }
+        "qq:123456789": "your_username"
+      },
+      "_bound_users": "QQ号 → 内部用户名 映射。格式: \"qq:<QQ号>\": \"<用户名>\"。未绑定的用户消息会被忽略"
+    },
+
+    "telegram": {
+      "_telegram": "=== Telegram Bot — 长轮询模式 ===",
+
+      "enabled": false,
+      "_enabled": "是否启用 Telegram",
+
+      "bot_token": "",
+      "_bot_token": "从 @BotFather 获取的 Bot Token",
+
+      "poll_interval": 2,
+      "_poll_interval": "长轮询间隔（秒）",
+
+      "api_timeout": 30,
+      "_api_timeout": "API 调用超时（秒）",
+
+      "bound_users": {
+        "tg:987654321": "your_username"
+      },
+      "_bound_users": "TG用户ID → 内部用户名 映射。格式: \"tg:<用户ID>\": \"<用户名>\""
     }
   },
+
   "commands": {
+    "_commands": "=== 外部命令系统 ( /cron , /plan ) ===",
+
     "enabled": true,
+    "_enabled": "是否允许从外部平台执行命令",
+
     "prefix": "/",
+    "_prefix": "命令前缀",
+
     "allow_in_group": true
   },
+  "_allow_in_group": "是否允许在群聊中执行命令",
+
   "group_mode": {
+    "_group_mode": "=== 群聊行为控制（按平台分别配置）===",
+
     "qq": {
+      "enabled": true,
+      "_enabled": "是否启用 QQ 群聊路由",
+
+      "require_at_bot": true,
+      "_require_at_bot": "群聊中是否必须 @机器人 才回复",
+
+      "admin_full_access": true,
+      "_admin_full_access": "管理员是否免 @（管理员在 admins 列表中定义）",
+
+      "allow_agent_chat": true,
+      "_allow_agent_chat": "是否允许群内普通对话（关闭后仅响应 / 命令）",
+
+      "max_message_length": 4096
+    },
+    "_max_message_length": "单条回复最大字符数，超出自动分段",
+
+    "telegram": {
       "enabled": true,
       "require_at_bot": true,
       "admin_full_access": true,
@@ -27,15 +97,33 @@
       "max_message_length": 4096
     }
   },
+
   "push": {
+    "_push": "=== 推送队列 — Agent 主动发消息/文件时使用 ===",
+
     "enabled": true,
+    "_enabled": "是否启用推送队列",
+
     "queue_dir": "message/push_queue",
+    "_queue_dir": "队列文件存储目录（相对项目根）",
+
     "retry_times": 3,
+    "_retry_times": "失败重试次数，超过后标记为 failed",
+
     "retry_interval": 5
   },
+  "_retry_interval": "重试间隔（秒）",
+
   "task_integration": {
+    "_task_integration": "=== 任务/计划状态变更通知 ===",
+
     "notify_on_task_complete": true,
+    "_notify_on_task_complete": "任务完成时推送到外部平台",
+
     "notify_on_plan_update": true,
+    "_notify_on_plan_update": "计划状态更新时推送",
+
     "notify_on_step_done": false
-  }
+  },
+  "_notify_on_step_done": "每步骤完成时推送（开启后消息频繁，建议关闭）"
 }

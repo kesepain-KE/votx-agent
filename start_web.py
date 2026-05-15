@@ -1,7 +1,7 @@
 """votx-agent Web UI 启动入口
 
 用法:
-    python start_web.py              # 默认端口 1478，冲突自动轮询
+    python start_web.py              # 默认端口 14780，冲突自动轮询
     python start_web.py --port=8080  # 自定义端口
 
 启动时自动检测用户，无用户则交互式创建后再启动。
@@ -48,11 +48,13 @@ def _check_users() -> bool:
         return False
 
 
-port = 1478
+port = int(os.environ.get("PORT", "14780"))
+host = os.environ.get("VOTX_HOST", "127.0.0.1")
 for arg in sys.argv:
     if arg.startswith("--port="):
         port = int(arg.split("=")[1])
-        break
+    elif arg.startswith("--host="):
+        host = arg.split("=", 1)[1].strip() or host
 
 try:
     from web.server import run_server
@@ -64,27 +66,35 @@ except ModuleNotFoundError as e:
         sys.exit(1)
     raise
 
+if not _check_users():
+    sys.exit(1)
+
+
+def _can_bind(host: str, port: int) -> tuple[bool, str]:
+    probe_host = host if host not in ("", "*") else "0.0.0.0"
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    try:
+        sock.bind((probe_host, port))
+        return True, ""
+    except OSError as e:
+        return False, str(e)
+    finally:
+        sock.close()
+
+
 # 端口冲突自动轮询（最多尝试 10 次）
 max_tries = 10
 for offset in range(max_tries):
     try_port = port + offset
-    # 快速检测端口是否占用
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    in_use = sock.connect_ex(("127.0.0.1", try_port)) == 0
-    sock.close()
-    if in_use:
+    can_bind, bind_error = _can_bind(host, try_port)
+    if not can_bind:
         if offset == 0:
-            print(f"端口 {try_port} 已被占用，正在轮询...")
+            print(f"端口 {try_port} 不可用，正在轮询... ({bind_error})")
         continue
     if offset > 0:
         print(f"已切换到端口 {try_port}")
-
-    # 启动前检测用户
-    if not _check_users():
-        sys.exit(1)
-
-    run_server(port=try_port, host="127.0.0.1")
+    run_server(port=try_port, host=host)
     break
 else:
     print(f"ERROR: 端口 {port}~{port + max_tries - 1} 全部被占用，无法启动")

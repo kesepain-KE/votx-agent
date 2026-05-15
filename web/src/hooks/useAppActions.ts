@@ -698,9 +698,11 @@ export function useAppActions() {
   }, [get, set, sendMessage])
 
   const rejectPlan = useCallback(async () => {
-    const activePlan = get().activePlan; if (!activePlan) return; if (!window.confirm('确定拒绝此计划？')) return
-    try { await api(`/api/task-plan/${encodeURIComponent(activePlan.id)}/abort`, { method: 'POST' }); set({ activePlan: null, planPhase: null }); await loadTaskPlans(); toast('计划已拒绝') } catch (error) { toast(`操作失败: ${(error as Error).message}`) }
-  }, [get, set, loadTaskPlans])
+    const activePlan = get().activePlan; if (!activePlan) return
+    set({ activePlan: null, planPhase: null, input: '拒绝此项计划' })
+    toast('已发送拒绝')
+    await sendMessage()
+  }, [get, set, sendMessage])
 
   const modifyPlan = useCallback(() => { toast('请直接发送修改要求，例如"把第2步改成..."'); textRef.current?.focus() }, [])
 

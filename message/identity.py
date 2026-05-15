@@ -27,6 +27,8 @@ class IdentityStore:
         mappings = data.get("mappings", data)
         return mappings if isinstance(mappings, dict) else {}
 
+    # ── OneBot ──────────────────────────────────────
+
     def resolve_onebot(self, user_id: str | int) -> dict[str, Any] | None:
         external_id = str(user_id)
         for key in (f"qq:{external_id}", f"onebot:{external_id}", external_id):
@@ -34,6 +36,8 @@ class IdentityStore:
             if identity:
                 return self._normalize(identity, "onebot", external_id)
 
+        # bound_users is the deploy-friendly path: one file can bind external
+        # account IDs to existing users without creating a separate identity DB.
         bound = self.config.get("platforms", {}).get("onebot", {}).get("bound_users", {})
         internal_user = (
             bound.get(f"qq:{external_id}")
@@ -50,6 +54,36 @@ class IdentityStore:
             "display_name": internal_user,
             "role": role,
         }
+
+    # ── Telegram ───────────────────────────────────
+
+    def resolve_telegram(self, user_id: str | int, chat_id: str | int | None = None) -> dict[str, Any] | None:
+        external_id = str(user_id)
+        for key in (f"tg:{external_id}", f"telegram:{external_id}", external_id):
+            identity = self.mappings.get(key)
+            if identity:
+                result = self._normalize(identity, "telegram", external_id)
+                if result:
+                    return result
+
+        bound = self.config.get("platforms", {}).get("telegram", {}).get("bound_users", {})
+        internal_user = (
+            bound.get(f"tg:{external_id}")
+            or bound.get(f"telegram:{external_id}")
+            or bound.get(external_id)
+        )
+        if not internal_user:
+            return None
+        role = "admin" if internal_user in set(self.config.get("admins", [])) else "user"
+        return {
+            "platform": "telegram",
+            "external_id": external_id,
+            "internal_user": internal_user,
+            "display_name": internal_user,
+            "role": role,
+        }
+
+    # ── 内部 ───────────────────────────────────────
 
     def _normalize(self, identity: dict[str, Any], platform: str, external_id: str) -> dict[str, Any]:
         item = dict(identity)

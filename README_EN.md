@@ -20,6 +20,7 @@ A multi-user AI Agent framework with role personas, tool calling, persistent mem
   - [Native Ubuntu Deployment](#native-ubuntu-deployment)
   - [Manual Installation](#manual-installation)
 - [Usage](#usage)
+- [External Message Router](#external-message-router)
 - [Project Structure](#project-structure)
 - [Skills and Tools](#skills-and-tools)
 - [Core Design](#core-design)
@@ -75,6 +76,13 @@ cd votx-agent
 docker compose up -d
 ```
 
+You can also use the helper script to initialize runtime directories, build,
+and start the Compose service:
+
+```bash
+bash install_docker.sh
+```
+
 After the container starts, configure your key in one of the following ways:
 
 **Option A: Create a user, recommended for per-user keys**
@@ -93,6 +101,12 @@ docker compose restart
 ```
 
 After configuration, visit `http://localhost:1478`.
+
+To connect Docker deployment to an external NapCat container/process, edit
+`message-runtime/config.json` and set a forward WebSocket URL reachable from
+the votx-agent container, for example `ws://host.docker.internal:3001` when
+NapCat runs on the Docker host, or `ws://napcat:3001` when both containers are
+on the same Docker network.
 
 ### Native Ubuntu Deployment
 
@@ -129,7 +143,7 @@ If you wish to package this project as a standalone executable directory on Wind
 build_windows.bat
 ```
 
-The script will automatically check for and install `pyinstaller`, and then bundle the project. After the build completes, find the `votx-agent.exe` application inside the `dist\votx-agent\` directory. Double-click it to start the Web UI (you can also pass startup parameters like `--port=1478` via command line).
+The script installs Python dependencies, checks and installs `pyinstaller`, builds the frontend, and bundles the project. After the build completes, it produces `dist\votx-agent-windows.zip`; unzip it and run `votx-agent.exe` to start the Web UI (you can also pass startup parameters like `--port=1478` via command line).
 
 `.env` template (fallback only, `config.json` takes priority):
 
@@ -193,6 +207,32 @@ Assistant: Today's hotboard has been saved to hotboard.txt, 50 items in total.
 
 ![Web UI Screenshot](votx-agent-web-UI.png)
 
+## External Message Router
+
+`message-router` now runs in the Agent process and follows the Web server
+lifecycle. It does not require nginx/caddy and does not run a separate gateway.
+
+- QQ/NapCat: votx-agent connects as a WebSocket client to NapCat forward
+  WebSocket. NapCat remains an external container or process.
+- Telegram: uses Bot API `getUpdates` long polling, so no public webhook is
+  required.
+- External commands: `/cron list|add|update|delete` and
+  `/plan list|view|approve|abort`.
+- Push: `send_qq_message` and `upload_qq_file` enqueue outbound text/file
+  pushes for OneBot or Telegram.
+
+Config paths:
+
+| Environment | Config path |
+|---|---|
+| Native Windows / Linux | `message/config.local.json` first, then `message/config.json` |
+| Docker | host `./message-runtime/config.json`, container `/app/message-runtime/config.json` |
+| Temporary override | `VOTX_MESSAGE_CONFIG=/path/to/config.json` |
+
+Copy `message/config.example.json` before first use, set top-level `enabled`
+and the target platform `enabled` to `true`, then bind external accounts to an
+existing internal user with `bound_users`.
+
 ## Project Structure
 
 ```text
@@ -201,10 +241,13 @@ votx-agent/
 ├── start.py / start_web.py     # Startup entry points, CLI / Web
 ├── setup.py / set_user.py      # Installation and user configuration wizards
 ├── install.sh                  # One-click Ubuntu installer
+├── install_docker.sh           # Docker build/start helper
 ├── requirements.txt
 ├── Dockerfile                  # Docker image
 ├── docker-compose.yml          # Docker Compose configuration
 ├── docker-entrypoint.sh        # Docker entrypoint, checks users/keys without blocking startup
+├── message/                    # In-process message router for OneBot/NapCat, Telegram, push queue
+├── message-runtime/            # Docker bind-mounted message config/runtime directory, generated locally
 │
 ├── provider/                   # Multi-LLM backend, unified ProviderResponse format
 │   ├── schema.py               # Unified data structures: ToolCall / ProviderResponse

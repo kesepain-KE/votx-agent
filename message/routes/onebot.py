@@ -99,6 +99,8 @@ class OneBotRouter:
 
         echo = msg.get("echo")
         if echo and echo in self._pending:
+            # OneBot API responses are matched to outbound requests by echo.
+            # Events without echo continue through the normal message path.
             fut = self._pending.pop(echo)
             if not fut.done():
                 fut.set_result(msg)
@@ -122,7 +124,15 @@ class OneBotRouter:
         group_id = msg.get("group_id")
         chat_type = "group" if message_type == "group" else "private"
         chat_id = str(group_id if chat_type == "group" else user_id)
+
+        # Attachments are stored under users/<name>/download and passed back to
+        # the Agent as local paths so tools can inspect them normally.
+        downloaded = await self._download_onebot_files(msg, identity["internal_user"])
+
         text = onebot_text(msg, self.self_id)
+        if downloaded:
+            file_lines = "\n".join(f"[本地文件: {p}]" for p in downloaded)
+            text = f"{file_lines}\n{text}" if text else file_lines
         if not text:
             return
 
@@ -153,6 +163,63 @@ class OneBotRouter:
             response = f"处理失败: {e}"
 
         await self._reply(chat_type, chat_id, response)
+
+    async def _download_onebot_files(self, msg: dict[str, Any], username: str) -> list[str]:
+        """Download file segments from OneBot message. Returns list of local paths."""
+        from message.routes._download import download_url, save_base64_data
+
+        segments = msg.get("message", [])
+        if not isinstance(segments, list):
+            return []
+
+        downloaded: list[str] = []
+        for seg in segments:
+            if not isinstance(seg, dict):
+                continue
+            seg_type = seg.get("type", "")
+            if seg_type not in ("image", "record", "video", "file"):
+                continue
+
+            data = seg.get("data", {})
+            original_name = data.get("file", "")
+
+            # 1. Try URL download first
+            url = data.get("url", "")
+            if url:
+                local = await download_url(self.root, username, url, original_name)
+                if local:
+                    downloaded.append(local)
+                    continue
+
+            # 2. Fall back to OneBot API (get_image / get_record / get_file)
+            file_ref = data.get("file", "")
+            if not file_ref:
+                continue
+
+            try:
+                if seg_type == "image":
+                    api_name, api_param = "get_image", "file"
+                elif seg_type == "record":
+                    api_name, api_param = "get_record", "file"
+                elif seg_type == "video":
+                    api_name, api_param = "get_record", "file"  # 无 get_video，尝试 get_record
+                else:
+                    api_name, api_param = "get_file", "file_id"
+
+                result = await self.call_api(api_name, {api_param: file_ref})
+                b64 = (result.get("data") or result).get("file", "")
+                if b64.startswith("base64://"):
+                    local = save_base64_data(self.root, username, b64[len("base64://"):], original_name)
+                    if local:
+                        downloaded.append(local)
+                elif b64.startswith(("http://", "https://")):
+                    local = await download_url(self.root, username, b64, original_name)
+                    if local:
+                        downloaded.append(local)
+            except Exception as e:
+                print(f"[message:onebot] 下载文件失败 {file_ref}: {e}")
+
+        return downloaded
 
     def _check_access(self, identity: dict[str, Any], msg: dict[str, Any],
                       chat_type: str, is_command: bool) -> tuple[bool, str]:
@@ -301,19 +368,28 @@ class OneBotRouter:
             return await self.send_file(item)
         raise ValueError(f"未知推送类型: {item.get('type')}")
 
+    @staticmethod
+    def _to_onebot_file(file_path: str) -> str:
+        """读取文件编码为 base64:// URI，避免跨系统路径问题（Win/WSL/Docker 通用）"""
+        import base64
+        with open(file_path, "rb") as f:
+            data = base64.b64encode(f.read()).decode("ascii")
+        return f"base64://{data}"
+
     async def send_file(self, item: dict[str, Any]) -> dict[str, Any]:
         chat_type = item.get("chat_type", "private")
         file_path = item.get("file_path", "")
         name = item.get("name") or file_path.replace("\\", "/").split("/")[-1]
+        ob_file = self._to_onebot_file(file_path)
         if chat_type == "group":
             return await self.call_api("upload_group_file", {
                 "group_id": int(item["chat_id"]),
-                "file": file_path,
+                "file": ob_file,
                 "name": name,
             })
         return await self.call_api("upload_private_file", {
             "user_id": int(item["chat_id"]),
-            "file": file_path,
+            "file": ob_file,
             "name": name,
         })
 
@@ -324,6 +400,8 @@ class OneBotRouter:
         fut = asyncio.get_running_loop().create_future()
         self._pending[echo] = fut
         payload = {"action": action, "params": params, "echo": echo}
+        # NapCat forward WS is full-duplex: send API calls on the same socket
+        # that receives events, then wait for the matching echo response.
         await self.ws.send(json.dumps(payload, ensure_ascii=False))
         try:
             response = await asyncio.wait_for(fut, timeout=self.api_timeout)
