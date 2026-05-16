@@ -53,9 +53,12 @@ echo   All prerequisites met.
 echo.
 
 REM ---- 激活构建环境 ----
-if exist "build_env\Scripts\activate.bat" (
-    echo [ENV] Activating isolated build environment...
-    call "build_env\Scripts\activate.bat"
+echo [ENV] Activating conda environment votx...
+call conda activate votx
+if %ERRORLEVEL% NEQ 0 (
+    echo [ERROR] Failed to activate conda environment "votx".
+    pause
+    exit /b 1
 )
 
 REM ---- 安装 PyInstaller ----
@@ -71,11 +74,13 @@ pip show pyinstaller >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     echo [INSTALL] Installing PyInstaller...
     pip install pyinstaller
-    if %ERRORLEVEL% NEQ 0 (
-        echo [ERROR] PyInstaller install failed.
-        pause
-        exit /b 1
-    )
+)
+
+pip show pyinstaller >nul 2>&1
+if %ERRORLEVEL% NEQ 0 (
+    echo [ERROR] PyInstaller install failed.
+    pause
+    exit /b 1
 )
 
 REM ---- 构建 .exe ----

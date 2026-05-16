@@ -49,7 +49,7 @@ def _check_users() -> bool:
 
 
 port = int(os.environ.get("PORT", "14780"))
-host = os.environ.get("VOTX_HOST", "127.0.0.1")
+host = os.environ.get("VOTX_HOST", "0.0.0.0")
 for arg in sys.argv:
     if arg.startswith("--port="):
         port = int(arg.split("=")[1])

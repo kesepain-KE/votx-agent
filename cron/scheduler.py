@@ -258,7 +258,7 @@ def _scheduler_loop(root: str, core_config: dict, stop_event, web_mode: bool = F
                                     continue  # once 任务只执行一次
                                 if task_type in ("daily", "recurring"):
                                     try:
-                                        if last_run[:10] == _time.strftime("%Y-%m-%d"):
+                                        if last_run[:10] == datetime.now(timezone.utc).strftime("%Y-%m-%d"):
                                             continue
                                     except Exception:
                                         pass
