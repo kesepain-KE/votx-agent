@@ -10,11 +10,15 @@
   "created_at": "2026-05-12T09:00:00",
   "last_run": null
 }
+
+所有时间戳统一使用北京时间 (UTC+8)。
 """
 import json
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+
+BEIJING_TZ = timezone(timedelta(hours=8))
 
 
 def _tasks_dir(user_dir: str) -> str:
@@ -25,8 +29,8 @@ def _tasks_dir(user_dir: str) -> str:
 
 
 def _now_iso() -> str:
-    """执行 now_iso 内部辅助逻辑。"""
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+    """返回北京时间 ISO 字符串"""
+    return datetime.now(BEIJING_TZ).strftime("%Y-%m-%dT%H:%M:%S")
 
 
 def create_task(user_dir: str, task_def: dict) -> dict:

@@ -1,14 +1,22 @@
-"""后台调度循环 — 心跳 5s，扫描任务、匹配时间、执行、清理"""
+"""后台调度循环 — 心跳 5s，扫描任务、匹配时间、执行、清理
+
+所有时间计算统一使用北京时间 (UTC+8)。
+"""
 import json
 import os
 import subprocess
 import sys
 import time as _time
-from datetime import datetime, timezone
-from pathlib import Path
+from datetime import datetime, timezone, timedelta
 
 from cron.tasks import mark_run, delete_task
 from cron.forget import run_forget, run_auto_improve_trigger
+
+BEIJING_TZ = timezone(timedelta(hours=8))
+
+
+def _now() -> datetime:
+    return datetime.now(BEIJING_TZ)
 
 
 def _parse_task_time(task: dict) -> tuple[int, int] | None:
@@ -21,11 +29,6 @@ def _parse_task_time(task: dict) -> tuple[int, int] | None:
     except (ValueError, IndexError):
         pass
     return None
-
-
-def _now() -> datetime:
-    """执行 now 内部辅助逻辑。"""
-    return datetime.now()
 
 
 def _match_task(task: dict) -> bool:
@@ -47,15 +50,13 @@ def _match_task(task: dict) -> bool:
     task_type = task.get("type", "daily")
 
     if task_type == "once":
-        # once 任务仅在创建日期的对应时间窗口内匹配
         created = task.get("created_at", "")
         try:
-            created_date = created[:10]  # YYYY-MM-DD
+            # created_at 已是北京时间，与 now 同基准
+            created_date = created[:10]
             today = now.strftime("%Y-%m-%d")
-            if created_date != today:
-                # 也接受今天还没到时间的情况（宽松：只要日期 <= 今天）
-                if created_date > today:
-                    return False
+            if created_date > today:
+                return False
         except Exception:
             pass
 
@@ -72,22 +73,30 @@ def _match_task(task: dict) -> bool:
 
 
 def _is_expired(task: dict) -> bool:
-    """once 任务超过目标时间 +60s 且已执行过，标记为过期可删除"""
+    """once 任务超过目标时间 +120s 且未曾执行，或已执行且过期，则标记为可删除"""
     if task.get("type") != "once":
         return False
     parsed = _parse_task_time(task)
     if parsed is None:
-        return True  # 格式错误视为过期
+        # 格式错误：保留文件但跳过，避免静默删除
+        return False
     h, m = parsed
     now = _now()
     target_minutes = h * 60 + m
     current_minutes = now.hour * 60 + now.minute
-    # 超过目标时间 2 分钟以上
-    if current_minutes > target_minutes + 2:
-        return True
-    if current_minutes == target_minutes + 2 and now.second > 30:
-        return True
-    return False
+
+    # 未超出目标时间 +2 分钟窗口，保留
+    if current_minutes < target_minutes + 2:
+        return False
+    if current_minutes == target_minutes + 2 and now.second <= 30:
+        return False
+
+    # 超出时间窗口：仅当任务已执行过才删除；未执行的保留并记录
+    if task.get("last_run") is None:
+        print(f"[cron] once 任务已过期但未执行，保留等待手动处理: {task['id']} — {task.get('command', '')}")
+        return False
+
+    return True
 
 
 def _run_task(root: str, task: dict):
@@ -120,7 +129,7 @@ def _run_task_web(root: str, core_config: dict, task: dict):
     user_dir = os.path.join(root, "users", user_name)
 
     import json as _json
-    from datetime import datetime as _dt, timezone as _tz
+    from datetime import datetime as _dt
 
     # 加载配置
     with open(os.path.join(user_dir, "config.json"), encoding="utf-8") as f:
@@ -177,7 +186,7 @@ def _run_task_web(root: str, core_config: dict, task: dict):
         summary = f"cron: {command}"[:50]
 
     # 保存为归档文件
-    ts = _dt.now(_tz.utc).strftime("%Y%m%dT%H%M%S")
+    ts = _dt.now(BEIJING_TZ).strftime("%Y%m%dT%H%M%S")
     archive_dir = os.path.join(user_dir, "history", "archive")
     os.makedirs(archive_dir, exist_ok=True)
     archive_name = f"cron_{ts}_{task['id']}.json"
@@ -219,11 +228,12 @@ def _scheduler_loop(root: str, core_config: dict, stop_event, web_mode: bool = F
     _time.sleep(3)
     run_task = _run_task_web if web_mode else _run_task
 
+    tick = 0
+
     while not stop_event.is_set():
         try:
             improve_cfg = core_config.get("improve", {})
             forget_time = improve_cfg.get("forget_time", 604800)
-            auto_improve_time = improve_cfg.get("auto_improve_time", 3600)
 
             for user_dir in _scan_users(root):
                 # ── 扫描任务 ──
@@ -242,23 +252,17 @@ def _scheduler_loop(root: str, core_config: dict, stop_event, web_mode: bool = F
                             continue
 
                         if _match_task(task):
-                            # 重新从磁盘读取，防止心跳间隔内重复执行
-                            try:
-                                with open(filepath, encoding="utf-8") as f:
-                                    task = json.load(f)
-                            except (json.JSONDecodeError, IOError):
-                                continue
-
                             last_run = task.get("last_run")
                             task_type = task.get("type", "daily")
 
                             # 去重：once 任务执行过就跳过，daily/recurring 今天执行过就跳过
                             if last_run:
                                 if task_type == "once":
-                                    continue  # once 任务只执行一次
+                                    continue
                                 if task_type in ("daily", "recurring"):
                                     try:
-                                        if last_run[:10] == datetime.now(timezone.utc).strftime("%Y-%m-%d"):
+                                        today_str = _now().strftime("%Y-%m-%d")
+                                        if last_run[:10] == today_str:
                                             continue
                                     except Exception:
                                         pass
@@ -277,11 +281,14 @@ def _scheduler_loop(root: str, core_config: dict, stop_event, web_mode: bool = F
                             os.remove(filepath)
                             print(f"[cron] 过期任务已删除: {task['id']}")
 
-                # ── 清理临时记忆 ──
-                run_forget(user_dir, forget_time)
+                # ── 清理临时记忆（每 12 个心跳 = 60s 执行一次）──
+                if tick % 12 == 0:
+                    run_forget(user_dir, forget_time)
 
                 # ── 定期 auto_improve ──
                 run_auto_improve_trigger(root, user_dir, core_config)
+
+            tick += 1
 
         except Exception as e:
             print(f"[cron] 调度循环异常: {e}")

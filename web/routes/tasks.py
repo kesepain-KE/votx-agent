@@ -43,7 +43,7 @@ def api_tasks_create():
 
     if not command.strip():
         return jsonify({"error": "任务命令不能为空"}), 400
-    if task_type not in ("daily", "once"):
+    if task_type not in ("daily", "once", "recurring"):
         return jsonify({"error": f"无效的任务类型: {task_type}"}), 400
 
     from cron.tasks import create_task
