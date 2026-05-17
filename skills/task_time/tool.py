@@ -123,14 +123,14 @@ SCHEMAS = [
         "type": "function",
         "function": {
             "name": "task_time_create",
-            "description": "创建 cron 定时任务（daily=每日执行 / once=单次执行）",
+            "description": "创建 cron 定时任务（daily=每日执行 / once=单次执行 / recurring=重复执行）",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "type": {
                         "type": "string",
-                        "enum": ["daily", "once"],
-                        "description": "任务类型: daily=每天执行, once=执行一次",
+                        "enum": ["daily", "once", "recurring"],
+                        "description": "任务类型: daily=每天执行, once=执行一次, recurring=重复执行",
                     },
                     "time": {
                         "type": "string",
@@ -196,8 +196,8 @@ SCHEMAS = [
                     },
                     "type": {
                         "type": "string",
-                        "enum": ["daily", "once"],
-                        "description": "新的任务类型",
+                        "enum": ["daily", "once", "recurring"],
+                        "description": "新的任务类型: daily=每天执行, once=执行一次, recurring=重复执行",
                     },
                 },
                 "required": ["task_id"],
