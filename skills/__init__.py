@@ -15,6 +15,7 @@ agentskills.io 标准 (https://agentskills.io/specification):
 发现规则：递归扫描 skills/ 下所有 SKILL.md。
 _ 开头的目录/文件视为内部模块，不当作 Skill。
 """
+import contextvars
 import importlib.util
 import re
 from pathlib import Path
@@ -37,9 +38,9 @@ def _parse_skill_md(path: Path) -> tuple[str, str]:
 _last_skills_info: list[dict] = []
 
 # 共享上下文：因 register_all() 用 importlib 加载 tool.py 可能产生独立模块实例，
-# 需通过 skills 模块的共享 dict 传递上下文，避免两个实例各自持有独立的 _ctx。
-_auto_improve_ctx: dict = {}
-_task_plan_ctx: dict = {}
+# 需通过 skills 模块的 ContextVar 传递上下文，确保每个并发会话有独立的上下文副本。
+_auto_improve_ctx: contextvars.ContextVar = contextvars.ContextVar("auto_improve_ctx", default=None)
+_task_plan_ctx: contextvars.ContextVar = contextvars.ContextVar("task_plan_ctx", default=None)
 
 
 def get_cached_skills_info() -> list[dict]:

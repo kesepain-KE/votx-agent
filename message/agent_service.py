@@ -35,6 +35,12 @@ class AgentService:
             # The source prefix gives the model enough context without creating
             # a second conversation stack for each transport.
             prompt = self._with_source(text, source)
+            # 每轮工具执行前重新绑定用户上下文（防治消息路由单线程串号）
+            import skills.auto_improve.tool as ai_tool
+            import skills.task_plan.tool as tp_tool
+            ai_tool.set_auto_improve_context(provider=provider, chat=chat, user_name=username)
+            tp_tool.set_task_plan_context(provider=provider, chat=chat, user_name=username)
+
             chat.add_user_message(prompt)
             tool_runner.reset_count()
             chat.refresh_system_prompt(self.root)
@@ -190,7 +196,12 @@ class AgentService:
             raise ValueError(f"非法用户名: {username}")
         user_dir = os.path.realpath(os.path.join(self.root, "users", safe))
         users_root = os.path.realpath(os.path.join(self.root, "users"))
-        if not user_dir.startswith(users_root + os.sep):
+        # 使用 commonpath 判断路径包含关系，兼容 Windows 大小写和斜杠差异
+        try:
+            common = os.path.commonpath([user_dir, users_root])
+        except ValueError:
+            raise ValueError("用户路径越权")
+        if common != users_root:
             raise ValueError("用户路径越权")
         if not os.path.isdir(user_dir):
             raise ValueError(f"用户不存在: {username}")
@@ -222,5 +233,12 @@ class AgentService:
         try:
             from run.prompt_cache import invalidate_prompt_cache
             invalidate_prompt_cache(self._user_dir(username))
+        except Exception:
+            pass
+        try:
+            from web.session import get_session
+            session = get_session(username)
+            if session and session.get("chat"):
+                session["chat"].invalidate_prompt()
         except Exception:
             pass

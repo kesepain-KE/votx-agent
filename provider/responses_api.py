@@ -93,6 +93,7 @@ class ResponsesProvider(BaseProvider):
             self._use_responses = True
         else:
             self._use_responses = False
+        self._user_config = user_config
         self._responses_available = None  # None=未探测, True/False
 
     # ── BaseProvider 接口 ──
@@ -248,8 +249,8 @@ class ResponsesProvider(BaseProvider):
     ) -> ProviderResponse:
         """执行 respond_via_chat 内部辅助逻辑。"""
         from provider.openai_api import DeepSeekProvider
-        # 创建一个临时 Chat Completions Provider
-        p = DeepSeekProvider.__new__(DeepSeekProvider)
+        # 传递用户的真实 provider 配置，避免丢失 api_key/base_url
+        p = DeepSeekProvider(self._user_config, {})
         p.client = self.client
         p.model = self.model
         p.think = self.think
@@ -264,7 +265,8 @@ class ResponsesProvider(BaseProvider):
     ) -> Generator[dict, None, None]:
         """执行 respond_stream_via_chat 内部辅助逻辑。"""
         from provider.openai_api import DeepSeekProvider
-        p = DeepSeekProvider.__new__(DeepSeekProvider)
+        # 传递用户的真实 provider 配置，避免丢失 api_key/base_url
+        p = DeepSeekProvider(self._user_config, {})
         p.client = self.client
         p.model = self.model
         p.think = self.think

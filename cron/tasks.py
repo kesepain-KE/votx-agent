@@ -15,10 +15,14 @@
 """
 import json
 import os
+import re
 import uuid
 from datetime import datetime, timezone, timedelta
 
 BEIJING_TZ = timezone(timedelta(hours=8))
+
+# task_id 必须仅含字母数字-连字符-下划线，最长 64 字符，防止路径穿越
+_VALID_TASK_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
 
 def _tasks_dir(user_dir: str) -> str:
@@ -36,6 +40,8 @@ def _now_iso() -> str:
 def create_task(user_dir: str, task_def: dict) -> dict:
     """创建任务，返回完整任务对象"""
     task_id = task_def.get("id") or uuid.uuid4().hex[:8]
+    if not _VALID_TASK_ID.match(task_id):
+        raise ValueError(f"非法任务 ID: {task_id}")
     task = {
         "id": task_id,
         "type": task_def.get("type", "daily"),
@@ -71,6 +77,8 @@ def load_tasks(user_dir: str) -> list[dict]:
 
 def get_task(user_dir: str, task_id: str) -> dict | None:
     """获取单个任务"""
+    if not _VALID_TASK_ID.match(task_id):
+        return None
     filepath = os.path.join(_tasks_dir(user_dir), f"{task_id}.json")
     if not os.path.isfile(filepath):
         return None
@@ -94,6 +102,8 @@ def update_task(user_dir: str, task_id: str, updates: dict) -> dict | None:
 
 def delete_task(user_dir: str, task_id: str) -> bool:
     """删除任务，返回是否成功"""
+    if not _VALID_TASK_ID.match(task_id):
+        return False
     filepath = os.path.join(_tasks_dir(user_dir), f"{task_id}.json")
     if not os.path.isfile(filepath):
         return False

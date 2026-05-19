@@ -1,7 +1,7 @@
 """votx-agent Web UI 启动入口
 
 用法:
-    python start_web.py              # 默认端口 14780，冲突自动轮询
+    python start_web.py              # 默认端口 1478，冲突自动轮询
     python start_web.py --port=8080  # 自定义端口
 
 启动时自动检测用户，无用户则交互式创建后再启动。
@@ -48,8 +48,8 @@ def _check_users() -> bool:
         return False
 
 
-port = int(os.environ.get("PORT", "14780"))
-host = os.environ.get("VOTX_HOST", "0.0.0.0")
+port = int(os.environ.get("PORT", "1478"))
+host = os.environ.get("VOTX_HOST", "127.0.0.1")
 for arg in sys.argv:
     if arg.startswith("--port="):
         port = int(arg.split("=")[1])

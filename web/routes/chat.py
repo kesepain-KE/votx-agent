@@ -6,7 +6,7 @@ import traceback
 from flask import Response, jsonify, render_template, request, stream_with_context, session as flask_session
 
 from web.server import app
-from web.session import _root, get_session, get_active_user, clear_session, init_user_session
+from web.session import _root, get_session, require_session, clear_session, init_user_session
 from web.commands import _dispatch
 from run.user_locks import get_user_lock
 
@@ -127,7 +127,22 @@ def api_select_user():
     if not user_name:
         return jsonify({"error": "缺少 user 参数"}), 400
 
-    user_dir = os.path.join(_root, "users", user_name)
+    # 校验用户名安全：拒绝路径穿越字符
+    if "/" in user_name or "\\" in user_name or ".." in user_name:
+        return jsonify({"error": "非法用户名"}), 400
+
+    # 可选的访问口令鉴权
+    access_token = os.environ.get("VOTX_ACCESS_TOKEN", "")
+    if access_token:
+        token = data.get("token", "")
+        if token != access_token:
+            return jsonify({"error": "访问口令错误"}), 401
+
+    user_dir = os.path.realpath(os.path.join(_root, "users", user_name))
+    users_root = os.path.realpath(os.path.join(_root, "users"))
+    # 路径 containment 双重保障
+    if not user_dir.startswith(users_root + os.sep) and user_dir != users_root:
+        return jsonify({"error": "非法用户名"}), 400
     if not os.path.isdir(user_dir):
         return jsonify({"error": f"用户目录不存在: {user_name}"}), 400
 
@@ -151,8 +166,8 @@ def api_select_user():
 @app.route("/api/session")
 def api_session():
     """处理 api_session 相关逻辑。"""
-    user_name = flask_session.get("user_name") or get_active_user()
-    session_data = get_session(user_name)
+    user_name = flask_session.get("user_name")
+    session_data = get_session(user_name) if user_name else None
     if not session_data or not session_data.get("chat"):
         return jsonify({"active": False})
     chat = session_data["chat"]
@@ -166,14 +181,13 @@ def api_session():
 @app.route("/api/chat", methods=["POST"])
 def api_chat():
     """SSE 流式聊天端点"""
-    user_name = flask_session.get("user_name") or get_active_user()
-    session_data = get_session(user_name)
-    if not session_data:
-        return jsonify({"error": "未选择用户"}), 400
+    session_data, err, code = require_session()
+    if err:
+        return err, code
 
     chat = session_data.get("chat")
     if not chat:
-        return jsonify({"error": "未选择用户"}), 400
+        return jsonify({"error": "会话无效"}), 400
 
     data = request.get_json() or {}
     message = data.get("message", "").strip()
@@ -202,6 +216,11 @@ def api_chat():
             user_dir = session_data.get("user_dir", "")
             # 用户发送新消息时自动将暂停的计划恢复为执行中
             _auto_resume_paused_plans(user_dir)
+            # 每轮工具执行前重新绑定用户上下文（防治 Flask 线程池复用串号）
+            from skills.auto_improve.tool import set_auto_improve_context
+            from skills.task_plan.tool import set_task_plan_context
+            set_auto_improve_context(provider=provider, chat=chat, user_name=session_data.get("user_name", ""))
+            set_task_plan_context(provider=provider, chat=chat, user_name=session_data.get("user_name", ""))
             prev_snap = _snapshot_plans(user_dir)
             try:
                 for event in run_chat_turn(chat, tool_runner, provider, tools):
@@ -242,14 +261,13 @@ def api_chat():
 @app.route("/api/command", methods=["POST"])
 def api_command():
     """非流式命令端点"""
-    user_name = flask_session.get("user_name") or get_active_user()
-    session_data = get_session(user_name)
-    if not session_data:
-        return jsonify({"error": "未选择用户"}), 400
+    session_data, err, code = require_session()
+    if err:
+        return err, code
 
     chat = session_data.get("chat")
     if not chat:
-        return jsonify({"error": "未选择用户"}), 400
+        return jsonify({"error": "会话无效"}), 400
 
     data = request.get_json() or {}
     cmd = data.get("command", "").strip()
@@ -267,7 +285,9 @@ def api_command():
 def api_disconnect():
     """断开当前会话，自动生成摘要后保存"""
     from web.commands import _web_summarize
-    user_name = flask_session.get("user_name") or get_active_user()
+    user_name = flask_session.get("user_name")
+    if not user_name:
+        return jsonify({"ok": True})
     session_data = get_session(user_name)
     if not session_data:
         return jsonify({"ok": True})

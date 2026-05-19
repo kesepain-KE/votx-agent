@@ -279,7 +279,7 @@ export function formatContent(input: string): string {
     let html = ''
 
     if (b.type === 'code') html = `<pre><code>${escHtml(b.content)}</code></pre>`
-    else if (b.type === 'details') html = `<details>${b.content}</details>`
+    else if (b.type === 'details') html = `<details>${escHtml(b.content)}</details>`
     else if (b.type === 'inlineCode') html = `<code>${escHtml(b.content)}</code>`
     else if (b.type === 'mathBlock') html = renderMath(b.content, true)
     else if (b.type === 'mathInline') html = renderMath(b.content, false)

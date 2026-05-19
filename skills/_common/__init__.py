@@ -3,6 +3,7 @@ import ipaddress
 import json
 import os
 import re as _re
+import socket
 from contextvars import ContextVar, Token
 from datetime import datetime, timezone
 from pathlib import Path
@@ -133,6 +134,17 @@ def validate_url(url: str) -> str | None:
 
     if _is_ip_blocked(host):
         return f"禁止访问内网/回环地址: {host}"
+
+    # DNS 解析检查：域名可能解析到内网/回环地址
+    try:
+        for info in socket.getaddrinfo(host, None, 0, socket.SOCK_STREAM):
+            addr_str = info[4][0]
+            if addr_str in _CLOUD_METADATA_IPS:
+                return f"禁止访问云元数据端点: {addr_str} (由 {host} 解析)"
+            if _is_ip_blocked(addr_str):
+                return f"禁止访问内网/回环地址: {addr_str} (由 {host} 解析)"
+    except socket.gaierror:
+        return f"无法解析域名: {host}"
 
     return None
 

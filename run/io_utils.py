@@ -1,13 +1,14 @@
 """原子写和 JSONL 工具"""
 import json
 import os
+import time
 import gzip
 import tempfile
 from pathlib import Path
 
 
 def atomic_write_text(path, text):
-    """原子写文本文件：写临时文件 → flush → fsync → os.replace"""
+    """原子写文本文件：写临时文件 → flush → fsync → os.replace（含 Windows 重试）"""
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     # 在同目录创建临时文件
@@ -17,7 +18,16 @@ def atomic_write_text(path, text):
             f.write(text)
             f.flush()
             os.fsync(f.fileno())
-        os.replace(tmp, str(p))
+        # Windows 上目标文件可能被杀毒软件/索引服务锁定，重试 3 次
+        for attempt in range(3):
+            try:
+                os.replace(tmp, str(p))
+                return
+            except PermissionError:
+                if attempt < 2:
+                    time.sleep(0.05)
+                else:
+                    raise
     except Exception:
         try:
             os.unlink(tmp)

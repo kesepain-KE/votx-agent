@@ -12,7 +12,7 @@ import traceback
 from flask import jsonify, request, session as flask_session
 
 from web.server import app
-from web.session import get_session, get_active_user
+from web.session import require_session
 
 
 # ---- 路径安全 ----
@@ -79,10 +79,9 @@ def _read_conv_messages(kind: str, path: str) -> list[dict]:
 @app.route("/api/conversations")
 def api_conversations():
     """处理 api_conversations 相关逻辑。"""
-    user_name = flask_session.get("user_name") or get_active_user()
-    session_data = get_session(user_name)
-    if not session_data or not session_data.get("chat"):
-        return jsonify({"error": "未选择用户"}), 400
+    session_data, err, code = require_session()
+    if err:
+        return err, code
     from run.summarize import load_index
 
     user_dir = session_data["user_dir"]
@@ -151,10 +150,9 @@ def api_conversations():
 @app.route("/api/conversations/load", methods=["POST"])
 def api_conversations_load():
     """预览对话消息（只读，不修改当前对话）"""
-    user_name = flask_session.get("user_name") or get_active_user()
-    session_data = get_session(user_name)
-    if not session_data:
-        return jsonify({"error": "未选择用户"}), 400
+    session_data, err, code = require_session()
+    if err:
+        return err, code
 
     data = request.get_json() or {}
     conv_id = data.get("id", "").strip()
@@ -182,10 +180,9 @@ def api_conversations_load():
 @app.route("/api/conversations/select", methods=["POST"])
 def api_conversations_select():
     """切换到指定对话进行预览（只设置 active_conversation_id，不覆盖当前消息）"""
-    user_name = flask_session.get("user_name") or get_active_user()
-    session_data = get_session(user_name)
-    if not session_data:
-        return jsonify({"error": "未选择用户"}), 400
+    session_data, err, code = require_session()
+    if err:
+        return err, code
 
     data = request.get_json() or {}
     conv_id = data.get("id", "").strip()
@@ -217,14 +214,10 @@ def api_conversations_select():
 @app.route("/api/conversations/continue", methods=["POST"])
 def api_conversations_continue():
     """从归档继续：自动归档当前对话 → 将目标归档加载为当前对话"""
-    user_name = flask_session.get("user_name") or get_active_user()
-    session_data = get_session(user_name)
-    if not session_data:
-        return jsonify({"error": "未选择用户"}), 400
-
-    chat = session_data.get("chat")
-    if not chat:
-        return jsonify({"error": "未选择用户"}), 400
+    session_data, err, code = require_session()
+    if err:
+        return err, code
+    chat = session_data["chat"]
 
     data = request.get_json() or {}
     conv_id = data.get("id", "").strip()
@@ -283,9 +276,8 @@ def api_conversations_continue():
 @app.route("/api/conversations/preview-state")
 def api_conversations_preview_state():
     """查询当前预览状态"""
-    user_name = flask_session.get("user_name") or get_active_user()
-    session_data = get_session(user_name)
-    if not session_data:
+    session_data, err, code = require_session()
+    if err:
         return jsonify({"preview": False})
 
     preview_id = session_data.get("_preview_conv_id")
@@ -304,10 +296,9 @@ def api_conversations_preview_state():
 @app.route("/api/conversations/<conv_id>", methods=["DELETE"])
 def api_delete_conversation(conv_id):
     """处理 api_delete_conversation 相关逻辑。"""
-    user_name = flask_session.get("user_name") or get_active_user()
-    session_data = get_session(user_name)
-    if not session_data or not session_data.get("chat"):
-        return jsonify({"error": "未选择用户"}), 400
+    session_data, err, code = require_session()
+    if err:
+        return err, code
 
     if conv_id == "__current__":
         return jsonify({"error": "不能删除当前对话"}), 400
@@ -333,10 +324,9 @@ def api_delete_conversation(conv_id):
 @app.route("/api/conversations/<conv_id>/rename", methods=["POST"])
 def api_rename_conversation(conv_id):
     """处理 api_rename_conversation 相关逻辑。"""
-    user_name = flask_session.get("user_name") or get_active_user()
-    session_data = get_session(user_name)
-    if not session_data or not session_data.get("chat"):
-        return jsonify({"error": "未选择用户"}), 400
+    session_data, err, code = require_session()
+    if err:
+        return err, code
 
     data = request.get_json() or {}
     new_name = data.get("name", "").strip()
@@ -376,10 +366,9 @@ def api_rename_conversation(conv_id):
 @app.route("/api/conversations", methods=["DELETE"])
 def api_delete_all_conversations():
     """处理 api_delete_all_conversations 相关逻辑。"""
-    user_name = flask_session.get("user_name") or get_active_user()
-    session_data = get_session(user_name)
-    if not session_data or not session_data.get("chat"):
-        return jsonify({"error": "未选择用户"}), 400
+    session_data, err, code = require_session()
+    if err:
+        return err, code
 
     user_dir = session_data["user_dir"]
     archive_dir = os.path.join(user_dir, "history", "archive")

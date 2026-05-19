@@ -13,14 +13,23 @@ _VALID_SUBS = {"memory", "self-improving", "ontology"}
 
 # 共享上下文：因 register_all() 用 importlib 重载本模块，需通过 skills._auto_improve_ctx 共享
 import skills as _skills_mod
-_ctx = _skills_mod._auto_improve_ctx
 
 
 def set_auto_improve_context(provider=None, chat=None, user_name: str = ""):
     """由引擎在每轮对话前调用，注入 provider / chat / user_name"""
-    _ctx["provider"] = provider
-    _ctx["chat"] = chat
-    _ctx["user_name"] = user_name
+    _skills_mod._auto_improve_ctx.set({
+        "provider": provider,
+        "chat": chat,
+        "user_name": user_name,
+    })
+
+
+def _get_user_name() -> str:
+    """从 ContextVar 获取当前会话的用户名"""
+    ctx = _skills_mod._auto_improve_ctx.get()
+    if ctx is None:
+        return ""
+    return ctx.get("user_name", "")
 
 
 def _improve_dir(user_id: str) -> Path:
@@ -46,16 +55,15 @@ def _find_file(user_id: str, key: str, sub: str = "memory") -> tuple[Path | None
     return None, None
 
 
-def auto_improve_save(user_name: str, key: str, content: str,
-                       sub: str = "memory") -> str:
+def auto_improve_save(key: str, content: str, sub: str = "memory") -> str:
     """保存到永久记忆（用户主动触发）。
 
     Args:
-        user_name: 用户名
         key: 记忆键（文件名，不含扩展名）
         content: Markdown 内容
         sub: 子目录 — memory / self-improving / ontology
     """
+    user_name = _get_user_name()
     if sub not in _VALID_SUBS:
         return err(f'sub 必须是 {" / ".join(sorted(_VALID_SUBS))}，当前值: {sub}')
     safe_key = _sanitize_key(key)
@@ -71,14 +79,14 @@ def auto_improve_save(user_name: str, key: str, content: str,
         return err(f"保存失败: {e}")
 
 
-def auto_improve_get(user_name: str, key: str, sub: str = "memory") -> str:
+def auto_improve_get(key: str, sub: str = "memory") -> str:
     """读取记忆（先查 permanent，再查 temporary）。
 
     Args:
-        user_name: 用户名
         key: 记忆键
         sub: 子目录（默认 memory）
     """
+    user_name = _get_user_name()
     if sub not in _VALID_SUBS:
         return err(f'sub 必须是 {" / ".join(sorted(_VALID_SUBS))}，当前值: {sub}')
     fp, tier = _find_file(user_name, key, sub)
@@ -92,13 +100,13 @@ def auto_improve_get(user_name: str, key: str, sub: str = "memory") -> str:
         return err(f"读取失败: {e}")
 
 
-def auto_improve_search(user_name: str, query: str) -> str:
+def auto_improve_search(query: str) -> str:
     """关键词搜索全部记忆（三层子目录 + 两层 tier）。
 
     Args:
-        user_name: 用户名
         query: 搜索关键词
     """
+    user_name = _get_user_name()
     improve = _improve_dir(user_name)
     if not improve.exists():
         return err(f"用户 {user_name} 没有 improve 目录")
@@ -132,14 +140,14 @@ def auto_improve_search(user_name: str, query: str) -> str:
     return f"在 {len(results)} 处找到匹配:\n\n" + "\n---\n".join(results)
 
 
-def auto_improve_delete(user_name: str, key: str, sub: str = "memory") -> str:
+def auto_improve_delete(key: str, sub: str = "memory") -> str:
     """删除记忆（两层都可以删）。
 
     Args:
-        user_name: 用户名
         key: 记忆键
         sub: 子目录
     """
+    user_name = _get_user_name()
     if sub not in _VALID_SUBS:
         return err(f'sub 必须是 {" / ".join(sorted(_VALID_SUBS))}，当前值: {sub}')
     fp, tier = _find_file(user_name, key, sub)
@@ -154,12 +162,16 @@ def auto_improve_delete(user_name: str, key: str, sub: str = "memory") -> str:
         return err(f"删除失败: {e}")
 
 
-def auto_improve_review(user_name: str) -> str:
+def auto_improve_review() -> str:
     """主动触发记忆审阅：读临时记忆 + 当前对话 → 分析 → 晋升到永久记忆。
     需要 engine 预先调用 set_auto_improve_context() 注入 provider 和 chat。
     """
-    provider = _ctx.get("provider")
-    chat = _ctx.get("chat")
+    user_name = _get_user_name()
+    ctx = _skills_mod._auto_improve_ctx.get()
+    if ctx is None:
+        return err("auto_improve_review 需要 provider/chat 上下文，请重启会话")
+    provider = ctx.get("provider")
+    chat = ctx.get("chat")
     if not provider or not chat:
         return err("auto_improve_review 需要 provider/chat 上下文，请重启会话")
     messages = getattr(chat, "messages", [])
@@ -215,13 +227,13 @@ def cleanup_temp_files(user_name: str, retention_days: int = 7) -> tuple[int, li
     return len(deleted), deleted
 
 
-def auto_improve_cleanup(user_name: str, retention_days: int = 7) -> str:
+def auto_improve_cleanup(retention_days: int = 7) -> str:
     """手动触发临时记忆清理。
 
     Args:
-        user_name: 用户名
         retention_days: 保留天数（默认 7 天）
     """
+    user_name = _get_user_name()
     count, paths = cleanup_temp_files(user_name, max(1, min(retention_days, 365)))
     if count == 0:
         return f"无需清理：所有临时文件均在 {retention_days} 天保留期内"
@@ -240,7 +252,6 @@ SCHEMAS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "user_name": {"type": "string", "description": "Username / user ID"},
                     "key": {
                         "type": "string",
                         "description": "记忆键（文件名不含扩展名），如 python_preferences, correction_001",
@@ -252,7 +263,7 @@ SCHEMAS = [
                         "enum": ["memory", "self-improving", "ontology"],
                     },
                 },
-                "required": ["user_name", "key", "content"],
+                "required": ["key", "content"],
             },
         },
     },
@@ -264,7 +275,6 @@ SCHEMAS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "user_name": {"type": "string", "description": "Username / user ID"},
                     "key": {"type": "string", "description": "记忆键"},
                     "sub": {
                         "type": "string",
@@ -272,7 +282,7 @@ SCHEMAS = [
                         "enum": ["memory", "self-improving", "ontology"],
                     },
                 },
-                "required": ["user_name", "key"],
+                "required": ["key"],
             },
         },
     },
@@ -284,10 +294,9 @@ SCHEMAS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "user_name": {"type": "string", "description": "Username / user ID"},
                     "query": {"type": "string", "description": "Search keyword"},
                 },
-                "required": ["user_name", "query"],
+                "required": ["query"],
             },
         },
     },
@@ -299,7 +308,6 @@ SCHEMAS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "user_name": {"type": "string", "description": "Username / user ID"},
                     "key": {"type": "string", "description": "记忆键"},
                     "sub": {
                         "type": "string",
@@ -307,7 +315,7 @@ SCHEMAS = [
                         "enum": ["memory", "self-improving", "ontology"],
                     },
                 },
-                "required": ["user_name", "key"],
+                "required": ["key"],
             },
         },
     },
@@ -318,10 +326,8 @@ SCHEMAS = [
             "description": "Active review: read temporary memory + current conversation → promote valuable content to permanent memory/rules/ontology. Use when user says review/审阅/整理记忆/检查记忆.",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "user_name": {"type": "string", "description": "Username / user ID"},
-                },
-                "required": ["user_name"],
+                "properties": {},
+                "required": [],
             },
         },
     },
@@ -333,14 +339,13 @@ SCHEMAS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "user_name": {"type": "string", "description": "Username / user ID"},
                     "retention_days": {
                         "type": "integer",
                         "description": "保留天数，默认 7 天",
                         "default": 7,
                     },
                 },
-                "required": ["user_name"],
+                "required": [],
             },
         },
     },

@@ -72,7 +72,7 @@ from web.routes import chat, files, conversations, system, config, tasks, task_p
 
 # ---- Runner ----
 
-def run_server(port=13579, host="0.0.0.0"):
+def run_server(port=13579, host="127.0.0.1"):
     """处理 run_server 相关逻辑。"""
     import atexit
 

@@ -28,6 +28,7 @@ class ChatManager:
         self.messages: list[dict[str, Any]] = []
         self.provider = None   # set_provider() 由引擎调用
         self.user_dir = user_dir
+        self._prompt_valid = False  # system prompt 缓存有效性标记
 
         # 累计 Token 统计（跨轮会话累加）
         self.token_stats: dict[str, int] = {
@@ -66,11 +67,19 @@ class ChatManager:
     def set_system_prompt(self, prompt: str):
         """处理 set_system_prompt 相关逻辑。"""
         self.system_prompt = prompt
+        self._prompt_valid = True
 
     def refresh_system_prompt(self, root: str):
-        """处理 refresh_system_prompt 相关逻辑。"""
+        """重建 system prompt（带缓存：若 _prompt_valid 则跳过）"""
+        if self._prompt_valid and self.system_prompt:
+            return
         from run.prompt_cache import build_cached_system_prompt
         self.system_prompt = build_cached_system_prompt(root, self.user_dir)
+        self._prompt_valid = True
+
+    def invalidate_prompt(self):
+        """标记 system prompt 缓存失效，下次 refresh 时重建"""
+        self._prompt_valid = False
 
     def set_provider(self, provider):
         """设置 LLM provider（供 auto_improve 子代理使用）"""

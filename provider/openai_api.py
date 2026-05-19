@@ -200,6 +200,8 @@ class DeepSeekProvider(BaseProvider):
             if hasattr(chunk, "usage") and chunk.usage:
                 usage = _extract_usage(chunk)
                 self.last_usage = usage
+            if not chunk.choices:
+                continue
             delta = chunk.choices[0].delta
             if hasattr(delta, "reasoning_content") and delta.reasoning_content:
                 reasoning_parts.append(delta.reasoning_content)

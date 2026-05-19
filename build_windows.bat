@@ -53,30 +53,39 @@ echo   All prerequisites met.
 echo.
 
 REM ---- 激活构建环境 ----
-echo [ENV] Activating conda environment votx...
-call conda activate votx
+echo [ENV] Detecting Python environment...
+
+REM 检查是否在 conda 环境中 (CONDA_DEFAULT_ENV 变量存在)
+if defined CONDA_DEFAULT_ENV (
+    echo   Conda environment: %CONDA_DEFAULT_ENV%   [OK]
+) else (
+    echo   Using system Python (no conda detected)
+)
+
+REM 确保 pip 可用
+python -m pip --version >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
-    echo [ERROR] Failed to activate conda environment "votx".
+    echo [ERROR] pip not available. Please install pip first.
     pause
     exit /b 1
 )
 
 REM ---- 安装 PyInstaller ----
 echo [INSTALL] Installing Python dependencies...
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 if %ERRORLEVEL% NEQ 0 (
     echo [ERROR] Python dependencies install failed.
     pause
     exit /b 1
 )
 
-pip show pyinstaller >nul 2>&1
+python -m pip show pyinstaller >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     echo [INSTALL] Installing PyInstaller...
-    pip install pyinstaller
+    python -m pip install pyinstaller
 )
 
-pip show pyinstaller >nul 2>&1
+python -m pip show pyinstaller >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     echo [ERROR] PyInstaller install failed.
     pause

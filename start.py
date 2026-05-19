@@ -97,6 +97,8 @@ def main_once(user_name: str, prompt: str):
 
     import skills.auto_improve.tool as ai_tool
     ai_tool.set_auto_improve_context(provider=provider, chat=chat, user_name=user_name)
+    import skills.task_plan.tool as tp_tool
+    tp_tool.set_task_plan_context(provider=provider, chat=chat, user_name=user_name)
     try:
         chat.load_history()
     except Exception:

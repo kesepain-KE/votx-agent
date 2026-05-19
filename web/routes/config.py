@@ -1,4 +1,5 @@
 """用户配置路由"""
+import copy
 import json
 import os
 import traceback
@@ -6,16 +7,25 @@ import traceback
 from flask import jsonify, request, session as flask_session
 
 from web.server import app
-from web.session import get_session, get_active_user
+from web.session import require_session
+
+
+def _mask_api_key(config: dict) -> dict:
+    """脱敏 provider.api_key — 仅保留前 5 位 + 后 4 位"""
+    cfg = copy.deepcopy(config)
+    provider = cfg.get("provider", {})
+    api_key = provider.get("api_key", "")
+    if api_key and len(api_key) > 10:
+        provider["api_key"] = api_key[:5] + "***" + api_key[-4:]
+    return cfg
 
 
 @app.route("/api/config")
 def api_get_config():
     """处理 api_get_config 相关逻辑。"""
-    user_name = flask_session.get("user_name") or get_active_user()
-    session_data = get_session(user_name)
-    if not session_data or not session_data.get("chat"):
-        return jsonify({"error": "未选择用户"}), 400
+    session_data, err, code = require_session()
+    if err:
+        return err, code
 
     user_dir = session_data["user_dir"]
     config_path = os.path.join(user_dir, "config.json")
@@ -23,6 +33,8 @@ def api_get_config():
     try:
         with open(config_path, encoding="utf-8") as f:
             config = json.load(f)
+        # 脱敏 api_key
+        config = _mask_api_key(config)
         return jsonify(config)
     except Exception as e:
         return jsonify({"error": f"读取配置失败: {e}"}), 500
@@ -31,10 +43,9 @@ def api_get_config():
 @app.route("/api/config", methods=["POST"])
 def api_update_config():
     """处理 api_update_config 相关逻辑。"""
-    user_name = flask_session.get("user_name") or get_active_user()
-    session_data = get_session(user_name)
-    if not session_data or not session_data.get("chat"):
-        return jsonify({"error": "未选择用户"}), 400
+    session_data, err, code = require_session()
+    if err:
+        return err, code
 
     data = request.get_json() or {}
     user_dir = session_data["user_dir"]

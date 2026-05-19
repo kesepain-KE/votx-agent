@@ -2,7 +2,7 @@
 import json
 import os
 import threading
-from flask import session as flask_session
+from flask import jsonify, session as flask_session
 from run.chat import ChatManager
 from run.prompt_cache import build_cached_system_prompt
 from run.tool import ToolRunner, load_tool_schemas
@@ -17,12 +17,27 @@ _session_lock = threading.RLock()
 
 
 def get_session(user_name: str = None) -> dict | None:
-    """获取指定用户的 session"""
+    """获取指定用户的 session（不再回退到 active_user，防止串号）"""
     with _session_lock:
-        name = user_name or _active_user
-        if name is None:
+        if user_name is None:
             return None
-        return _sessions.get(name)
+        return _sessions.get(user_name)
+
+
+def require_session():
+    """从 Flask session 获取当前用户并校验登录状态。
+
+    无有效 session 时返回 (None, error_response, 401)，
+    有 session 时返回 (session_data, None, None)。
+    用于所有 Web API 端点替代 or get_active_user() fallback。
+    """
+    user_name = flask_session.get("user_name")
+    if not user_name:
+        return None, jsonify({"error": "未登录，请先选择用户"}), 401
+    session_data = get_session(user_name)
+    if not session_data or not session_data.get("chat"):
+        return None, jsonify({"error": "用户会话无效，请重新选择用户"}), 401
+    return session_data, None, None
 
 
 def set_active_user(user_name: str):

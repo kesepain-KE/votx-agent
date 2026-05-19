@@ -7,7 +7,7 @@ import traceback
 from flask import jsonify, request, session as flask_session
 
 from web.server import app
-from web.session import get_session, get_active_user
+from web.session import require_session
 
 
 _VALID_PLAN_FILE = re.compile(r'^plan_\w+\.json$')
@@ -55,10 +55,9 @@ def _save_plan(path: str, plan: dict):
 @app.route("/api/task-plan")
 def api_task_plan_list():
     """处理 api_task_plan_list 相关逻辑。"""
-    user_name = flask_session.get("user_name") or get_active_user()
-    session_data = get_session(user_name)
-    if not session_data or not session_data.get("chat"):
-        return jsonify({"error": "未选择用户"}), 400
+    session_data, err, code = require_session()
+    if err:
+        return err, code
 
     user_dir = session_data["user_dir"]
     plans_dir = os.path.join(user_dir, "task-plan")
@@ -80,10 +79,9 @@ def api_task_plan_list():
 @app.route("/api/task-plan/<plan_id>")
 def api_task_plan_get(plan_id):
     """处理 api_task_plan_get 相关逻辑。"""
-    user_name = flask_session.get("user_name") or get_active_user()
-    session_data = get_session(user_name)
-    if not session_data or not session_data.get("chat"):
-        return jsonify({"error": "未选择用户"}), 400
+    session_data, err, code = require_session()
+    if err:
+        return err, code
 
     user_dir = session_data["user_dir"]
     path, err = _validate_plan_id(user_dir, plan_id)
@@ -101,10 +99,9 @@ def api_task_plan_get(plan_id):
 @app.route("/api/task-plan/<plan_id>/pause", methods=["POST"])
 def api_task_plan_pause(plan_id):
     """处理 api_task_plan_pause 相关逻辑。"""
-    user_name = flask_session.get("user_name") or get_active_user()
-    session_data = get_session(user_name)
-    if not session_data or not session_data.get("chat"):
-        return jsonify({"error": "未选择用户"}), 400
+    session_data, err, code = require_session()
+    if err:
+        return err, code
 
     user_dir = session_data["user_dir"]
     path, err = _validate_plan_id(user_dir, plan_id)
@@ -125,10 +122,9 @@ def api_task_plan_pause(plan_id):
 @app.route("/api/task-plan/<plan_id>/resume", methods=["POST"])
 def api_task_plan_resume(plan_id):
     """处理 api_task_plan_resume 相关逻辑。"""
-    user_name = flask_session.get("user_name") or get_active_user()
-    session_data = get_session(user_name)
-    if not session_data or not session_data.get("chat"):
-        return jsonify({"error": "未选择用户"}), 400
+    session_data, err, code = require_session()
+    if err:
+        return err, code
 
     user_dir = session_data["user_dir"]
     path, err = _validate_plan_id(user_dir, plan_id)
@@ -150,10 +146,9 @@ def api_task_plan_resume(plan_id):
 @app.route("/api/task-plan/<plan_id>/abort", methods=["POST"])
 def api_task_plan_abort(plan_id):
     """处理 api_task_plan_abort 相关逻辑。"""
-    user_name = flask_session.get("user_name") or get_active_user()
-    session_data = get_session(user_name)
-    if not session_data or not session_data.get("chat"):
-        return jsonify({"error": "未选择用户"}), 400
+    session_data, err, code = require_session()
+    if err:
+        return err, code
 
     user_dir = session_data["user_dir"]
     path, err = _validate_plan_id(user_dir, plan_id)
@@ -177,10 +172,9 @@ def api_task_plan_abort(plan_id):
 @app.route("/api/task-plan/<plan_id>/edit-step", methods=["POST"])
 def api_task_plan_edit_step(plan_id):
     """处理 api_task_plan_edit_step 相关逻辑。"""
-    user_name = flask_session.get("user_name") or get_active_user()
-    session_data = get_session(user_name)
-    if not session_data or not session_data.get("chat"):
-        return jsonify({"error": "未选择用户"}), 400
+    session_data, err, code = require_session()
+    if err:
+        return err, code
 
     data = request.get_json() or {}
     step_id = data.get("step_id", "").strip()
@@ -219,10 +213,9 @@ def api_task_plan_edit_step(plan_id):
 @app.route("/api/task-plan/clear-completed", methods=["DELETE", "POST"])
 def api_task_plan_clear_completed():
     """删除所有已完成/已中止的计划（不影响活跃计划）"""
-    user_name = flask_session.get("user_name") or get_active_user()
-    session_data = get_session(user_name)
-    if not session_data or not session_data.get("chat"):
-        return jsonify({"error": "未选择用户"}), 400
+    session_data, err, code = require_session()
+    if err:
+        return err, code
 
     user_dir = session_data["user_dir"]
     plans_dir = os.path.join(user_dir, "task-plan")

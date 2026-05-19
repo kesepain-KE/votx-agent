@@ -1,9 +1,10 @@
 """system prompt 缓存 — 按源文件 mtime 做缓存失效"""
+import hashlib
 import os
 from pathlib import Path
 
 
-_cache: dict[str, tuple[str, int]] = {}  # key -> (prompt, hash)
+_cache: dict[str, tuple[str, str]] = {}  # key -> (prompt, hash)
 
 
 def _mtime(path: str | Path) -> int:
@@ -32,7 +33,7 @@ def _dir_max_mtime(directory: str | Path, pattern: str = "*") -> int:
     return max(mtimes) if mtimes else -1
 
 
-def _compute_cache_key(root: str, user_dir: str) -> int:
+def _compute_cache_key(root: str, user_dir: str) -> str:
     """根据所有源文件的 mtime 计算缓存 key（hash）"""
     mtimes = []
 
@@ -60,10 +61,10 @@ def _compute_cache_key(root: str, user_dir: str) -> int:
     # task-plan 目录 (活跃计划注入 system prompt)
     mtimes.append(_dir_max_mtime(os.path.join(user_dir, "task-plan"), "*.json"))
 
-    return hash(tuple(mtimes))
+    return hashlib.sha256(str(mtimes).encode()).hexdigest()
 
 
-def get_prompt_cache_key(root: str, user_dir: str) -> int:
+def get_prompt_cache_key(root: str, user_dir: str) -> str:
     """获取当前缓存 key（供外部判断缓存是否有效）"""
     return _compute_cache_key(root, user_dir)
 

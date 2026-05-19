@@ -14,16 +14,23 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 _VALID_PLAN_FILE = re.compile(r'^plan_\w+\.json$')
 
 # 共享上下文：因 register_all() 用 importlib 重载本模块，可能产生多个模块实例。
-# 通过 skills._task_plan_ctx 共享 dict 确保上下文在所有实例间可见。
+# 通过 skills._task_plan_ctx ContextVar 确保每个并发会话有独立的上下文副本。
 import skills
-_ctx = skills._task_plan_ctx
+
+
+def _get_ctx() -> dict:
+    """获取当前会话的 task_plan 上下文，未设置时返回空 dict"""
+    ctx = skills._task_plan_ctx.get()
+    return ctx if ctx is not None else {}
 
 
 def set_task_plan_context(provider=None, chat=None, user_name: str = ""):
     """由 session init 注入 provider/chat/user_name。tools_schemas 和 skills_info 由 task_plan_create 按需获取。"""
-    _ctx["provider"] = provider
-    _ctx["chat"] = chat
-    _ctx["user_name"] = user_name
+    skills._task_plan_ctx.set({
+        "provider": provider,
+        "chat": chat,
+        "user_name": user_name,
+    })
 
 
 # ---- 内部辅助 ----
@@ -49,6 +56,12 @@ def _save_plan(user_name: str, plan_id: str, plan: dict):
     d = _plans_dir(user_name)
     d.mkdir(parents=True, exist_ok=True)
     plan_path = d / plan_id
+    # 防止路径穿越（plan_id 可能包含 ../）
+    real_dir = os.path.realpath(str(d))
+    real_path = os.path.realpath(str(plan_path))
+    if not real_path.startswith(real_dir + os.sep) and real_path != real_dir:
+        print(f"[task_plan] 路径越权被阻止: {plan_id}", flush=True)
+        return
     # 防竞态：如果用户已中止此计划，不再覆写（避免 SSE 流中的旧操作覆盖中止状态）
     if plan_path.exists():
         try:
@@ -103,7 +116,7 @@ def task_plan_create(description: str) -> str:
     Args:
         description: 用户请求的简要描述（用于计划标题和上下文）
     """
-    user_name = _ctx.get("user_name", "")
+    user_name = _get_ctx().get("user_name", "")
     if not user_name:
         return err("缺少用户上下文，请重新进入会话")
 
@@ -111,8 +124,8 @@ def task_plan_create(description: str) -> str:
     if err_msg:
         return err(err_msg)
 
-    provider = _ctx.get("provider")
-    chat = _ctx.get("chat")
+    provider = _get_ctx().get("provider")
+    chat = _get_ctx().get("chat")
     if not provider or not chat:
         return err("缺少 provider/chat 上下文，请重新进入会话")
 
@@ -166,6 +179,8 @@ def task_plan_create(description: str) -> str:
     # 保存计划
     plan_id = plan.get("id", "plan_unknown")
     plan_file = f"{plan_id}.json"
+    if not _VALID_PLAN_FILE.match(plan_file):
+        return err(f"非法计划 ID: {plan_id}")
     _save_plan(user_name, plan_file, plan)
 
     steps_count = len(plan.get("steps", []))
@@ -182,7 +197,7 @@ def task_plan_create(description: str) -> str:
 
 def task_plan_list() -> str:
     """列出当前用户的所有计划"""
-    user_name = _ctx.get("user_name", "")
+    user_name = _get_ctx().get("user_name", "")
     if not user_name:
         return err("缺少用户上下文")
 
@@ -219,7 +234,7 @@ def task_plan_view(plan_id: str | None = None) -> str:
     Args:
         plan_id: 计划 ID（如 plan_a1b2c3d4），可选
     """
-    user_name = _ctx.get("user_name", "")
+    user_name = _get_ctx().get("user_name", "")
     if not user_name:
         return err("缺少用户上下文")
 
@@ -267,7 +282,7 @@ def task_plan_step_done(plan_id: str, step_id: str, result: str = "") -> str:
         step_id: 步骤 ID
         result: 步骤执行结果摘要（可选）
     """
-    user_name = _ctx.get("user_name", "")
+    user_name = _get_ctx().get("user_name", "")
     if not user_name:
         return err("缺少用户上下文")
 
@@ -318,7 +333,7 @@ def task_plan_step_fail(plan_id: str, step_id: str, error: str) -> str:
         step_id: 步骤 ID
         error: 错误信息
     """
-    user_name = _ctx.get("user_name", "")
+    user_name = _get_ctx().get("user_name", "")
     if not user_name:
         return err("缺少用户上下文")
 
@@ -353,7 +368,7 @@ def task_plan_abort(plan_id: str | None = None) -> str:
     Args:
         plan_id: 计划 ID，可选
     """
-    user_name = _ctx.get("user_name", "")
+    user_name = _get_ctx().get("user_name", "")
     if not user_name:
         return err("缺少用户上下文")
 
@@ -389,7 +404,7 @@ def task_plan_edit(plan_id: str, step_id: str | None = None,
         description: 新的步骤描述或计划描述
         params: 新的工具参数（JSON 字符串）
     """
-    user_name = _ctx.get("user_name", "")
+    user_name = _get_ctx().get("user_name", "")
     if not user_name:
         return err("缺少用户上下文")
 

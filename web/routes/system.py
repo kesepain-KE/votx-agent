@@ -7,33 +7,27 @@ import traceback
 from flask import Response, jsonify, request, session as flask_session
 
 from web.server import app
-from web.session import _root, get_session, get_active_user
+from web.session import _root, require_session
 from run.prompt_cache import invalidate_prompt_cache
 
 
 @app.route("/api/messages")
 def api_messages():
     """处理 api_messages 相关逻辑。"""
-    user_name = flask_session.get("user_name") or get_active_user()
-    session_data = get_session(user_name)
-    if not session_data:
-        return jsonify({"error": "未选择用户"}), 400
-    chat = session_data.get("chat")
-    if not chat:
-        return jsonify({"error": "未选择用户"}), 400
+    session_data, err, code = require_session()
+    if err:
+        return err, code
+    chat = session_data["chat"]
     return jsonify(chat.messages)
 
 
 @app.route("/api/system-prompt")
 def api_system_prompt():
     """处理 api_system_prompt 相关逻辑。"""
-    user_name = flask_session.get("user_name") or get_active_user()
-    session_data = get_session(user_name)
-    if not session_data:
-        return jsonify({"error": "未选择用户"}), 400
-    chat = session_data.get("chat")
-    if not chat:
-        return jsonify({"error": "未选择用户"}), 400
+    session_data, err, code = require_session()
+    if err:
+        return err, code
+    chat = session_data["chat"]
 
     user_dir = session_data.get("user_dir", "")
     root = session_data.get("root", _root)
@@ -217,13 +211,10 @@ def api_system_prompt():
 @app.route("/api/export-markdown")
 def api_export_markdown():
     """处理 api_export_markdown 相关逻辑。"""
-    user_name = flask_session.get("user_name") or get_active_user()
-    session_data = get_session(user_name)
-    if not session_data:
-        return jsonify({"error": "未选择用户"}), 400
-    chat = session_data.get("chat")
-    if not chat:
-        return jsonify({"error": "未选择用户"}), 400
+    session_data, err, code = require_session()
+    if err:
+        return err, code
+    chat = session_data["chat"]
 
     lines = ["# votx-agent 对话导出", ""]
     user_name_val = session_data.get("user_name", "unknown")
@@ -286,10 +277,9 @@ def api_export_markdown():
 @app.route("/api/stats")
 def api_stats():
     """处理 api_stats 相关逻辑。"""
-    user_name = flask_session.get("user_name") or get_active_user()
-    session_data = get_session(user_name)
-    if not session_data or not session_data.get("chat"):
-        return jsonify({"error": "未选择用户"}), 400
+    session_data, err, code = require_session()
+    if err:
+        return err, code
     chat = session_data["chat"]
     tool_count = 0
     if os.path.exists(chat.tool_log_path):
@@ -319,10 +309,9 @@ def api_stats():
 @app.route("/api/tool-logs")
 def api_tool_logs():
     """处理 api_tool_logs 相关逻辑。"""
-    user_name = flask_session.get("user_name") or get_active_user()
-    session_data = get_session(user_name)
-    if not session_data or not session_data.get("chat"):
-        return jsonify({"error": "未选择用户"}), 400
+    session_data, err, code = require_session()
+    if err:
+        return err, code
     user_dir = session_data["user_dir"]
     logs = []
     new_log_path = os.path.join(user_dir, "history", "log", "tool_log.jsonl")
@@ -347,10 +336,9 @@ def api_tool_logs():
 @app.route("/api/reload", methods=["POST"])
 def api_reload_dynamic():
     """动态重载 system prompt + tools + ToolRunner，无需重启或重选用户"""
-    user_name = flask_session.get("user_name") or get_active_user()
-    session_data = get_session(user_name)
-    if not session_data or not session_data.get("chat"):
-        return jsonify({"error": "未选择用户"}), 400
+    session_data, err, code = require_session()
+    if err:
+        return err, code
 
     user_dir = session_data["user_dir"]
     root = session_data["root"]

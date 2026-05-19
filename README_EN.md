@@ -100,7 +100,7 @@ Edit `.env` in the project directory, add your key, then restart:
 docker compose restart
 ```
 
-After configuration, visit `http://localhost:14780`.
+After configuration, visit `http://localhost:1478`.
 
 To connect Docker deployment to an external NapCat container/process, edit
 `message-runtime/config.json` and set a forward WebSocket URL reachable from
@@ -121,7 +121,7 @@ bash install.sh
 Start after installation:
 
 ```bash
-votx        # Start Web UI at http://localhost:14780
+votx        # Start Web UI at http://localhost:1478
 ```
 
 ### Manual Installation
@@ -137,13 +137,15 @@ python set_user.py add   # Create a user and optionally enter a per-user API key
 
 ### Windows Build (PyInstaller)
 
-If you wish to package this project as a standalone executable directory on Windows, use the provided build script:
+If you wish to package this project as a standalone executable directory on Windows, use the provided build script.
+
+**Prerequisites:** Python 3.10+, Node.js 18+, pip. Conda is optional (the script auto-detects your environment).
 
 ```cmd
 build_windows.bat
 ```
 
-The script installs Python dependencies, checks and installs `pyinstaller`, builds the frontend, and bundles the project. After the build completes, it produces `dist\votx-agent-windows.zip`; unzip it and run `votx-agent.exe` to start the Web UI (you can also pass startup parameters like `--port=14780` via command line).
+The script installs Python dependencies, checks and installs `pyinstaller`, builds the frontend, and bundles the project. After the build completes, it produces `dist\votx-agent-windows.zip`; unzip it and run `votx-agent.exe` to start the Web UI (you can also pass startup parameters like `--port=1478` via command line).
 
 `.env` template (fallback only, `config.json` takes priority):
 
@@ -166,19 +168,19 @@ DEEPSEEK_API_KEY=sk-your-key-here
 
 ```bash
 # Ubuntu, after install.sh
-votx                   # Web UI at http://localhost:14780
+votx                   # Web UI at http://localhost:1478
 votx web               # Same as above
 votx cli               # Terminal chat mode
 votx help              # Show help
 votx web --port=8080   # Custom port
 
 # Manual / Windows
-python start_web.py              # Web UI at http://localhost:14780
+python start_web.py              # Web UI at http://localhost:1478
 python start_web.py --port=8080  # Custom port, auto-increments on conflict
 python start.py                  # CLI mode
 ```
 
-Open `http://localhost:14780` in your browser and select a user from the left sidebar to start chatting.
+Open `http://localhost:1478` in your browser and select a user from the left sidebar to start chatting.
 
 ### Slash Commands
 

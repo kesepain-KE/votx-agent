@@ -5,25 +5,23 @@ import os
 from flask import jsonify, request, session as flask_session
 
 from web.server import app
-from web.session import _root, get_session, get_active_user
+from web.session import _root, require_session
 
 
-def _get_user_dir():
-    """执行 get_user_dir 内部辅助逻辑。"""
-    user_name = flask_session.get("user_name") or get_active_user()
-    session_data = get_session(user_name)
-    if not session_data:
-        return None
-    return session_data.get("user_dir", "")
+def _require_user_dir():
+    """获取当前用户目录，未登录则返回 (error, status_code) 元组"""
+    session_data, err, code = require_session()
+    if err:
+        return err, code
+    return session_data.get("user_dir", ""), None
 
 
 @app.route("/api/tasks", methods=["GET"])
 def api_tasks_list():
     """处理 api_tasks_list 相关逻辑。"""
-    user_dir = _get_user_dir()
-    if not user_dir:
-        return jsonify({"error": "未选择用户"}), 400
-
+    user_dir, err = _require_user_dir()
+    if err:
+        return user_dir, err
     from cron.tasks import load_tasks
     tasks = load_tasks(user_dir)
     return jsonify(tasks)
@@ -32,9 +30,9 @@ def api_tasks_list():
 @app.route("/api/tasks", methods=["POST"])
 def api_tasks_create():
     """处理 api_tasks_create 相关逻辑。"""
-    user_dir = _get_user_dir()
-    if not user_dir:
-        return jsonify({"error": "未选择用户"}), 400
+    user_dir, err = _require_user_dir()
+    if err:
+        return user_dir, err
 
     data = request.get_json(silent=True) or {}
     task_type = data.get("type", "daily")
@@ -58,9 +56,9 @@ def api_tasks_create():
 @app.route("/api/tasks/<task_id>", methods=["DELETE"])
 def api_tasks_delete(task_id):
     """处理 api_tasks_delete 相关逻辑。"""
-    user_dir = _get_user_dir()
-    if not user_dir:
-        return jsonify({"error": "未选择用户"}), 400
+    user_dir, err = _require_user_dir()
+    if err:
+        return user_dir, err
 
     from cron.tasks import delete_task
     ok = delete_task(user_dir, task_id)
