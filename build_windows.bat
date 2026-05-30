@@ -120,6 +120,8 @@ echo.
 
 mkdir dist\votx-agent\users 2>nul
 mkdir dist\votx-agent\tmp 2>nul
+echo users/ > dist\votx-agent\users\.gitkeep
+echo tmp/ > dist\votx-agent\tmp\.gitkeep
 
 REM ---- 复制项目文件 ----
 echo [COPY] Copying project files...
@@ -143,7 +145,6 @@ copy /Y AGENTS.md dist\votx-agent\ >nul
 copy /Y set_user.py dist\votx-agent\ >nul
 copy /Y setup.py dist\votx-agent\ >nul
 copy /Y version.json dist\votx-agent\ >nul
-copy /Y requirements.txt dist\votx-agent\ >nul
 if exist ".env.example" copy /Y .env.example dist\votx-agent\ >nul
 
 REM ---- 复制 web/ ----
@@ -162,12 +163,14 @@ call npm install
 if %ERRORLEVEL% NEQ 0 (
     echo [ERROR] npm install failed
     popd
+    pause
     exit /b 1
 )
 call npm run build
 if %ERRORLEVEL% NEQ 0 (
     echo [ERROR] npm run build failed
     popd
+    pause
     exit /b 1
 )
 popd
