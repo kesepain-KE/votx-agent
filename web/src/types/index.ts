@@ -186,6 +186,7 @@ export interface AppStore {
   stats: { messages: string; tools: string; size: string }
   profileName: string
   profileInfo: string
+  avatarUrl: string
   chatTitle: string
   mainSub: string
   modelName: string

@@ -16,10 +16,41 @@ import json
 import os
 import time as _time
 import uuid
+from pathlib import Path
 from typing import Any, Generator
 
 from provider.base import BaseProvider
 from provider.schema import ProviderResponse, ToolCall
+
+
+def _load_dotenv():
+    """加载 .env 文件到 os.environ（仅当 key 不存在时设置）。"""
+    try:
+        from paths import get_project_root
+        root = Path(get_project_root())
+    except Exception:
+        root = Path(__file__).resolve().parent.parent
+    for candidate in [
+        root / ".env",
+        Path.cwd() / ".env",
+    ]:
+        try:
+            if candidate.is_file():
+                for line in candidate.read_text(encoding="utf-8").splitlines():
+                    line = line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    if "=" in line:
+                        k, v = line.split("=", 1)
+                        k = k.strip()
+                        v = v.strip().strip('"').strip("'")
+                        if k and k not in os.environ:
+                            os.environ[k] = v
+        except Exception:
+            pass
+
+
+_load_dotenv()
 
 MAX_RETRIES = 2
 RETRY_DELAY = 1.0
@@ -44,6 +75,11 @@ class AnthropicProvider(BaseProvider):
                 "  2. 设置环境变量: export ANTHROPIC_API_KEY=sk-ant-xxx"
             )
 
+        base_url = (
+            cfg.get("base_url", "").strip()
+            or os.environ.get("ANTHROPIC_BASE_URL", "")
+        )
+
         try:
             from anthropic import Anthropic
         except ImportError:
@@ -51,7 +87,7 @@ class AnthropicProvider(BaseProvider):
                 "Anthropic adapter 需要 anthropic 包。请运行: pip install anthropic"
             )
 
-        self.client = Anthropic(api_key=api_key)
+        self.client = Anthropic(api_key=api_key, base_url=base_url or None)
         self.model = cfg.get("model", "claude-sonnet-4-20250514")
         self.max_tokens = cfg.get("max_tokens", 8192)
         self.stream = cfg.get("stream", core.get("output", {}).get("stream", True))

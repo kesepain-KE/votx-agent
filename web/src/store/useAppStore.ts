@@ -72,6 +72,7 @@ export const useAppStore = create<AppStore>(() => ({
   stats: { messages: '-', tools: '-', size: '-' },
   profileName: '未连接',
   profileInfo: '选择用户开始',
+  avatarUrl: '',
   chatTitle: '对话闭环与工具调用',
   mainSub: '选择用户后开始对话',
   modelName: '-',

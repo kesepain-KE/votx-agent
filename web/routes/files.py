@@ -246,3 +246,28 @@ def api_delete_files_batch():
                         pass
 
     return jsonify({"ok": True, "deleted": deleted})
+
+
+AVATAR_NAMES = ["avatar.jpg", "avatar.png", "avatar.jpeg", "avatar.webp", "avatar.gif"]
+AVATAR_MIME = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+               ".webp": "image/webp", ".gif": "image/gif"}
+
+
+@app.route("/api/avatar")
+def api_avatar():
+    """返回当前用户的头像图片，无头像时返回 204。"""
+    session_data, err, code = require_session()
+    if err:
+        return err, code
+    avatar_dir = os.path.join(session_data.get("user_dir", ""), "avatar")
+    if not os.path.isdir(avatar_dir):
+        return "", 204
+    for name in AVATAR_NAMES:
+        path = os.path.join(avatar_dir, name)
+        if os.path.isfile(path):
+            ext = os.path.splitext(name)[1].lower()
+            mime = AVATAR_MIME.get(ext, "image/jpeg")
+            response = send_file(path, mimetype=mime, as_attachment=False, conditional=True)
+            response.headers["Cache-Control"] = "public, max-age=300"
+            return response
+    return "", 204

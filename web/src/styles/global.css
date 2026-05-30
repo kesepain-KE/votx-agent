@@ -575,6 +575,7 @@
       background: #ffffff;
       display: grid; place-items: center;
       color: #000; font-weight: 800; font-size: 14px;
+      overflow: hidden;
     }
 
     body[data-color-scheme="light"] .avatar { background: var(--accent); color: #fff; box-shadow: 0 8px 18px var(--accent-glow); }

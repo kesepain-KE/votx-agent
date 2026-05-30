@@ -1,4 +1,5 @@
 /** web/src/components/Sidebar/Sidebar.tsx 模块。 */
+import { useState } from 'react'
 import { useAppStore } from '@/store/useAppStore'
 import type { Conversation, ThemeId } from '@/types'
 import type { MouseEvent as ReactMouseEvent } from 'react'
@@ -32,8 +33,10 @@ export function Sidebar(props: Props) {
   const activeConv = useAppStore((s) => s.activeConv)
   const profileName = useAppStore((s) => s.profileName)
   const profileInfo = useAppStore((s) => s.profileInfo)
+  const avatarUrl = useAppStore((s) => s.avatarUrl)
   const refreshing = useAppStore((s) => s.refreshing)
   const set = useAppStore.setState
+  const [avatarFailed, setAvatarFailed] = useState(false)
 
   return (
     <aside className="sidebar glass" style={{ position: 'relative', overflow: 'hidden' }}>
@@ -68,7 +71,14 @@ export function Sidebar(props: Props) {
           </div>
 
           <div className="profile card profile-with-theme">
-            <div className="avatar">{props.profileInitial}</div>
+            <div className="avatar">
+              {avatarUrl && !avatarFailed ? (
+                <img src={avatarUrl} alt="" onError={() => setAvatarFailed(true)}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+              ) : (
+                props.profileInitial
+              )}
+            </div>
             <div>
               <b>{profileName}</b>
               <br />

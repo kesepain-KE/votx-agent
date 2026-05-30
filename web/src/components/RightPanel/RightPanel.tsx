@@ -118,12 +118,10 @@ export function RightPanel(props: Props) {
                   <label>api 模型</label>
                   <input value={config.model} onChange={(e) => set((s: AppStore) => ({ config: { ...s.config, model: e.target.value } }))} onBlur={() => props.saveConfigField('model', get().config.model)} />
                 </div>
-                {config.type !== 'anthropic' && (
-                  <div className="form-row">
-                    <label>base-url</label>
-                    <input value={config.baseUrl} onChange={(e) => set((s: AppStore) => ({ config: { ...s.config, baseUrl: e.target.value } }))} onBlur={() => props.saveConfigField('base_url', get().config.baseUrl)} />
-                  </div>
-                )}
+                <div className="form-row">
+                  <label>base-url</label>
+                  <input value={config.baseUrl} onChange={(e) => set((s: AppStore) => ({ config: { ...s.config, baseUrl: e.target.value } }))} onBlur={() => props.saveConfigField('base_url', get().config.baseUrl)} />
+                </div>
                 {config.type !== 'anthropic' && (
                   <div className="form-row">
                     <label>api 风格</label>

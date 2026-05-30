@@ -236,7 +236,7 @@ export function useAppActions() {
       if (data.error) { set({ selectErr: data.error }); return }
       const user = data.user || selectedUser
       set({
-        userActive: true, selectErr: '', profileName: user, profileInfo: '已连接',
+        userActive: true, selectErr: '', profileName: user, profileInfo: '已连接', avatarUrl: `/api/avatar?t=${Date.now()}`,
         chatTitle: `${user} · 对话`, mainSub: '输入消息开始对话', modelName: '-',
         messages: [], attachChips: [], activeConv: '__current__', isPreview: false, previewConvId: null,
       })
@@ -783,7 +783,7 @@ export function useAppActions() {
   const restoreSession = useCallback(async () => {
     try {
       const session = await api<{ active?: boolean; user?: string }>('/api/session'); if (!session.active) return
-      set({ userActive: true, selectedUser: session.user || get().selectedUser, profileName: session.user || '已连接用户', profileInfo: '已连接', chatTitle: `${session.user || ''} · 对话`, mainSub: '输入消息开始对话' })
+      set({ userActive: true, selectedUser: session.user || get().selectedUser, profileName: session.user || '已连接用户', profileInfo: '已连接', avatarUrl: `/api/avatar?t=${Date.now()}`, chatTitle: `${session.user || ''} · 对话`, mainSub: '输入消息开始对话' })
       try { const msgs = await api<RawMessage[]>('/api/messages'); if (Array.isArray(msgs) && msgs.length) { set({ messages: [] }); renderMessages(msgs); scrollBottom() } } catch { /* ignore */ }
       await Promise.all([refreshConversations(), loadToolLogs(), loadFileList(), loadSystemPrompt(), loadDebugConfig(), updateStats()])
     } catch { /* ignore */ }
