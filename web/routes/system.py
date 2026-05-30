@@ -102,10 +102,10 @@ def api_system_prompt():
 
     # ── 顺序与 engine.py build_system_prompt() 保持一致 ──
 
-    # 1. Skill 目录 — 复用 skills 模块缓存的扫描结果
+    # 1. Skill 目录 — 复用 skills 模块缓存的扫描结果（按用户过滤禁用）
     try:
-        from skills import get_cached_skills_info as _get_skills
-        all_skills = _get_skills()
+        from skills import get_filtered_skills_info
+        all_skills = get_filtered_skills_info(user_dir)
     except Exception:
         all_skills = []
     if all_skills:
@@ -395,15 +395,19 @@ def api_reload_dynamic():
 
     result = {"ok": True, "reloaded": []}
     warnings = []
+    disabled_skills = set()
 
     # 1. 重载 TOOL_REGISTRY + tool schemas
     try:
         from run.tool import TOOL_REGISTRY, load_tool_schemas
+        from skills import load_disabled_skills
         import skills
         TOOL_REGISTRY.clear()
         skills.register_all()
-        tools = load_tool_schemas()
+        disabled_skills = load_disabled_skills(user_dir)
+        tools = load_tool_schemas(disabled_skills=disabled_skills)
         session_data["tools"] = tools
+        session_data["disabled_skills"] = disabled_skills
         result["reloaded"].append(f"tools ({len(tools)})")
     except Exception as e:
         warnings.append(f"tools: {e}")
@@ -421,7 +425,24 @@ def api_reload_dynamic():
     # 3. 重建 ToolRunner
     try:
         from run.tool import ToolRunner
-        session_data["tool_runner"] = ToolRunner(core_config, user_config, user_dir=user_dir)
+        if not disabled_skills:
+            from skills import load_disabled_skills
+            disabled_skills = load_disabled_skills(user_dir)
+        session_data["tool_runner"] = ToolRunner(
+            core_config,
+            user_config,
+            user_dir=user_dir,
+            disabled_skills=disabled_skills,
+        )
+        try:
+            import plugins.vision_universal.tool as vu_tool
+            vu_tool.set_vision_context(
+                provider=session_data.get("provider"),
+                chat=chat,
+                user_name=session_data.get("user_name", ""),
+            )
+        except Exception:
+            pass
         result["reloaded"].append("tool_runner")
     except Exception as e:
         warnings.append(f"tool_runner: {e}")

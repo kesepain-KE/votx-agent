@@ -43,11 +43,15 @@ def _compute_cache_key(root: str, user_dir: str) -> str:
     mtimes.append(_mtime(os.path.join(root, "config", "soul.md")))
     # AGENTS.md
     mtimes.append(_mtime(os.path.join(root, "AGENTS.md")))
-    # skills 目录下所有 SKILL.md、tool.py、_meta.json
-    skills_dir = os.path.join(root, "skills")
-    for f in Path(skills_dir).rglob("*"):
-        if f.name in ("SKILL.md", "tool.py", "_meta.json"):
-            mtimes.append(_mtime(str(f)))
+    # plugins/ 和 skills/ 目录下所有 SKILL.md、tool.py、_meta.json
+    for scan_dir_name in ("plugins", "skills"):
+        scan_dir = os.path.join(root, scan_dir_name)
+        if os.path.isdir(scan_dir):
+            for f in Path(scan_dir).rglob("*"):
+                if f.name in ("SKILL.md", "tool.py", "_meta.json"):
+                    mtimes.append(_mtime(str(f)))
+    # 用户 config.json（技能禁用配置变更时刷新缓存）
+    mtimes.append(_mtime(os.path.join(user_dir, "config.json")))
     # improve/permanent (memory + self-improving + ontology)
     mtimes.append(_dir_max_mtime(os.path.join(user_dir, "improve", "memory", "permanent"), "*.md"))
     mtimes.append(_dir_max_mtime(os.path.join(user_dir, "improve", "self-improving", "permanent"), "*.md"))

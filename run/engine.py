@@ -95,7 +95,9 @@ def build_system_prompt(root: str, user_dir: str) -> str:
         with open(agent_md, encoding="utf-8") as f:
             system_prompt += "\n\n" + f.read()
 
-    skill_instructions = register_all()
+    register_all()  # 全局注册所有工具到 TOOL_REGISTRY
+    from skills import get_filtered_skills_info
+    skill_instructions = get_filtered_skills_info(user_dir)  # 按用户 disabled_builtin 过滤摘要
     if skill_instructions:
         tool_skills = [si for si in skill_instructions if si["has_tools"]]
         guide_skills = [si for si in skill_instructions if not si["has_tools"]]

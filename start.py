@@ -86,8 +86,10 @@ def main_once(user_name: str, prompt: str):
     from run.prompt_cache import build_cached_system_prompt
     system_prompt = build_cached_system_prompt(root, user_dir)
     from run.tool import load_tool_schemas, ToolRunner
-    tools = load_tool_schemas()
-    tool_runner = ToolRunner(core_config, user_config, user_dir=user_dir)
+    from skills import load_disabled_skills
+    disabled_skills = load_disabled_skills(user_dir)
+    tools = load_tool_schemas(disabled_skills=disabled_skills)
+    tool_runner = ToolRunner(core_config, user_config, user_dir=user_dir, disabled_skills=disabled_skills)
 
     # 初始化对话
     from run.chat import ChatManager
@@ -99,6 +101,8 @@ def main_once(user_name: str, prompt: str):
     ai_tool.set_auto_improve_context(provider=provider, chat=chat, user_name=user_name)
     import plugins.task_plan.tool as tp_tool
     tp_tool.set_task_plan_context(provider=provider, chat=chat, user_name=user_name)
+    import plugins.vision_universal.tool as vu_tool
+    vu_tool.set_vision_context(provider=provider, chat=chat, user_name=user_name)
     try:
         chat.load_history()
     except Exception:

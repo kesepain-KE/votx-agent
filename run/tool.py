@@ -6,6 +6,10 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from typing import Any, TYPE_CHECKING
 
 from plugins._common import err, log_tool_call, reset_current_user_dir, set_current_user_dir
+from skills._common import (
+    reset_current_user_dir as sc_reset_current_user_dir,
+    set_current_user_dir as sc_set_current_user_dir,
+)
 
 if TYPE_CHECKING:
     from provider.schema import ProviderResponse
@@ -20,10 +24,26 @@ def register_tool(schema: dict, handler, meta: dict = None):
     TOOL_REGISTRY[name] = (schema, handler, meta or {})
 
 
-def load_tool_schemas() -> list[dict[str, Any]]:
-    """返回排序后的 schema 列表"""
+def _normalize_skill_key(name: str) -> str:
+    return str(name).lower().replace("-", "_")
+
+
+def load_tool_schemas(disabled_skills: set | None = None) -> list[dict[str, Any]]:
+    """返回排序后的 schema 列表，可选按 disabled_skills 过滤工具。
+
+    Args:
+        disabled_skills: 被禁用的技能名集合（标准化后的 skill_key），
+                         为 None 时不过滤（向后兼容）。
+    """
     items = sorted(TOOL_REGISTRY.values(), key=lambda x: x[0]["function"]["name"])
-    return [s for s, *_ in items]  # 取第一个元素（schema），兼容二元组和三元组
+    schemas = [s for s, *_ in items]  # 取第一个元素（schema），兼容二元组和三元组
+    if disabled_skills:
+        from skills import get_tool_skill_map
+        tsm = get_tool_skill_map()
+        disabled_keys = {_normalize_skill_key(d) for d in disabled_skills}
+        schemas = [s for s in schemas
+                   if tsm.get(s["function"]["name"], "") not in disabled_keys]
+    return schemas
 
 
 def clear_tool_registry():
@@ -39,7 +59,7 @@ def get_tool_registry_snapshot() -> dict[str, Any]:
 class ToolRunner:
     """工具执行器 — 权限校验 / 限流 / 日志"""
 
-    def __init__(self, core_config: dict[str, Any], user_config: dict[str, Any] = None, user_dir: str | None = None):
+    def __init__(self, core_config: dict[str, Any], user_config: dict[str, Any] = None, user_dir: str | None = None, disabled_skills: set | None = None):
         """执行 init 内部辅助逻辑。"""
         tool_cfg = core_config.get("tool", {})
         self.max_total = tool_cfg.get("tool_max_per_type", 80)     # 单轮总上限
@@ -47,6 +67,7 @@ class ToolRunner:
         self.call_count = 0
         self.per_tool_count: dict[str, int] = {}
         self.user_dir = user_dir
+        self._disabled_skills = {_normalize_skill_key(d) for d in (disabled_skills or set())}
 
         # 工具执行超时，优先级：user_config.tool.tool_timeout > core_config.tool.tool_timeout > provider.timeout > 120s
         user_tool_cfg = (user_config or {}).get("tool", {})
@@ -75,6 +96,13 @@ class ToolRunner:
         enabled = self._enabled.get(name)
         if enabled is False:
             return err(f"工具 {name} 未启用（配置关闭）")
+        # 检查技能级禁用（双重保险：即使 schema 没过滤掉，执行层也拦截）
+        if self._disabled_skills:
+            from skills import get_tool_skill_map
+            tsm = get_tool_skill_map()
+            skill_key = tsm.get(name, "")
+            if skill_key and skill_key in self._disabled_skills:
+                return err(f"工具 {name} 所属技能已被用户禁用")
         if self.call_count >= self.max_total:
             return err(f"全局调用上限已达 ({self.max_total})")
         pc = self.per_tool_count.get(name, 0)
@@ -100,6 +128,7 @@ class ToolRunner:
         results: list[dict[str, Any]] = []
         details: list[dict[str, Any]] = []
         ctx_token = set_current_user_dir(self.user_dir)
+        sc_ctx_token = sc_set_current_user_dir(self.user_dir)
         try:
             for tc in response.tool_calls:
                 # 适配 ProviderResponse.ToolCall (统一格式) 和旧 SDK 对象
@@ -163,6 +192,7 @@ class ToolRunner:
                 details.append({"name": name, "args": args, "elapsed": elapsed, "success": success, "log_id": log_id, "tool_call_id": tc_id})
         finally:
             reset_current_user_dir(ctx_token)
+            sc_reset_current_user_dir(sc_ctx_token)
 
         return results, details
 

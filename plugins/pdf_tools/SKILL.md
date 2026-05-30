@@ -5,7 +5,26 @@ description: View, extract, edit, and manipulate PDF files. Supports text extrac
 
 # PDF Tools
 
-Tools for viewing, extracting, and editing PDF files using Python libraries (pdfplumber and PyPDF2).
+Tools for viewing, extracting, and editing PDF files using Python libraries (pypdf and reportlab).
+
+## Function Tools (AI Agent)
+
+The following operations are available as function tools that the AI agent can call directly:
+
+| Tool | Description |
+|------|-------------|
+| `pdf_info(file_path)` | Get PDF metadata: pages, sizes, author, title |
+| `pdf_extract_text(file_path, start_page, end_page)` | Extract text from PDF pages (1-indexed) |
+| `pdf_split(file_path, output_dir, pages_per_chunk)` | Split PDF into multiple files |
+| `pdf_merge(file_paths, output_path)` | Merge multiple PDFs into one |
+| `pdf_rotate(file_path, rotation, pages)` | Rotate all or specific pages |
+| `pdf_edit_text(file_path, page, x, y, text, output_path)` | Overlay text on a PDF page |
+
+All function tools enforce sandbox path validation (project directory and user directory only).
+
+## Scripts (Advanced / Manual)
+
+The `scripts/` directory provides CLI tools for advanced batch usage and manual workflows. See sections below for script usage.
 
 ## Quick Start
 

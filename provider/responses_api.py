@@ -350,6 +350,33 @@ class ResponsesProvider(BaseProvider):
 
 # ── 格式转换 ──
 
+def _to_responses_user_content(content: Any):
+    """Convert internal user content, including OpenAI multimodal blocks."""
+    if isinstance(content, str):
+        return content
+    if not isinstance(content, list):
+        return str(content or "")
+
+    parts: list[dict] = []
+    for part in content:
+        if not isinstance(part, dict):
+            parts.append({"type": "input_text", "text": str(part)})
+            continue
+
+        ptype = part.get("type")
+        if ptype == "text":
+            parts.append({"type": "input_text", "text": str(part.get("text", ""))})
+        elif ptype == "image_url":
+            image_url = part.get("image_url", {})
+            url = image_url.get("url", "") if isinstance(image_url, dict) else str(image_url or "")
+            parts.append({"type": "input_image", "image_url": url})
+        elif ptype in ("input_text", "input_image"):
+            parts.append(part)
+        else:
+            parts.append({"type": "input_text", "text": json.dumps(part, ensure_ascii=False)})
+    return parts
+
+
 def _to_responses_input(messages: list[dict]) -> tuple[str, list[dict]]:
     """内部 dict 格式 → Responses API input + instructions"""
     instructions = ""
@@ -361,7 +388,7 @@ def _to_responses_input(messages: list[dict]) -> tuple[str, list[dict]]:
             instructions += content + "\n"
             continue
         if role == "user":
-            items.append({"role": "user", "content": content or ""})
+            items.append({"role": "user", "content": _to_responses_user_content(content)})
         elif role == "assistant":
             if msg.get("tool_calls"):
                 for tc in msg["tool_calls"]:

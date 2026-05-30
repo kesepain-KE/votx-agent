@@ -80,14 +80,19 @@ def init_user_session(root: str, user_dir: str, user_name: str, user_config: dic
     # 注入 task_plan 上下文（供 task_plan_create 工具使用）
     import plugins.task_plan.tool as tp_tool
     tp_tool.set_task_plan_context(provider=provider, chat=chat, user_name=user_name)
+    # 注入 vision_universal 上下文（供 vision_universal 使用 session provider）
+    import plugins.vision_universal.tool as vu_tool
+    vu_tool.set_vision_context(provider=provider, chat=chat, user_name=user_name)
     try:
         chat.load_history()
     except Exception:
         pass
     system_prompt = build_cached_system_prompt(root, user_dir)
     # tools 必须在 system_prompt 之后加载 —— register_all() 在 build_system_prompt 内部执行
-    tools = load_tool_schemas()
-    tool_runner = ToolRunner(core_config, user_config, user_dir=user_dir)
+    from skills import load_disabled_skills
+    disabled = load_disabled_skills(user_dir)
+    tools = load_tool_schemas(disabled_skills=disabled)
+    tool_runner = ToolRunner(core_config, user_config, user_dir=user_dir, disabled_skills=disabled)
     chat.set_system_prompt(system_prompt)
 
     session_data = {

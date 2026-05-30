@@ -156,16 +156,20 @@ def _run_task_web(root: str, core_config: dict, task: dict):
     from run.engine import run_chat_turn, build_system_prompt
     from run.prompt_cache import build_cached_system_prompt
     from run.tool import ToolRunner, load_tool_schemas
+    from skills import load_disabled_skills
 
     system_prompt = build_cached_system_prompt(root, user_dir)
-    tools = load_tool_schemas()
-    tool_runner = ToolRunner(core_config, user_config, user_dir=user_dir)
+    disabled_skills = load_disabled_skills(user_dir)
+    tools = load_tool_schemas(disabled_skills=disabled_skills)
+    tool_runner = ToolRunner(core_config, user_config, user_dir=user_dir, disabled_skills=disabled_skills)
     chat.set_system_prompt(system_prompt)
 
     import plugins.auto_improve.tool as ai_tool
     ai_tool.set_auto_improve_context(provider=provider, chat=chat, user_name=user_name)
     import plugins.task_plan.tool as tp_tool
     tp_tool.set_task_plan_context(provider=provider, chat=chat, user_name=user_name)
+    import plugins.vision_universal.tool as vu_tool
+    vu_tool.set_vision_context(provider=provider, chat=chat, user_name=user_name)
 
     chat.add_user_message(command)
     tool_runner.reset_count()

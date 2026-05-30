@@ -250,6 +250,57 @@ class AnthropicProvider(BaseProvider):
 
 # ── 格式转换 ──
 
+def _openai_image_url_to_anthropic(block: dict) -> dict:
+    """Convert an OpenAI-style image_url block to Anthropic's image block."""
+    image_url = block.get("image_url", {})
+    url = image_url.get("url", "") if isinstance(image_url, dict) else str(image_url or "")
+    if url.startswith("data:") and "," in url:
+        header, data = url.split(",", 1)
+        media_type = "image/jpeg"
+        if header.startswith("data:") and ";" in header:
+            media_type = header[5:].split(";", 1)[0] or media_type
+        return {
+            "type": "image",
+            "source": {
+                "type": "base64",
+                "media_type": media_type,
+                "data": data,
+            },
+        }
+    return {
+        "type": "image",
+        "source": {
+            "type": "url",
+            "url": url,
+        },
+    }
+
+
+def _to_anthropic_user_content(content: Any):
+    """Convert internal user content, including OpenAI multimodal blocks."""
+    if isinstance(content, str):
+        return content
+    if not isinstance(content, list):
+        return str(content or "")
+
+    parts: list[dict] = []
+    for part in content:
+        if not isinstance(part, dict):
+            parts.append({"type": "text", "text": str(part)})
+            continue
+
+        ptype = part.get("type")
+        if ptype == "text":
+            parts.append({"type": "text", "text": str(part.get("text", ""))})
+        elif ptype == "image_url":
+            parts.append(_openai_image_url_to_anthropic(part))
+        elif ptype in ("image", "tool_result"):
+            parts.append(part)
+        else:
+            parts.append({"type": "text", "text": json.dumps(part, ensure_ascii=False)})
+    return parts
+
+
 def _to_anthropic_messages(messages: list[dict]) -> tuple[str, list[dict]]:
     """将内部 dict 格式转换为 Anthropic Messages 格式。
 
@@ -269,7 +320,7 @@ def _to_anthropic_messages(messages: list[dict]) -> tuple[str, list[dict]]:
             continue
 
         if role == "user":
-            result.append({"role": "user", "content": content or ""})
+            result.append({"role": "user", "content": _to_anthropic_user_content(content)})
             continue
 
         if role == "assistant":
