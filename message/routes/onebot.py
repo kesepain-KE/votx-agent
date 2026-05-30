@@ -166,7 +166,7 @@ class OneBotRouter:
         await self._reply(chat_type, chat_id, response)
 
     async def _download_onebot_files(self, msg: dict[str, Any], username: str,
-                                      source_id: str = "", message_id: str = "") -> list[dict]:
+                                      source_id: str = "", message_id: str = "") -> "list[AttachmentRecord]":
         """Download file segments from OneBot message. Returns list of AttachmentRecord dicts.
 
         NapCat 多字段容错: 依次取 file / file_id / name / url / file_unique / path

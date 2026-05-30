@@ -281,6 +281,11 @@ export interface RawConfig {
     stream: boolean
     model: string
     base_url: string
+    capabilities_override?: string[] | null
+    vision_model?: string
+    audio_transcription_model?: string
+    image_generation_model?: string
+    speech_generation_model?: string
   }
   task_plan?: { accept_task: boolean }
 }

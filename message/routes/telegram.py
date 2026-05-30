@@ -162,7 +162,7 @@ class TelegramRouter:
         await self._reply(chat_id, response)
 
     async def _download_telegram_files(self, msg: dict[str, Any], username: str,
-                                         source_id: str = "", message_id: str = "") -> list[dict]:
+                                         source_id: str = "", message_id: str = "") -> "list[AttachmentRecord]":
         """Download file attachments from Telegram message. Returns list of AttachmentRecord dicts.
 
         文件名优先级: file_name > Telegram file_path basename > 自动名

@@ -193,6 +193,12 @@ async def save_url_attachment(
             return True
         except Exception as e:
             print(f"[attachments] URL 下载失败 {url}: {e}")
+            # 清理部分下载的残留文件
+            try:
+                if dest.exists():
+                    os.remove(dest)
+            except OSError:
+                pass
             return None
 
     ok = await asyncio.to_thread(_dl)
@@ -200,8 +206,11 @@ async def save_url_attachment(
         return None
 
     record = _make_record(root, username, dest, kind, platform, message_id, source_id, filename)
-    # 自动写日志
-    _log_attachment(record, root, username)
+    # 自动写日志（日志写入失败不影响附件保存）
+    try:
+        _log_attachment(record, root, username)
+    except Exception as e:
+        print(f"[attachments] 日志写入失败: {e}")
     return record
 
 
@@ -227,13 +236,20 @@ def save_base64_attachment(
 
     try:
         data = base64.b64decode(b64_data)
+        MAX_SIZE = 100 * 1024 * 1024  # 100 MB
+        if len(data) > MAX_SIZE:
+            print(f"[attachments] base64 解码后过大: {len(data)} bytes")
+            return None
         dest.write_bytes(data)
     except Exception as e:
         print(f"[attachments] base64 保存失败: {e}")
         return None
 
     record = _make_record(root, username, dest, kind, platform, message_id, source_id, filename)
-    _log_attachment(record, root, username)
+    try:
+        _log_attachment(record, root, username)
+    except Exception as e:
+        print(f"[attachments] 日志写入失败: {e}")
     return record
 
 
