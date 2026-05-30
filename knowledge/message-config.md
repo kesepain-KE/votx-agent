@@ -1,25 +1,36 @@
-# message 配置手册
+# 外部消息路由配置
 
-`message-router` 已并入 Agent 进程，随 Web 服务启动和停止。NapCat 是外部容器或外部进程，votx-agent 只负责通过 WebSocket 连接它；Telegram 使用 Bot API 长轮询，不需要公网 webhook。
+本页说明如何让 VOTX Agent 接收 QQ/NapCat/OneBot 和 Telegram 的外部消息，并把图片、语音、文件等附件交给智能体处理。
 
-## 配置文件路径
+## 配置文件位置
 
-| 环境 | 路径 |
-|---|---|
-| Windows / Linux 原生 | `message/config.local.json`，由 `message/config.example.json` 复制 |
-| Docker | `message-runtime/config.json`，由 `message-runtime/config.example.json` 复制 |
-| 临时覆盖 | `VOTX_MESSAGE_CONFIG=/path/to/config.json` |
+原生运行时优先读取：
 
-示例文件默认关闭外部消息路由。启用时需要同时打开顶层 `enabled` 和目标平台 `enabled`。
+```text
+message/config.local.json
+```
 
-## 顶层配置
+如果不存在，则读取：
 
-| 字段 | 类型 | 默认 | 说明 |
-|---|---|---|---|
-| `enabled` | bool | false | 总开关；任一平台启用时也会自动视为启用 |
-| `admins` | string[] | [] | 内部管理员用户名，对应 `users/<name>/config.json` |
+```text
+message/config.json
+```
 
-## OneBot / NapCat / QQ
+Docker 运行时建议使用：
+
+```text
+message-runtime/config.json
+```
+
+并通过环境变量指定：
+
+```env
+VOTX_MESSAGE_CONFIG=/app/message-runtime/config.json
+```
+
+`message/config.example.json` 可作为初始模板。建议复制为 `message/config.local.json` 或 Docker 的 `message-runtime/config.json` 后再修改。
+
+## 最小配置结构
 
 ```json
 {
@@ -27,106 +38,211 @@
   "platforms": {
     "onebot": {
       "enabled": true,
-      "ws_url": "ws://127.0.0.1:3001",
+      "url": "ws://127.0.0.1:3001",
       "access_token": "",
       "reconnect_interval": 5,
       "api_timeout": 15,
       "bound_users": {
-        "qq:123456789": "alice"
+        "qq:123456789": "kesepain"
+      }
+    },
+    "telegram": {
+      "enabled": false,
+      "bot_token": "<telegram-bot-token>",
+      "poll_interval": 2,
+      "api_timeout": 20,
+      "bound_users": {
+        "tg:987654321": "kesepain"
       }
     }
   }
 }
 ```
 
-| 字段 | 说明 |
-|---|---|
-| `ws_url` | NapCat 正向 WebSocket 地址。本机用 `ws://127.0.0.1:3001` |
-| `access_token` | NapCat OneBot token；未设置就留空 |
-| `bound_users` | 外部 QQ 号到内部用户的绑定 |
+顶层 `enabled` 控制整个外部消息路由。各平台下的 `enabled` 分别控制 OneBot 和 Telegram。
 
-Docker 连接示例：
+## OneBot / NapCat
 
-- NapCat 在宿主机：`ws://host.docker.internal:3001`
-- NapCat 与 votx-agent 在同一 Docker 网络：`ws://napcat:3001`
-- 远程服务器：`ws://<服务器或内网IP>:3001`
+VOTX Agent 作为 WebSocket 客户端连接 NapCat 的正向 WebSocket。
 
-NapCat 侧只需要开启正向 WebSocket。不要配置反向 WebSocket 给 votx-agent。
+常见地址：
 
-## Telegram
+```text
+本机运行 NapCat: ws://127.0.0.1:3001
+Docker 访问宿主机 NapCat: ws://host.docker.internal:3001
+同一 Docker 网络: ws://napcat:3001
+```
+
+关键字段：
 
 ```json
 {
   "enabled": true,
-  "platforms": {
+  "url": "ws://127.0.0.1:3001",
+  "access_token": "",
+  "reconnect_interval": 5,
+  "api_timeout": 15,
+  "bound_users": {
+    "qq:123456789": "kesepain"
+  }
+}
+```
+
+`bound_users` 把外部账号绑定到内部用户目录。上例表示 QQ 号 `123456789` 的消息会进入：
+
+```text
+users/kesepain/
+```
+
+NapCat 如果开启了 access token，这里的 `access_token` 必须一致。
+
+## Telegram
+
+Telegram 使用长轮询，不需要公网 webhook。
+
+关键字段：
+
+```json
+{
+  "enabled": true,
+  "bot_token": "<telegram-bot-token>",
+  "poll_interval": 2,
+  "api_timeout": 20,
+  "bound_users": {
+    "tg:987654321": "kesepain"
+  }
+}
+```
+
+`bot_token` 从 BotFather 获取。`bound_users` 中的 Telegram 用户 ID 可以通过日志或 Telegram bot 的消息来源确认。
+
+如果启动日志出现 `getMe 失败`，优先检查：
+
+- `bot_token` 是否正确。
+- 当前网络是否能访问 Telegram API。
+- 是否需要配置代理环境变量 `HTTP_PROXY` / `HTTPS_PROXY`。
+
+## 群聊控制
+
+群聊建议开启 at 触发，避免智能体响应所有群消息。
+
+```json
+{
+  "group_mode": {
+    "qq": {
+      "enabled": true,
+      "require_at_bot": true,
+      "allow_agent_chat": true,
+      "max_message_length": 4000
+    },
     "telegram": {
       "enabled": true,
-      "bot_token": "123456:ABC",
-      "poll_interval": 2,
-      "api_timeout": 30,
-      "bound_users": {
-        "tg:987654321": "alice"
-      }
+      "require_at_bot": true,
+      "allow_agent_chat": true,
+      "max_message_length": 4000
     }
   }
 }
 ```
 
-| 字段 | 说明 |
-|---|---|
-| `bot_token` | 从 `@BotFather` 获取 |
-| `poll_interval` | 异常后的重试间隔，正常长轮询 timeout 固定由路由控制 |
-| `bound_users` | Telegram user id 到内部用户的绑定 |
+建议：
 
-## 命令系统
+- 私聊通常直接响应。
+- 群聊建议 `require_at_bot: true`。
+- 如果群里完全不希望智能体回复，设置 `allow_agent_chat: false`。
 
-| 命令 | 说明 |
-|---|---|
-| `/cron list` | 列出定时任务 |
-| `/cron add daily|once HH:MM <命令>` | 创建定时任务 |
-| `/cron update <task_id> time|command|type <新值>` | 更新定时任务 |
-| `/cron delete <task_id>` | 删除定时任务 |
-| `/plan list` | 列出任务计划 |
-| `/plan view <plan_id>` | 查看计划详情 |
-| `/plan approve <plan_id>` | 批准执行计划 |
-| `/plan abort <plan_id>` | 中止计划 |
+## 附件接收
 
-群聊默认需要 @bot 才响应；管理员用户在 `admins` 中配置。
+外部消息收到的图片、语音、视频、文件会统一保存到用户文件池：
+
+```text
+users/<用户名>/history/file/
+```
+
+这和 Web 上传文件使用同一个目录，因此 Web 右侧文件栏可以直接看到外部消息附件。
+
+支持类型：
+
+```text
+OneBot / NapCat: image, record, video, file
+Telegram: photo, document, voice, audio, video
+```
+
+智能体收到的消息会被整理为类似格式：
+
+```text
+[外部消息附件]
+- image: E:\code\votx-agent\users\kesepain\history\file\xxx.jpg （如需识别图片内容，请调用 vision_analyze）
+- voice: E:\code\votx-agent\users\kesepain\history\file\yyy.ogg （如需转写语音内容，请调用 audio_transcribe）
+
+用户消息:
+帮我看看这张图
+```
+
+常见处理方式：
+
+- 图片：调用 `vision_analyze`。
+- 语音：调用 `audio_transcribe`。
+- 文档/PDF/Office：调用 `markdown_converter` 或文件读取相关工具。
+- 普通文本文件：调用 `read_file`。
+
+附件日志位置：
+
+```text
+users/<用户名>/history/log/external_attachments.jsonl
+```
 
 ## 主动推送
 
-`send_qq_message` 和 `upload_qq_file` 不直接调用平台 API，而是写入 `push.queue_dir`：
+智能体可以通过内置工具把消息或文件推送回 QQ/Telegram。
 
-```json
-"push": {
-  "enabled": true,
-  "queue_dir": "message/push_queue",
-  "retry_times": 3,
-  "retry_interval": 5
-}
+相关工具：
+
+```text
+qq_send
+qq_file
 ```
 
-路由就绪后后台循环会发送 pending 任务；如果路由正在重连，任务会保持 pending，避免启动顺序导致推送丢失。
+推送队列默认目录：
 
-## 快速启用
-
-Windows / Linux 原生：
-
-```bash
-cp message/config.example.json message/config.local.json
+```text
+message/push_queue/
 ```
 
-Docker：
+Docker 环境可以在消息配置中改到运行时目录，避免容器重建时丢失。
 
-```bash
-bash install_docker.sh
-cp message-runtime/config.example.json message-runtime/config.json
-```
+## 常见问题
 
-然后修改：
+### OneBot 显示 did not receive a valid HTTP response
 
-1. `enabled: true`
-2. 对应平台 `enabled: true`
-3. `ws_url` 或 `bot_token`
-4. `bound_users`
-5. 重启 Web 服务或 Docker 容器
+通常是连接地址不是正向 WebSocket 地址，或 NapCat 没有开启对应服务。检查：
+
+- `url` 是否为 `ws://...`。
+- NapCat 正向 WebSocket 端口是否正确。
+- Docker 中是否应该使用 `host.docker.internal`。
+- `access_token` 是否一致。
+
+### 群聊没有响应
+
+检查：
+
+- 是否绑定了发送者账号。
+- 是否开启 `group_mode.<平台>.enabled`。
+- 是否需要 at 机器人。
+- 消息是否超过 `max_message_length`。
+
+### 附件没有出现在文件栏
+
+检查：
+
+- 文件是否保存到 `users/<用户名>/history/file/`。
+- 外部账号是否绑定到了正确的内部用户名。
+- Web 右侧文件栏是否正在查看对应用户和文件目录。
+
+### Telegram getMe 失败
+
+检查：
+
+- `bot_token` 是否正确。
+- 本机是否能访问 Telegram。
+- 代理环境变量是否配置正确。

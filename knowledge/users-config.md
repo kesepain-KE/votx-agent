@@ -1,199 +1,334 @@
-# users 配置手册
+# 用户配置文件
 
-每个用户是一个独立目录 `users/<用户名>/`，包含该用户的模型配置、对话历史、知识库和人设。
+每个用户都有独立目录：
 
-创建用户：运行 `python set_user.py` 或首次启动 `start_web.py` 时自动引导。
-
----
-
-## 一、目录结构
-
-```
+```text
 users/<用户名>/
-├── config.json          ← 核心配置文件（模型、历史、工具权限）
-├── self_soul.md         ← 用户人设/角色描述（Markdown）
-├── history/             ← 对话与操作历史
-│   ├── chat/            ← Agent 对话存档
-│   ├── log/             ← 工具调用日志
-│   ├── archive/         ← 已归档对话
-│   └── file/            ← Agent 产出的文件
-├── download/            ← 用户文件下载目录
-├── knowledge/           ← 用户独立知识库（Markdown）
-├── task-plan/           ← 任务计划存储
-├── tasks/               ← 定时任务存储
-└── improve/             ← AI 自我改进 — 三层记忆体系
-    ├── memory/          ← 用户记忆
-    │   ├── permanent/   ← 永久记忆（长期保留）
-    │   └── temporary/   ← 临时记忆（待审阅后转永久）
-    ├── self-improving/  ← AI 行为改进记录
-    │   ├── permanent/
-    │   └── temporary/
-    └── ontology/        ← 知识图谱
-        ├── permanent/
-        └── temporary/
 ```
 
----
+用户目录保存模型配置、聊天历史、文件、任务计划、个人知识和记忆。更新程序不会覆盖 `users/`。
 
-## 二、config.json 配置项
+## 目录结构
 
-```json
-{
-  "provider": { ... },
-  "history": { ... },
-  "tool": { ... },
-  "task_plan": { ... }
-}
+常见结构：
+
+```text
+users/<用户名>/
+├── config.json
+├── self_soul.md
+├── knowledge/
+├── history/
+│   ├── chat/
+│   ├── log/
+│   ├── archive/
+│   └── file/
+├── task-plan/
+├── tasks/
+└── improve/
 ```
 
-### 2.1 provider — 模型供应商
+说明：
 
-| 字段 | 类型 | 默认 | 说明 |
-|------|------|------|------|
-| `type` | string | "openai" | 供应商类型，当前仅支持 `openai`（兼容 OpenAI API 格式） |
-| `model` | string | — | 模型名称，如 `deepseek-v4-pro`, `deepseek-v4-flash`, `gpt-4o` |
-| `api_key` | string | "" | API Key。留空则使用 `.env` 全局配置 |
-| `base_url` | string | "" | API 地址。留空默认 DeepSeek，OpenAI 填 `https://api.openai.com/v1` |
-| `think` | bool | false | 是否启用思考模式（DeepSeek 模型支持） |
-| `stream` | bool | true | 是否启用流式输出 |
-| `timeout` | int | 120 | 请求超时（秒） |
-| `api_style` | string | "chat" | API 风格，固定 `chat` |
+- `config.json`：当前用户的模型、工具、技能、任务配置。
+- `self_soul.md`：用户专属系统提示词/人格设定。
+- `knowledge/`：用户个人知识库。
+- `history/chat/`：聊天历史。
+- `history/log/`：工具日志、附件日志等。
+- `history/file/`：Web 上传文件和外部消息附件。
+- `task-plan/`：智能体任务计划文件。
+- `tasks/`：定时任务文件。
+- `improve/`：auto_improve 的记忆和规则数据。
 
-**常用模型配置示例：**
+## 创建用户
+
+可以通过 Web 创建，也可以使用命令：
+
+```bash
+python set_user.py add
+```
+
+创建后会生成：
+
+```text
+users/<用户名>/config.json
+users/<用户名>/self_soul.md
+```
+
+## config.json 基本结构
+
+示例：
 
 ```json
-// DeepSeek
 {
   "provider": {
     "type": "openai",
-    "model": "deepseek-v4-pro",
-    "api_key": "sk-xxx",
+    "model": "deepseek-chat",
+    "api_key": "",
     "base_url": "https://api.deepseek.com",
-    "think": true,
     "stream": true,
-    "timeout": 120,
-    "api_style": "chat"
+    "think": false
+  },
+  "history": {
+    "data": true,
+    "log": true
+  },
+  "tool": {
+    "tool_timeout": 120,
+    "enabled": [],
+    "deny": []
+  },
+  "task_plan": {
+    "accept_task": false
+  },
+  "skills": {
+    "disabled_builtin": []
   }
 }
+```
 
-// OpenAI
+## 模型配置
+
+`provider.type` 表示服务商适配类型：
+
+```text
+openai     OpenAI 兼容接口，例如 OpenAI、DeepSeek、硅基流动、OpenRouter 等
+anthropic  Anthropic Claude 接口
+```
+
+OpenAI 兼容示例：
+
+```json
+{
+  "provider": {
+    "type": "openai",
+    "model": "deepseek-chat",
+    "api_key": "<你的 API Key>",
+    "base_url": "https://api.deepseek.com",
+    "stream": true,
+    "think": false
+  }
+}
+```
+
+Anthropic 示例：
+
+```json
+{
+  "provider": {
+    "type": "anthropic",
+    "model": "claude-3-5-sonnet-latest",
+    "api_key": "<你的 API Key>",
+    "base_url": "",
+    "stream": true
+  }
+}
+```
+
+如果 `api_key` 留空，程序会尝试读取环境变量。优先级见下文。
+
+## 环境变量优先级
+
+通常建议在用户 `config.json` 中配置模型。环境变量适合 Docker、服务器或临时覆盖。
+
+OpenAI 兼容接口：
+
+```text
+api_key:  config.json provider.api_key > DEEPSEEK_API_KEY > OPENAI_API_KEY
+base_url: config.json provider.base_url > DEEPSEEK_BASE_URL > 默认值
+```
+
+Anthropic：
+
+```text
+api_key:  config.json provider.api_key > ANTHROPIC_API_KEY
+base_url: config.json provider.base_url > ANTHROPIC_BASE_URL
+```
+
+`VOTX_PROVIDER` 可以覆盖服务商类型，但日常使用更推荐直接改用户配置。
+
+## 多模态能力配置
+
+VOTX Agent 支持把图像识别、语音识别、图像生成、语音生成拆成能力项。
+
+能力名：
+
+```text
+vision
+audio_transcription
+image_generation
+speech_generation
+```
+
+默认情况下，程序会根据 provider 和模型自动判断能力。高级用户可以手动声明：
+
+```json
 {
   "provider": {
     "type": "openai",
     "model": "gpt-4o",
-    "api_key": "sk-xxx",
+    "api_key": "<你的 API Key>",
     "base_url": "https://api.openai.com/v1",
-    "think": false,
-    "stream": true,
-    "timeout": 120,
-    "api_style": "chat"
+    "capabilities_override": [
+      "vision",
+      "audio_transcription",
+      "image_generation",
+      "speech_generation"
+    ],
+    "audio_transcription_model": "whisper-1",
+    "image_generation_model": "dall-e-3",
+    "speech_generation_model": "tts-1"
   }
 }
 ```
 
-### 2.2 history — 历史记录
+调用优先级：
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `data` | string | 对话数据文件名，存于 `history/chat/` |
-| `log` | string | 工具调用日志文件名，存于 `history/log/` |
+```text
+专用模型配置 > 默认聊天模型
+```
+
+例如语音生成会优先使用 `speech_generation_model`，没有配置时才尝试默认模型或返回不支持。
+
+如果当前 provider 不支持某项能力，智能体会明确提示需要修改配置，而不会自动切换到其他 provider。
+
+## 历史记录配置
 
 ```json
-"history": {
-  "data": "kesepain_chat_data.json",
-  "log": "kesepain_chat_log.json"
+{
+  "history": {
+    "data": true,
+    "log": true
+  }
 }
 ```
 
-### 2.3 tool — 工具权限
+含义：
 
-| 字段 | 类型 | 默认 | 说明 |
-|------|------|------|------|
-| `tool_timeout` | int | 240 | 工具调用超时（秒） |
-| `enabled` | object | {} | 工具启用/禁用白名单。空对象 = 全部启用。`{"tool_name": true}` 仅启用指定工具 |
-| `deny` | string[] | [] | 工具黑名单。`["shell", "http_post"]` 禁用指定工具 |
+- `data`: 是否保存聊天历史。
+- `log`: 是否保存工具调用和运行日志。
+
+## 工具配置
 
 ```json
-// 全部启用（默认）
-"tool": { "tool_timeout": 240, "enabled": {}, "deny": [] }
-
-// 仅启用特定工具
-"tool": { "tool_timeout": 240, "enabled": {"shell": true, "http_get": true}, "deny": [] }
-
-// 禁用危险工具
-"tool": { "tool_timeout": 240, "enabled": {}, "deny": ["shell", "http_post"] }
+{
+  "tool": {
+    "tool_timeout": 120,
+    "enabled": [],
+    "deny": []
+  }
+}
 ```
 
-### 2.4 task_plan — 任务计划
+说明：
 
-| 字段 | 类型 | 默认 | 说明 |
-|------|------|------|------|
-| `accept_task` | bool | true | 是否允许 Agent 自动接受并执行任务计划 |
+- `tool_timeout`: 单次工具调用超时时间，单位秒。
+- `enabled`: 工具白名单，留空表示不限制。
+- `deny`: 工具黑名单。
 
----
+如果同一个工具同时出现在白名单和黑名单，建议以黑名单为准，避免误调用。
 
-## 三、self_soul.md — 用户人设
+## 技能配置
 
-Markdown 格式，定义 Agent 的角色、风格和行为约束。示例：
+内置技能在：
 
-```markdown
-# 用户人设覆盖
-
-## 角色：猫猫小助手
-
-定位：帮助用户解决问题的猫猫助手。
-
-要求：
-1. 回复简洁精炼
-2. 不使用字符 # 和 *
-3. 可使用颜文字和"喵"语气词
-
-可用颜文字：(๑•̀ㅂ•́)و✧  (´·ω·`)  ₍˄·͈༝·͈˄*₎◞ ̑̑
+```text
+plugins/
 ```
 
----
+用户拓展技能在：
 
-## 四、knowledge — 知识库
-
-用户独立知识库，存放 Markdown 文件。Agent 可以检索和引用这些文件。
-
+```text
+skills/
 ```
+
+用户可以禁用部分非核心内置技能：
+
+```json
+{
+  "skills": {
+    "disabled_builtin": [
+      "video_download"
+    ]
+  }
+}
+```
+
+核心技能不可禁用。当前核心保护名单：
+
+```text
+file
+shell
+time
+network
+task_plan
+auto_improve
+skill_creator
+task_time
+kb_retriever
+```
+
+用户自己创建的技能位于 `skills/<name>/`，更新程序不会覆盖。
+
+## 任务计划配置
+
+```json
+{
+  "task_plan": {
+    "accept_task": false
+  }
+}
+```
+
+`accept_task` 控制复杂任务计划是否需要用户批准后执行。
+
+建议：
+
+- 日常个人助理：`false`，先审阅再执行。
+- 自动化环境：谨慎设置为 `true`。
+
+## self_soul.md
+
+`self_soul.md` 是用户专属提示词，可写入长期偏好、身份背景、回复风格和工作边界。
+
+示例：
+
+```md
+# 用户偏好
+
+- 默认使用中文。
+- 回答前先检查本地项目。
+- 涉及文件修改时保持简洁说明。
+```
+
+不要把 API Key、密码、Token 等密钥写进 `self_soul.md`。
+
+## 用户知识库
+
+用户个人知识库：
+
+```text
+users/<用户名>/knowledge/
+```
+
+全局知识库：
+
+```text
 knowledge/
-└── data_structure.md   ← 示例：用户自定义的知识文档
 ```
 
----
+区别：
 
-## 五、improve — 三层记忆体系
+- 用户知识库只服务当前用户。
+- 全局知识库服务整个系统。
+- 更新程序会保留用户知识库。
+- 全局 `knowledge/` 更新时会询问合并、跳过或全量覆盖。
 
-Agent 自我改进机制，三层独立管理：
+## 修改配置后的生效方式
 
-| 层级 | 目录 | 用途 |
-|------|------|------|
-| `memory` | `improve/memory/` | 用户记忆（偏好、习惯、上下文） |
-| `self-improving` | `improve/self-improving/` | AI 行为改进（对话策略、回复质量） |
-| `ontology` | `improve/ontology/` | 知识图谱（概念关系、知识点） |
+推荐：
 
-每层分为两个阶段：
-- **`temporary/`** — 临时记忆，AI 自动记录但需人工审阅确认
-- **`permanent/`** — 永久记忆，已确认并长期生效
+1. 在 Web 配置页保存。
+2. 或手动编辑 `users/<用户名>/config.json`。
+3. 重启 Web 服务，或使用系统重载功能。
 
----
-
-## 六、多用户管理
-
-`users/` 下每个子目录对应一个独立用户：
-
-```
-users/
-├── alice/
-│   ├── config.json      ← alice 用 DeepSeek
-│   └── ...
-├── bob/
-│   ├── config.json      ← bob 用 OpenAI
-│   └── ...
-```
-
-- 每个用户拥有独立的对话历史、知识库和人设
-- Web UI 登录时选择用户
-- message 平台通过 `bound_users` 将外部账号映射到内部用户
+如果修改了模型 Key、base_url、外部消息路由等底层配置，建议直接重启服务。

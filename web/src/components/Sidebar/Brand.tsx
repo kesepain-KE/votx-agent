@@ -5,7 +5,7 @@ export function Brand() {
   const version = useAppStore((s) => s.frameworkVersion)
   return (
     <div className="brand">
-      <div className="logo">V</div>
+      <img className="logo" src="/votx-agent.png" alt="votx-agent" />
       <div>
         <h1>votx-agent</h1>
         <p>本地多用户 Agent 控制台{version !== '-' ? ` · ${version}` : ''}</p>
