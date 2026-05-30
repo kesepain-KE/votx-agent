@@ -59,6 +59,8 @@ knowledge/users-config.md     # users/<name>/config.json、模型、多模态、
 knowledge/deployment.md       # Windows/Linux/Docker、环境变量、update.py
 ```
 
+内部架构和执行原理文件位于 `knowledge/01~08-*.md`，包括 system prompt 拼接、历史压缩、工具调用、memory 生命周期、定时任务、消息路由编号和任务计划执行原理。遇到“为什么这样运行 / 数据流怎么走 / 内部机制是什么”这类问题时，先读 `knowledge/data_structure.md`，再按索引读取对应原理文档。
+
 用户私有资料优先读：
 
 ```text

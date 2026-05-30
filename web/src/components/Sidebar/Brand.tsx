@@ -8,7 +8,7 @@ export function Brand() {
       <img className="logo" src="/votx-agent.png" alt="votx-agent" />
       <div>
         <h1>votx-agent</h1>
-        <p>本地多用户 Agent 控制台{version !== '-' ? ` · ${version}` : ''}</p>
+        <p>Agent 控制台{version !== '-' ? ` · ${version}` : ''}</p>
       </div>
     </div>
   )
