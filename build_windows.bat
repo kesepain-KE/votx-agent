@@ -25,18 +25,13 @@ if %ERRORLEVEL% EQU 0 (
 )
 
 REM 检查 Node.js
-set "HAS_NODE=0"
 where node >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
     for /f %%v in ('node --version 2^>^&1') do set "NODE_VER=%%v"
-    set "HAS_NODE=1"
     echo   Node.js %NODE_VER%         [OK]
 ) else (
     echo   [ERROR] Node.js not found!
-    echo.
-    echo   React frontend build requires Node.js ^>= 18.
-    echo   Download: https://nodejs.org/
-    echo.
+    echo   Please install Node.js ^>= 18 from https://nodejs.org/
     pause
     exit /b 1
 )
@@ -44,7 +39,6 @@ if %ERRORLEVEL% EQU 0 (
 where npm >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     echo   [ERROR] npm not found!
-    echo   Download: https://nodejs.org/
     pause
     exit /b 1
 )
@@ -52,50 +46,55 @@ if %ERRORLEVEL% NEQ 0 (
 echo   All prerequisites met.
 echo.
 
-REM ---- 激活构建环境 ----
-echo [ENV] Detecting Python environment...
+REM ---- 构建环境 ----
+echo [ENV] Setting up build environment...
 
-REM 检查是否在 conda 环境中 (CONDA_DEFAULT_ENV 变量存在)
-if defined CONDA_DEFAULT_ENV (
-    echo   Conda environment: %CONDA_DEFAULT_ENV%   [OK]
-) else (
-    echo   Using system Python (no conda detected)
+set "VENV_DIR=%~dp0build_env"
+
+REM 创建 venv（不存在时）
+if not exist "%VENV_DIR%\Scripts\python.exe" (
+    echo   Creating virtual environment...
+    python -m venv "%VENV_DIR%"
+    if %ERRORLEVEL% NEQ 0 (
+        echo   [ERROR] Failed to create virtual environment
+        pause
+        exit /b 1
+    )
 )
 
-REM 确保 pip 可用
-python -m pip --version >nul 2>&1
-if %ERRORLEVEL% NEQ 0 (
-    echo [ERROR] pip not available. Please install pip first.
-    pause
-    exit /b 1
-)
+REM 激活 venv
+set "PYTHON=%VENV_DIR%\Scripts\python.exe"
+set "PIP=%VENV_DIR%\Scripts\pip.exe"
 
-REM ---- 安装 PyInstaller ----
+echo   Virtual environment: %VENV_DIR%   [OK]
+
+REM 升级 pip
+"%PYTHON%" -m pip install --upgrade pip --quiet
+
+REM 安装依赖
 echo [INSTALL] Installing Python dependencies...
-python -m pip install -r requirements.txt
+"%PIP%" install -r requirements.txt
 if %ERRORLEVEL% NEQ 0 (
     echo [ERROR] Python dependencies install failed.
     pause
     exit /b 1
 )
 
-python -m pip show pyinstaller >nul 2>&1
+REM 检查 PyInstaller
+"%PYTHON%" -m pip show pyinstaller >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     echo [INSTALL] Installing PyInstaller...
-    python -m pip install pyinstaller
+    "%PIP%" install pyinstaller
 )
 
-python -m pip show pyinstaller >nul 2>&1
+"%PYTHON%" -m pip show pyinstaller >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     echo [ERROR] PyInstaller install failed.
     pause
     exit /b 1
 )
 
-REM ---- 构建 .exe ----
-echo [BUILD] Building votx-agent.exe...
-echo.
-
+REM ---- 清理 ----
 echo [CLEANUP] Cleaning __pycache__...
 for /d /r %%d in (__pycache__) do @if exist "%%d" rd /s /q "%%d" 2>nul
 del /s /q *.pyc 2>nul
@@ -103,8 +102,9 @@ del /s /q *.pyc 2>nul
 rmdir /s /q build 2>nul
 rmdir /s /q dist 2>nul
 
-pyinstaller votx-agent.spec
-
+REM ---- 构建 .exe ----
+echo [BUILD] Building votx-agent.exe...
+"%PYTHON%" -m PyInstaller votx-agent.spec
 if %ERRORLEVEL% NEQ 0 (
     echo.
     echo [ERROR] Build failed
@@ -119,10 +119,7 @@ echo ============================================================
 echo.
 
 mkdir dist\votx-agent\users 2>nul
-echo users/ > dist\votx-agent\users\.gitkeep
-
 mkdir dist\votx-agent\tmp 2>nul
-echo tmp/ > dist\votx-agent\tmp\.gitkeep
 
 REM ---- 复制项目文件 ----
 echo [COPY] Copying project files...
@@ -146,53 +143,41 @@ copy /Y AGENTS.md dist\votx-agent\ >nul
 copy /Y set_user.py dist\votx-agent\ >nul
 copy /Y setup.py dist\votx-agent\ >nul
 copy /Y version.json dist\votx-agent\ >nul
+copy /Y requirements.txt dist\votx-agent\ >nul
 if exist ".env.example" copy /Y .env.example dist\votx-agent\ >nul
 
-REM ---- 复制 web/（除 node_modules，保留 src/routes/dist 等源码与构建结果）----
+REM ---- 复制 web/ ----
 echo [COPY] Copying web/...
 robocopy web dist\votx-agent\web /E /XD node_modules __pycache__ /XF *.pyc *.pyo >nul
 if %ERRORLEVEL% GEQ 8 (
-    echo.
     echo [ERROR] Copy web/ failed
     pause
     exit /b 1
 )
 
 REM ---- 构建前端 ----
-echo.
 echo [FRONTEND] Building React frontend...
 pushd dist\votx-agent\web
 call npm install
 if %ERRORLEVEL% NEQ 0 (
-    echo.
     echo [ERROR] npm install failed
     popd
-    rmdir /s /q dist\votx-agent 2>nul
-    pause
     exit /b 1
 )
 call npm run build
 if %ERRORLEVEL% NEQ 0 (
-    echo.
     echo [ERROR] npm run build failed
     popd
-    rmdir /s /q dist\votx-agent 2>nul
-    pause
     exit /b 1
 )
 popd
-echo   React frontend built successfully
 
-REM ---- 清理 web/ 中构建不需要的依赖目录，保留源码与 dist/ ----
 echo [CLEANUP] Removing web node_modules from package...
 rmdir /s /q dist\votx-agent\web\node_modules 2>nul
 
 REM ---- 打包 ----
-echo.
-echo Wait 2 seconds to release handles...
-timeout /t 2 /nobreak >nul
-
 echo [PACKAGE] Zipping into dist\votx-agent-windows.zip...
+timeout /t 2 /nobreak >nul
 powershell -Command "Compress-Archive -Path dist\votx-agent -DestinationPath dist\votx-agent-windows.zip -Force"
 
 echo [CLEANUP] Removing unzipped output folder...
