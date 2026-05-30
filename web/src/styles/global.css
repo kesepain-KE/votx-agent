@@ -1298,6 +1298,7 @@
     /* ========== Right Panel ========== */
     .right {
       display: grid; grid-template-rows: auto 1fr;
+      min-width: 0; overflow: hidden;
       box-shadow: 0 0 40px rgba(255,255,255,0.08), 0 0 80px rgba(255,255,255,0.04), 0 0 120px rgba(255,255,255,0.02);
     }
     body[data-color-scheme="light"] .right {
@@ -1343,9 +1344,9 @@
       box-shadow: 0 8px 22px var(--accent-glow);
     }
 
-    .panel-body { padding: 16px; overflow-y: auto; }
+    .panel-body { padding: 16px; overflow-y: auto; overflow-x: hidden; min-width: 0; }
 
-    .pane { display: none; }
+    .pane { display: none; min-width: 0; max-width: 100%; }
     .pane.active { display: block; }
 
     /* Overview: prompt tabs */
@@ -1445,6 +1446,24 @@
 
     body[data-color-scheme="light"] .switch.on::after { background: var(--accent); }
 
+    /* Capability config */
+    .capability-mode-row { display: flex; gap: var(--s-2); }
+    .capability-tags { display: flex; flex-wrap: wrap; gap: var(--s-1); margin-top: 6px; }
+    .capability-tag {
+      padding: 3px 10px; border-radius: var(--r-full); font-size: 12px;
+      background: var(--glass-bg); border: 1px solid var(--glass-border);
+      color: var(--text-tertiary); transition: .2s;
+    }
+    .capability-tag.on {
+      background: var(--accent); color: #fff; border-color: var(--accent);
+    }
+    .capability-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 7px 0; cursor: pointer; border-bottom: 1px solid var(--glass-border);
+    }
+    .capability-row:last-child { border-bottom: none; }
+    .capability-row span { font-size: 13px; }
+
     /* Form rows */
     .form-row { display: grid; gap: 5px; }
 
@@ -1467,13 +1486,14 @@
     .key-hint { font-size: 11px; color: var(--text-secondary); margin-top: 6px; }
 
     /* Lists */
-    .list { display: grid; gap: 8px; }
+    .list { display: grid; gap: 8px; min-width: 0; max-width: 100%; overflow-x: hidden; }
 
     .item {
       padding: 12px 13px; border-radius: 15px;
       background: rgba(255,255,255,0.025);
       border: 1px solid var(--glass-border);
       transition: all var(--duration) var(--ease-out);
+      min-width: 0; max-width: 100%;
     }
 
     .item:hover {
@@ -1483,15 +1503,15 @@
     }
 
     .item-top {
-      display: flex; justify-content: space-between;
-      gap: 8px; font-size: 13px;
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 8px; font-size: 13px; min-width: 0;
     }
 
     .item p { font-size: 11px; color: var(--text-secondary); line-height: 1.45; margin-top: 4px; }
 
     .pill {
       padding: 3px 8px; border-radius: var(--r-full);
-      background: rgba(255,255,255,0.06);
+      background: rgba(255,255,255,0.06); flex-shrink: 0; white-space: nowrap;
       color: var(--text-secondary); font-size: 10px; font-weight: 600;
       flex-shrink: 0;
     }
@@ -1538,7 +1558,29 @@
     }
 
     .file-actions { display: flex; gap: 6px; margin-top: 6px; }
-    .file-select { display: flex; align-items: center; gap: 8px; }
+    .file-row {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: flex-start;
+      gap: 8px;
+      min-width: 0;
+      max-width: 100%;
+      overflow: hidden;
+    }
+    .file-check-label { display: flex; align-items: center; padding-top: 2px; flex-shrink: 0; }
+    .file-main { min-width: 0; max-width: 100%; overflow: hidden; }
+    .file-name,
+    .file-path {
+      display: block;
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .file-name { font-size: 13px; font-weight: 600; }
+    .file-path { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
     .file-check { accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer; }
 
     /* Plan bubble */

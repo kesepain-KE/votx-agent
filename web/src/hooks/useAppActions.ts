@@ -199,7 +199,7 @@ export function useAppActions() {
   function snapshotConfig() {
     const { config } = get()
     set({
-      lastSavedConfig: { type: config.type, apiStyle: config.apiStyle, model: config.model, baseUrl: config.baseUrl, think: config.think, stream: config.stream, acceptTask: config.acceptTask },
+      lastSavedConfig: { type: config.type, apiStyle: config.apiStyle, model: config.model, baseUrl: config.baseUrl, think: config.think, stream: config.stream, acceptTask: config.acceptTask, capabilitiesOverride: config.capabilitiesOverride, visionModel: config.visionModel, audioTranscriptionModel: config.audioTranscriptionModel, imageGenerationModel: config.imageGenerationModel, speechGenerationModel: config.speechGenerationModel },
     })
   }
 
@@ -776,7 +776,13 @@ export function useAppActions() {
       const cfg = await api<RawConfig>('/api/config'); if (cfg.error) return
       const provider = cfg.provider; const rawType = provider?.type || 'openai'
       set((s) => ({
-        config: { ...s.config, type: rawType === 'anthropic' ? 'anthropic' : 'openai', apiStyle: provider?.api_style || 'chat', think: !!provider?.think, stream: !!provider?.stream, acceptTask: !!(cfg.task_plan && cfg.task_plan.accept_task), model: provider?.model || '', baseUrl: provider?.base_url || '' },
+        config: { ...s.config, type: rawType === 'anthropic' ? 'anthropic' : 'openai', apiStyle: provider?.api_style || 'chat', think: !!provider?.think, stream: !!provider?.stream, acceptTask: !!(cfg.task_plan && cfg.task_plan.accept_task), model: provider?.model || '', baseUrl: provider?.base_url || '',
+          capabilitiesOverride: (provider as Record<string,unknown>)?.capabilities_override as string[]|null ?? null,
+          visionModel: (provider as Record<string,unknown>)?.vision_model as string || '',
+          audioTranscriptionModel: (provider as Record<string,unknown>)?.audio_transcription_model as string || '',
+          imageGenerationModel: (provider as Record<string,unknown>)?.image_generation_model as string || '',
+          speechGenerationModel: (provider as Record<string,unknown>)?.speech_generation_model as string || '',
+        },
         modelName: provider?.model || '-',
       }))
       snapshotConfig()
@@ -810,10 +816,47 @@ export function useAppActions() {
     try { const res = await api<{ ok?: boolean; error?: string; reloaded?: string[] }>('/api/reload', { method: 'POST' }); if (res.ok) toast(`已重载 ${(res.reloaded || []).join(', ')}`); else if (res.error) toast(res.error) } catch { toast('重载失败') }
   }, [get])
 
+  const fetchCapabilities = useCallback(async () => {
+    if (!get().userActive) return
+    try {
+      const res = await api<import('@/types').CapabilitiesInfo>('/api/provider-capabilities')
+      set({ capabilitiesInfo: res, capabilitiesMode: res.mode })
+    } catch { /* ignore */ }
+  }, [get])
+
+  const setCapabilitiesMode = useCallback((mode: import('@/types').CapabilityMode) => {
+    set({ capabilitiesMode: mode })
+  }, [])
+
+  const toggleCapability = useCallback((cap: string) => {
+    const info = get().capabilitiesInfo
+    if (!info) return
+    const current = info.override ?? info.effective
+    const next = current.includes(cap)
+      ? current.filter((c: string) => c !== cap)
+      : [...current, cap]
+    set({ capabilitiesInfo: { ...info, override: next } })
+  }, [get])
+
+  const saveCapabilities = useCallback(async () => {
+    const { capabilitiesMode, capabilitiesInfo } = get()
+    if (!capabilitiesInfo) return
+    try {
+      if (capabilitiesMode === 'auto') {
+        await api('/api/config', { method: 'POST', ...jsonBody({ capabilities_override: null }) })
+      } else {
+        const override = capabilitiesInfo.override || []
+        await api('/api/config', { method: 'POST', ...jsonBody({ capabilities_override: override }) })
+      }
+      toast('能力配置已保存，正在重载...')
+      await reloadAgent()
+    } catch { toast('保存失败') }
+  }, [get])
+
   const restoreConfig = useCallback(() => {
     if (!get().userActive) { toast('请先选择用户'); return }
     const last = get().lastSavedConfig; if (!last.model && !last.baseUrl && !last.type) { toast('没有可恢复的保存状态'); return }
-    set((s) => ({ config: { ...s.config, type: last.type || 'openai', apiStyle: last.apiStyle || '', model: last.model || '', baseUrl: last.baseUrl || '', think: 'think' in last ? !!last.think : s.config.think, stream: 'stream' in last ? !!last.stream : s.config.stream, acceptTask: 'acceptTask' in last ? !!last.acceptTask : s.config.acceptTask } }))
+    set((s) => ({ config: { ...s.config, type: last.type || 'openai', apiStyle: last.apiStyle || '', model: last.model || '', baseUrl: last.baseUrl || '', think: 'think' in last ? !!last.think : s.config.think, stream: 'stream' in last ? !!last.stream : s.config.stream, acceptTask: 'acceptTask' in last ? !!last.acceptTask : s.config.acceptTask, capabilitiesOverride: ('capabilitiesOverride' in last ? last.capabilitiesOverride ?? null : s.config.capabilitiesOverride), visionModel: 'visionModel' in last ? (last.visionModel || '') : s.config.visionModel, audioTranscriptionModel: 'audioTranscriptionModel' in last ? (last.audioTranscriptionModel || '') : s.config.audioTranscriptionModel, imageGenerationModel: 'imageGenerationModel' in last ? (last.imageGenerationModel || '') : s.config.imageGenerationModel, speechGenerationModel: 'speechGenerationModel' in last ? (last.speechGenerationModel || '') : s.config.speechGenerationModel } }))
     toast('已恢复到上次保存状态')
   }, [get, set])
 
@@ -878,6 +921,7 @@ export function useAppActions() {
     abortPlan, approvePlan, rejectPlan, modifyPlan, exitAbortPlan, stopModifyPlan, continuePlan, exitPlan,
     loadSystemPrompt, loadDebugConfig, saveConfigField, toggleConfigSwitch,
     saveAllConfig, applyConfig, reloadAgent, restoreConfig,
+    fetchCapabilities, setCapabilitiesMode, toggleCapability, saveCapabilities,
     refreshOverview, restoreSession, toggleThemeMenu, chooseTheme, onTextareaKeyDown,
     streamPlanRun, streamEvents,
   }

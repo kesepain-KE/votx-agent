@@ -101,8 +101,8 @@ def main_once(user_name: str, prompt: str):
     ai_tool.set_auto_improve_context(provider=provider, chat=chat, user_name=user_name)
     import plugins.task_plan.tool as tp_tool
     tp_tool.set_task_plan_context(provider=provider, chat=chat, user_name=user_name)
-    import plugins.vision_universal.tool as vu_tool
-    vu_tool.set_vision_context(provider=provider, chat=chat, user_name=user_name)
+    from plugins._common import set_multimodal_context
+    set_multimodal_context(provider=provider, chat=chat, user_name=user_name)
     try:
         chat.load_history()
     except Exception:

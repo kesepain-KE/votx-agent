@@ -40,6 +40,51 @@ def api_get_config():
         return jsonify({"error": f"读取配置失败: {e}"}), 500
 
 
+@app.route("/api/provider-capabilities")
+def api_provider_capabilities():
+    """返回当前 provider 的能力检测结果（自动检测 vs 手动覆盖）。"""
+    session_data, err, code = require_session()
+    if err:
+        return err, code
+
+    provider = session_data.get("provider")
+    user_dir = session_data.get("user_dir", "")
+    user_config = session_data.get("user_config", {})
+
+    # 读取磁盘上的 override（可能比内存中的 user_config 更新）
+    override = None
+    if user_dir:
+        config_path = os.path.join(user_dir, "config.json")
+        try:
+            with open(config_path, encoding="utf-8") as f:
+                config = json.load(f)
+            override = (config.get("provider", {}) or {}).get("capabilities_override")
+        except Exception:
+            pass
+
+    # 自动检测结果：用不含 override 的临时 provider 探测
+    detected = []
+    if provider:
+        try:
+            from provider.factory import create_provider
+            temp_config = copy.deepcopy(user_config)
+            if "capabilities_override" in temp_config.get("provider", {}):
+                del temp_config["provider"]["capabilities_override"]
+            temp_provider = create_provider(temp_config)
+            detected = sorted(temp_provider.capabilities())
+        except Exception:
+            pass
+
+    effective = sorted(provider.capabilities()) if provider else []
+
+    return jsonify({
+        "mode": "manual" if override is not None else "auto",
+        "detected": detected,
+        "effective": effective,
+        "override": override,
+    })
+
+
 @app.route("/api/config", methods=["POST"])
 def api_update_config():
     """处理 api_update_config 相关逻辑。"""
@@ -70,15 +115,30 @@ def api_update_config():
 
         # Provider 字段白名单
         allowed = {"type", "api_style", "model", "api_key", "base_url", "think", "stream",
-                   "timeout", "max_tokens", "thinking"}
+                   "timeout", "max_tokens", "thinking",
+                   "vision_model", "audio_transcription_model",
+                   "image_generation_model", "speech_generation_model"}
         for key in allowed & data.keys():
             provider[key] = data[key]
+
+        # capabilities_override 特殊处理
+        if "capabilities_override" in data:
+            val = data["capabilities_override"]
+            if val is None or val == "auto":
+                provider.pop("capabilities_override", None)
+            elif isinstance(val, list):
+                valid = {"vision", "audio_transcription", "image_generation", "speech_generation"}
+                provider["capabilities_override"] = [c for c in val if c in valid]
+            else:
+                return jsonify({"error": "capabilities_override 必须为 null 或数组"}), 400
 
         with open(config_path, "w", encoding="utf-8") as f:
             json.dump(config, f, ensure_ascii=False, indent=2)
 
-        # 关键字段变更 → 重建 Provider（切换协议 / api_style / 换 key / 换地址）
-        critical = {"type", "api_style", "api_key", "base_url"}
+        # 关键字段变更 → 重建 Provider
+        critical = {"type", "api_style", "api_key", "base_url", "capabilities_override",
+                    "vision_model", "audio_transcription_model",
+                    "image_generation_model", "speech_generation_model"}
         if critical & data.keys():
             from provider.factory import create_provider
             try:

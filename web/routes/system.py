@@ -435,8 +435,8 @@ def api_reload_dynamic():
             disabled_skills=disabled_skills,
         )
         try:
-            import plugins.vision_universal.tool as vu_tool
-            vu_tool.set_vision_context(
+            from plugins._common import set_multimodal_context
+            set_multimodal_context(
                 provider=session_data.get("provider"),
                 chat=chat,
                 user_name=session_data.get("user_name", ""),

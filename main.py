@@ -53,8 +53,8 @@ def main():
     # 注入 task_plan 上下文（供 task_plan_create 工具使用）
     import plugins.task_plan.tool as tp_tool
     tp_tool.set_task_plan_context(provider=provider, chat=chat, user_name=user_name)
-    import plugins.vision_universal.tool as vu_tool
-    vu_tool.set_vision_context(provider=provider, chat=chat, user_name=user_name)
+    from plugins._common import set_multimodal_context
+    set_multimodal_context(provider=provider, chat=chat, user_name=user_name)
     chat.load_history()
 
     # 退出时保存（含摘要）

@@ -16,6 +16,21 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 # skills/_common/__init__.py → skills/_common → skills → 项目根
 _CURRENT_USER_DIR: ContextVar[str | None] = ContextVar("votx_current_user_dir", default=None)
 
+# 多模态上下文 — session 级 provider 注入（所有 multimodal plugin 共用）
+_MULTIMODAL_CTX: ContextVar = ContextVar("multimodal_ctx", default=None)
+
+
+def set_multimodal_context(provider, chat=None, user_name: str = ""):
+    """注入当前会话的 provider 上下文。供所有 multimodal plugin 使用。
+    由 web/session.py、main.py、start.py、cron/scheduler.py 在会话初始化时调用。
+    """
+    _MULTIMODAL_CTX.set({"provider": provider, "chat": chat, "user_name": user_name})
+
+
+def get_multimodal_context() -> dict | None:
+    """获取当前会话的 multimodal 上下文（provider/chat/user_name）。"""
+    return _MULTIMODAL_CTX.get()
+
 
 def err(msg: str) -> str:
     """处理 err 相关逻辑。"""

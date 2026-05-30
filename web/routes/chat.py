@@ -127,10 +127,10 @@ def _run_chat_stream(session_data: dict, extra_user_message: str | None = None):
 
     from plugins.auto_improve.tool import set_auto_improve_context
     from plugins.task_plan.tool import set_task_plan_context
-    from plugins.vision_universal.tool import set_vision_context
+    from plugins._common import set_multimodal_context
     set_auto_improve_context(provider=provider, chat=chat, user_name=user_name)
     set_task_plan_context(provider=provider, chat=chat, user_name=user_name)
-    set_vision_context(provider=provider, chat=chat, user_name=user_name)
+    set_multimodal_context(provider=provider, chat=chat, user_name=user_name)
 
     # 按对象引用注入临时内部消息，finally 中按引用安全删除（避免 index pop 受历史裁剪影响）
     internal_msg = None

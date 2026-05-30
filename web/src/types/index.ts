@@ -84,6 +84,17 @@ export interface Conversation {
   msg_count?: number
 }
 
+/** 能力模式。 */
+export type CapabilityMode = 'auto' | 'manual'
+
+/** 描述 CapabilitiesInfo 数据结构。 */
+export interface CapabilitiesInfo {
+  mode: CapabilityMode
+  detected: string[]
+  effective: string[]
+  override: string[] | null
+}
+
 /** 描述 UserConfig 数据结构。 */
 export interface UserConfig {
   type: 'openai' | 'anthropic'
@@ -94,6 +105,11 @@ export interface UserConfig {
   think: boolean
   stream: boolean
   acceptTask: boolean
+  capabilitiesOverride: string[] | null
+  visionModel: string
+  audioTranscriptionModel: string
+  imageGenerationModel: string
+  speechGenerationModel: string
 }
 
 /** 描述 LogEntry 数据结构。 */
@@ -208,6 +224,8 @@ export interface AppStore {
   files: FileItem[]
   activePlan: Plan | null
   planPhase: 'review' | 'executing' | 'completed' | 'paused' | null
+  capabilitiesInfo: CapabilitiesInfo | null
+  capabilitiesMode: CapabilityMode
   toastText: string
   toastVisible: boolean
   menu: ContextMenuState

@@ -55,6 +55,16 @@ _load_dotenv()
 MAX_RETRIES = 2
 RETRY_DELAY = 1.0
 
+_ANTHROPIC_VISION_KEYWORDS = [
+    "claude-3", "claude-4", "claude-sonnet", "claude-opus", "claude-haiku",
+    "vision", "vl-", "-vl",
+]
+
+
+def _supports_vision_model(model: str) -> bool:
+    """检查模型名是否命中已知的多模态/视觉关键词（供 capabilities() 使用）。"""
+    return any(kw in model.lower() for kw in _ANTHROPIC_VISION_KEYWORDS)
+
 
 class AnthropicProvider(BaseProvider):
     """Anthropic Claude Provider — Messages API"""
@@ -92,6 +102,8 @@ class AnthropicProvider(BaseProvider):
         self.max_tokens = cfg.get("max_tokens", 8192)
         self.stream = cfg.get("stream", core.get("output", {}).get("stream", True))
         self.timeout = cfg.get("timeout", 120)
+        self.user_config = user_config
+        self.vision_model = cfg.get("vision_model", "")
         self.last_usage: dict | None = None
         self.last_response: ProviderResponse | None = None
 
@@ -103,15 +115,27 @@ class AnthropicProvider(BaseProvider):
 
     # ── BaseProvider 接口 ──
 
+    def capabilities(self) -> set[str]:
+        """返回 Anthropic provider 支持的能力集合。"""
+        from provider.base import VALID_CAPABILITIES
+        override = (self.user_config.get("provider", {}) or {}).get("capabilities_override")
+        if override is not None:
+            return {c for c in override if c in VALID_CAPABILITIES}
+        caps = set()
+        if self.vision_model or _supports_vision_model(self.model):
+            caps.add("vision")
+        return caps
+
     def respond(
-        self, messages: list[dict], tools: list[dict] | None = None
+        self, messages: list[dict], tools: list[dict] | None = None, model: str | None = None
     ) -> ProviderResponse:
         """非流式调用，返回统一 ProviderResponse"""
         system_prompt, anthropic_messages = _to_anthropic_messages(messages)
         anthropic_tools = _to_anthropic_tools(tools) if tools else None
 
+        effective_model = model or self.model
         kwargs: dict[str, Any] = {
-            "model": self.model,
+            "model": effective_model,
             "max_tokens": self.max_tokens,
             "messages": anthropic_messages,
             "timeout": self.timeout,
@@ -141,14 +165,15 @@ class AnthropicProvider(BaseProvider):
         return result
 
     def respond_stream(
-        self, messages: list[dict], tools: list[dict] | None = None
+        self, messages: list[dict], tools: list[dict] | None = None, model: str | None = None
     ) -> Generator[dict, None, None]:
         """流式调用，yield engine-compatible 事件 dict"""
         system_prompt, anthropic_messages = _to_anthropic_messages(messages)
         anthropic_tools = _to_anthropic_tools(tools) if tools else None
 
+        effective_model = model or self.model
         kwargs: dict[str, Any] = {
-            "model": self.model,
+            "model": effective_model,
             "max_tokens": self.max_tokens,
             "messages": anthropic_messages,
             "timeout": self.timeout,

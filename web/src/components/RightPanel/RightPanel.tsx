@@ -36,6 +36,12 @@ const PANEL_TABS = [
   { id: 'files' as const, label: '文件' },
 ]
 
+const FILE_NAME_TEXT_LIMIT = 20
+const FILE_PATH_TEXT_LIMIT = 30
+const clipFileText = (value: string, limit = FILE_NAME_TEXT_LIMIT) => (
+  value.length > limit ? `${value.slice(0, limit)}...` : value
+)
+
 /** 渲染 RightPanel 组件。 */
 export function RightPanel(props: Props) {
   const activeTab = useAppStore((s) => s.activeTab)
@@ -106,6 +112,37 @@ export function RightPanel(props: Props) {
               <div><b>任务计划</b><p style={{ color: 'var(--text-secondary)', fontSize: 11, marginTop: 2 }}>AI 自动分解复杂任务为步骤计划</p></div>
               <div className={`switch ${config.acceptTask ? 'on' : ''}`} onClick={() => props.toggleConfigSwitch('accept_task')} />
             </div>
+
+            {/* ── 专用模型（高级） ── */}
+            <details className="item" style={{ marginTop: 12 }}>
+              <summary className="item-top" style={{ cursor: 'pointer' }}><b>专用模型（高级）（需要自己知道服务商和模型的能力）</b></summary>
+              <div className="debug-grid" style={{ marginTop: 8 }}>
+                <div className="form-row">
+                  <label>图像识别模型</label>
+                  <input value={config.visionModel || ''} placeholder="与对话模型相同"
+                    onChange={(e) => set((s: AppStore) => ({ config: { ...s.config, visionModel: e.target.value } }))}
+                    onBlur={() => props.saveConfigField('vision_model', get().config.visionModel)} />
+                </div>
+                <div className="form-row">
+                  <label>语音识别模型</label>
+                  <input value={config.audioTranscriptionModel || ''} placeholder="whisper-1"
+                    onChange={(e) => set((s: AppStore) => ({ config: { ...s.config, audioTranscriptionModel: e.target.value } }))}
+                    onBlur={() => props.saveConfigField('audio_transcription_model', get().config.audioTranscriptionModel)} />
+                </div>
+                <div className="form-row">
+                  <label>图像生成模型</label>
+                  <input value={config.imageGenerationModel || ''} placeholder="dall-e-3"
+                    onChange={(e) => set((s: AppStore) => ({ config: { ...s.config, imageGenerationModel: e.target.value } }))}
+                    onBlur={() => props.saveConfigField('image_generation_model', get().config.imageGenerationModel)} />
+                </div>
+                <div className="form-row">
+                  <label>语音生成模型</label>
+                  <input value={config.speechGenerationModel || ''} placeholder="tts-1"
+                    onChange={(e) => set((s: AppStore) => ({ config: { ...s.config, speechGenerationModel: e.target.value } }))}
+                    onBlur={() => props.saveConfigField('speech_generation_model', get().config.speechGenerationModel)} />
+                </div>
+              </div>
+            </details>
 
             <div className="item">
               <div className="item-top"><b>用户模型设置</b><span className="pill">{selectedUser || '-'}</span></div>
@@ -243,14 +280,16 @@ export function RightPanel(props: Props) {
                 </div>
                 {group.files.map((file) => (
                   <div key={file._key} className="item">
-                    <div className="item-top">
-                      <label className="file-select">
+                    <div className="file-row">
+                      <label className="file-check-label">
                         <input className="file-check" type="checkbox" checked={file.checked} onChange={(e) => set({ files: get().files.map((f) => (f._key === file._key ? { ...f, checked: e.target.checked } : f)) })} />
-                        <b>{file.name}</b>
                       </label>
+                      <div className="file-main">
+                        <span className="file-name" title={file.name}>{clipFileText(file.name)}</span>
+                        <span className="file-path" title={file.path}>{clipFileText(file.path, FILE_PATH_TEXT_LIMIT)}</span>
+                      </div>
                       <span className="pill">{file.sizeStr}{file.mtimeStr ? ` · ${file.mtimeStr}` : ''}</span>
                     </div>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: 11, marginTop: 4 }}>{file.path}</p>
                     <div className="file-actions">
                       <button className="btn btn-ghost small" onClick={() => props.guideFile(file)}>引用</button>
                       <button className="btn btn-ghost small" onClick={() => props.downloadFile(file)}>下载</button>

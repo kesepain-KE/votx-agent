@@ -80,9 +80,9 @@ def init_user_session(root: str, user_dir: str, user_name: str, user_config: dic
     # 注入 task_plan 上下文（供 task_plan_create 工具使用）
     import plugins.task_plan.tool as tp_tool
     tp_tool.set_task_plan_context(provider=provider, chat=chat, user_name=user_name)
-    # 注入 vision_universal 上下文（供 vision_universal 使用 session provider）
-    import plugins.vision_universal.tool as vu_tool
-    vu_tool.set_vision_context(provider=provider, chat=chat, user_name=user_name)
+    # 注入多模态上下文（供 vision/audio/image/speech 所有 multimodal plugin 共用）
+    from plugins._common import set_multimodal_context
+    set_multimodal_context(provider=provider, chat=chat, user_name=user_name)
     try:
         chat.load_history()
     except Exception:
