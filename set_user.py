@@ -26,6 +26,10 @@ MODELS = {
     "1": ("deepseek-v4-flash", "快速便宜，日常推荐"),
     "2": ("deepseek-v4-pro", "更强推理，复杂任务"),
     "3": ("deepseek-chat", "DeepSeek Chat"),
+    "4": ("gpt-4o", "OpenAI 多模态旗舰"),
+    "5": ("gpt-4.1", "OpenAI 最新"),
+    "6": ("claude-sonnet-4-20250514", "Anthropic Claude Sonnet 4"),
+    "7": ("claude-opus-4-20250514", "Anthropic Claude Opus 4"),
 }
 
 # ── 默认人设模板 ───────────────────────────────
@@ -217,6 +221,11 @@ def add_user(name: str = "") -> str | None:
             "stream": stream,
             "timeout": 120,
             "api_style": "chat",
+            "vision_model": "",
+            "audio_transcription_model": "",
+            "image_generation_model": "",
+            "speech_generation_model": "",
+            "capabilities_override": None,
         },
         "history": {
             "data": f"{name}_chat_data.json",

@@ -45,6 +45,7 @@ def check_deps() -> bool:
         "yaml": "pyyaml",
         "flask": "flask",
         "websockets": "websockets",
+        "anthropic": "anthropic",
     }
     missing = []
     for mod, pkg in deps.items():
@@ -131,6 +132,7 @@ def verify_imports() -> bool:
         "agents",
         "web",
         "message",
+        "message.attachments",
         "message.routes.onebot",
         "message.routes.telegram",
     ]

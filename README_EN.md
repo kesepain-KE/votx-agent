@@ -4,397 +4,427 @@
 
 [![License](https://img.shields.io/badge/license-MIT-orange)](./LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
-[![Multi-LLM](https://img.shields.io/badge/LLM-OpenAI%20%7C%20Anthropic-brightgreen)](https://platform.deepseek.com/)
-[![Flask](https://img.shields.io/badge/web-Flask%20%2B%20React%20%2B%20TypeScript-lightgrey)](https://flask.palletsprojects.com/)
+[![LLM](https://img.shields.io/badge/LLM-OpenAI%20compatible%20%7C%20Anthropic-brightgreen)](https://platform.openai.com/)
+[![Web](https://img.shields.io/badge/web-Flask%20%2B%20React%20%2B%20TypeScript-lightgrey)](https://flask.palletsprojects.com/)
 [![Docker](https://img.shields.io/badge/docker-ready-blue)](https://www.docker.com/)
 
 [中文](./README.md) | English
 
-A multi-user AI Agent framework with role personas, tool calling, persistent memory, and a self-learning loop. Supports dual LLM protocols (OpenAI + Anthropic), multi-vendor access, with both CLI and Web UI sharing the same conversation engine.
+VOTX Agent is a local multi-user AI Agent framework with Web UI, CLI, tool calling, task plans, persistent memory, self-improvement, external message routing, and multimodal capabilities. See [version.json](./version.json) for the current version.
 
-## Table of Contents
+## Features
 
-- [Background](#background)
-- [Installation](#installation)
-  - [Docker Deployment](#docker-deployment)
-  - [Native Ubuntu Deployment](#native-ubuntu-deployment)
-  - [Manual Installation](#manual-installation)
-- [Usage](#usage)
-- [External Message Router](#external-message-router)
-- [Project Structure](#project-structure)
-- [Skills and Tools](#skills-and-tools)
-- [Core Design](#core-design)
-- [Configuration](#configuration)
-- [Dependencies](#dependencies)
-- [Development](#development)
-- [Related Projects](#related-projects)
-- [Maintainer](#maintainer)
-- [Contributing](#contributing)
-- [License](#license)
+- **Multiple providers**: OpenAI-compatible APIs, Responses API, Chat Completions, and Anthropic Messages API.
+- **Multi-user isolation**: each user has independent `config.json`, `self_soul.md`, history, files, memory, and knowledge base.
+- **Shared Web/CLI engine**: `run/engine.py` handles system prompts, tool calls, and history persistence.
+- **Skills/Plugins architecture**: `plugins/` for built-in skills, `skills/` for user extensions.
+- **Task plans**: complex requests can be decomposed into plans, approved from Web UI, paused, resumed, or aborted.
+- **auto_improve**: temporary/permanent memory layers with active review and cleanup.
+- **External message routing**: QQ/NapCat/OneBot and Telegram with image, voice, and file attachments.
+- **Multimodal tools**: image understanding, audio transcription, image generation, and speech generation.
+- **Global/user knowledge bases**: shared `knowledge/` plus per-user `users/<name>/knowledge/`.
+- **Linux/Docker updater**: `update.py` updates framework code while preserving user data.
 
-## Background
+## Quick Start
 
-Most AI Agent frameworks on GitHub are built for single-user, English-first scenarios, and their interaction model often stops at a CLI or API. votx-agent is designed for Chinese users and provides:
-
-- **Dual protocol support**: OpenAI protocol (Responses API / Chat Completions) and Anthropic protocol (Messages API) with a unified internal format
-- **Multi-vendor access**: DeepSeek / Anthropic / Azure / SiliconFlow / Groq / Xiaomi Mimo — switch by changing `base_url`
-- **Multi-user isolation**: each user has an independent persona (`self_soul.md`), conversation history, long-term memory, knowledge base, and file space
-- **Dual-level knowledge base**: user-level (default read/write) + global-level (read-only shared), hierarchical index navigation, PDF/Excel retrieval support
-- **Dual client support**: React Web UI and CLI terminal share the same `run/engine.py` conversation engine with consistent behavior
-- **Task planning**: complex requests auto-decomposed into step-by-step plans with Web UI progress bubble, approval/pause/abort support
-- **Self-learning**: both successful and failed tool executions generate learning records, automatically injected into future conversations for continuous improvement
-- **Cron scheduler**: scheduled tasks with cron expressions and forgetting curve management, integrated in Web UI status panel
-- **Long-conversation friendly**: auto token compression + summary archives keep context within model limits
-
-> This project is part of the [kesepain-KE](https://github.com/kesepain-KE) repository family and is under active iteration.
-
-## Installation
-
-### Requirements
-
-- Python 3.10 or later, not required for Docker deployment
-
-### Get an API Key
-
-Any of the following providers is supported (configure via the Web debug panel or `config.json`):
-
-- [DeepSeek](https://platform.deepseek.com/api_keys) — free quota available
-- [Anthropic Claude](https://console.anthropic.com/) — Messages API
-- [OpenAI](https://platform.openai.com/) — Responses API / Chat Completions
-- Other OpenAI-compatible providers (SiliconFlow, Groq, Xiaomi Mimo, etc.)
-
-Optional services:
-
-- [Tavily Search](https://tavily.com/) — required by the web search Skill
-- [UAPI](https://uapi.icu/) — required by the hotboard query Skill
-
-### Docker Deployment
+### Docker
 
 ```bash
 git clone https://github.com/kesepain-KE/votx-agent.git
 cd votx-agent
-docker compose up -d
-```
-
-You can also use the helper script to initialize runtime directories, build,
-and start the Compose service:
-
-```bash
 bash install_docker.sh
 ```
 
-After the container starts, configure your key in one of the following ways:
+Or start manually:
 
-**Option A: Create a user, recommended for per-user keys**
+```bash
+docker compose up -d
+```
+
+Open:
+
+```text
+http://localhost:1478
+```
+
+Create a user:
 
 ```bash
 docker exec -it votx-agent python set_user.py add
-# Enter username, model, API key, and other settings interactively
 ```
 
-**Option B: Configure the global .env file**
+For Docker external message routing, use:
 
-Edit `.env` in the project directory, add your key, then restart:
-
-```bash
-docker compose restart
+```text
+message-runtime/config.json
 ```
 
-After configuration, visit `http://localhost:1478`.
+and set:
 
-To connect Docker deployment to an external NapCat container/process, edit
-`message-runtime/config.json` and set a forward WebSocket URL reachable from
-the votx-agent container, for example `ws://host.docker.internal:3001` when
-NapCat runs on the Docker host, or `ws://napcat:3001` when both containers are
-on the same Docker network.
+```env
+VOTX_MESSAGE_CONFIG=/app/message-runtime/config.json
+```
 
-### Native Ubuntu Deployment
+### Native Linux
 
 ```bash
 git clone https://github.com/kesepain-KE/votx-agent.git
 cd votx-agent
 bash install.sh
+votx
 ```
 
-`install.sh` completes virtual environment creation, dependency installation, `votx` command registration, and **interactive user creation** where you can enter a per-user API key.
+### Windows
 
-Start after installation:
+Development run:
 
-```bash
-votx        # Start Web UI at http://localhost:1478
+```powershell
+python start_web.py
 ```
 
-### Manual Installation
-
-Use this path when you do not want to use the deployment methods above:
-
-```bash
-git clone https://github.com/kesepain-KE/votx-agent.git
-cd votx-agent
-python setup.py          # Install dependencies and optionally guide .env configuration
-python set_user.py add   # Create a user and optionally enter a per-user API key
-```
-
-### Windows Build (PyInstaller)
-
-If you wish to package this project as a standalone executable directory on Windows, use the provided build script.
-
-**Prerequisites:** Python 3.10+, Node.js 18+, pip. Conda is optional (the script auto-detects your environment).
+Windows package build:
 
 ```cmd
 build_windows.bat
 ```
 
-The script installs Python dependencies, checks and installs `pyinstaller`, builds the frontend, and bundles the project. After the build completes, it produces `dist\votx-agent-windows.zip`; unzip it and run `votx-agent.exe` to start the Web UI (you can also pass startup parameters like `--port=1478` via command line).
+Output:
 
-`.env` template (fallback only, `config.json` takes priority):
+```text
+dist\votx-agent-windows.zip
+```
+
+The Windows special build does not run the automatic updater. It only prints local/remote version information when starting the Web server.
+
+### Manual Install
 
 ```bash
-# OpenAI protocol fallback, config.json api_key takes priority
-DEEPSEEK_API_KEY=sk-your-key-here
-# DEEPSEEK_BASE_URL=https://api.deepseek.com
-
-# Anthropic protocol fallback
-# ANTHROPIC_API_KEY=sk-ant-your-key-here
-
-# Optional tool keys
-# UAPI_API_KEY=***
-# TAVILY_API_KEY=***
+git clone https://github.com/kesepain-KE/votx-agent.git
+cd votx-agent
+python setup.py
+python set_user.py add
+python start_web.py
 ```
 
-## Usage
+## Model Configuration
 
-### Start
-
-```bash
-# Ubuntu, after install.sh
-votx                   # Web UI at http://localhost:1478
-votx web               # Same as above
-votx cli               # Terminal chat mode
-votx help              # Show help
-votx web --port=8080   # Custom port
-
-# Manual / Windows
-python start_web.py              # Web UI at http://localhost:1478
-python start_web.py --port=8080  # Custom port, auto-increments on conflict
-python start.py                  # CLI mode
-```
-
-Open `http://localhost:1478` in your browser and select a user from the left sidebar to start chatting.
-
-### Slash Commands
-
-| Command | Environment | Description |
-|---|---|---|
-| `/clear` | CLI + Web | Clear current conversation, tool logs, and completed task plans |
-| `/new` `/newchat` | CLI + Web | Archive with summary and start a new conversation |
-| `/history` `/stats` | CLI + Web | View session statistics |
-| `/archive` | CLI + Web | Manually archive current conversation (without clearing) |
-| `/summarize` `/summary` | CLI + Web | Generate conversation summary and store in index |
-| `/retry` | CLI + Web | Revoke the previous AI response and regenerate |
-| `/help` | CLI + Web | Show help information |
-| `/exit` `/quit` `/q` | CLI only | Exit and automatically save history |
-
-The Web client also provides: multi-user session isolation, conversation list, read-only archive preview, continue from history, conversation rename & delete, Markdown export, and tool-call log viewing.
-
-### Conversation Example
+Recommended location:
 
 ```text
-You: Check today's hotboard and save the titles to a file
-  [tavily_search] → Fetching hotboard data...
-  [write_file] → Written to hotboard.txt
-Assistant: Today's hotboard has been saved to hotboard.txt, 50 items in total.
-[Token: input 2100 (cache hit 1950) | output 180 | total 2280]
+users/<username>/config.json
 ```
 
-![Web UI Screenshot](votx-agent-web-UI.png)
-
-## External Message Router
-
-`message-router` now runs in the Agent process and follows the Web server
-lifecycle. It does not require nginx/caddy and does not run a separate gateway.
-
-- QQ/NapCat: votx-agent connects as a WebSocket client to NapCat forward
-  WebSocket. NapCat remains an external container or process.
-- Telegram: uses Bot API `getUpdates` long polling, so no public webhook is
-  required.
-- External commands: `/cron list|add|update|delete` and
-  `/plan list|view|approve|abort`.
-- Push: `send_qq_message` and `upload_qq_file` enqueue outbound text/file
-  pushes for OneBot or Telegram.
-
-Config paths:
-
-| Environment | Config path |
-|---|---|
-| Native Windows / Linux | `message/config.local.json` first, then `message/config.json` |
-| Docker | host `./message-runtime/config.json`, container `/app/message-runtime/config.json` |
-| Temporary override | `VOTX_MESSAGE_CONFIG=/path/to/config.json` |
-
-Copy `message/config.example.json` before first use, set top-level `enabled`
-and the target platform `enabled` to `true`, then bind external accounts to an
-existing internal user with `bound_users`.
-
-## Project Structure
-
-```text
-votx-agent/
-├── votx.py                     # Entry command, votx web/cli/help
-├── start.py / start_web.py     # Startup entry points, CLI / Web
-├── setup.py / set_user.py      # Installation and user configuration wizards
-├── install.sh                  # One-click Ubuntu installer
-├── install_docker.sh           # Docker build/start helper
-├── requirements.txt
-├── Dockerfile                  # Docker image
-├── docker-compose.yml          # Docker Compose configuration
-├── docker-entrypoint.sh        # Docker entrypoint, checks users/keys without blocking startup
-├── message/                    # In-process message router for OneBot/NapCat, Telegram, push queue
-├── message-runtime/            # Docker bind-mounted message config/runtime directory, generated locally
-│
-├── provider/                   # Multi-LLM backend, unified ProviderResponse format
-│   ├── schema.py               # Unified data structures: ToolCall / ProviderResponse
-│   ├── base.py                 # Abstract BaseProvider interface
-│   ├── factory.py              # create_provider() factory
-│   ├── responses_api.py        # OpenAI Responses API + Chat Completions fallback
-│   ├── openai_api.py           # OpenAI Chat Completions API
-│   └── anthropic_adapter.py    # Anthropic Messages API adapter
-│
-├── run/                        # Conversation engine shared by CLI and Web
-│   ├── engine.py               # System prompt building and tool_calls loop
-│   ├── chat.py                 # Conversation history and archive management
-│   ├── tool.py                 # Tool registration and execution
-│   ├── summarize.py            # Summary generation and archive index
-│   ├── io_utils.py             # Atomic writes, JSONL, safe file I/O
-│   └── prompt_cache.py         # System prompt cache and invalidation
-│
-├── web/                        # Web UI
-│   ├── server.py               # Flask + SSE event stream
-│   ├── session.py              # Multi-user session isolation (sharded by user_name)
-│   ├── routes/                 # API routes (chat / config / conversations / files / system / task_plan)
-│   ├── index.html              # Vite entry
-│   ├── vite.config.ts          # Vite build config
-│   ├── package.json            # npm dependencies
-│   └── src/                    # React frontend (TypeScript + Zustand)
-│       ├── App.tsx             # Main app (thin shell, layout composition)
-│       ├── main.tsx            # React entry
-│       ├── api/client.ts       # HTTP client wrapper
-│       ├── types/index.ts      # TypeScript type definitions
-│       ├── utils/format.ts     # Markdown / KaTeX formatting
-│       ├── store/useAppStore.ts# Zustand global state
-│       ├── hooks/useAppActions.ts # Business logic hook
-│       ├── styles/global.css   # Global styles (15 themes)
-│       └── components/         # Components (Sidebar / Chat / RightPanel / Shared)
-│
-├── skills/                     # 30 Skills (15 tool + 15 instruction)
-├── agents/                     # Sub-agents (task_plan / auto_improve)
-├── cron/                       # Cron scheduler (scheduled tasks + forgetting curve)
-├── config/                     # Global configuration and AI execution rules
-├── tmp/                        # Agent temp files (scripts, runtime artifacts, pushable)
-├── users/                      # User data, personas, history, memory, files
-└── 开发文档/                    # Maintainer docs, local gitignored
-```
-
-## Skills and Tools
-
-| Category | Count | Description |
-|---|---:|---|
-| Tool Skills | 15 | Register function calling tools: file read/write, HTTP requests, shell execution, time, Word documents, video download, web search, hotboard query, long-term memory, ontology, universal vision, Markdown conversion, task planning, QQ/TG message sending, QQ/TG file upload |
-| Instruction Skills | 15 | Inject system prompt behavior guides: vision recognition, file search, PDF processing, web content fetching, self-improvement memory, knowledge base retrieval, OpenCLI adapter authoring & auto-fix, browser automation, smart search routing, and more |
-
-All Skills are located in the `skills/` directory and can be extended as needed.
-
-## Core Design
-
-**Conversation flow**
-
-```text
-User input → build_system_prompt() → create_provider(config)
-  → respond_stream(messages, tools) → ProviderResponse
-  → Parse tool_calls → Execute tools → Return results → Continue reasoning
-  → No tool_calls or configurable round limit reached (default 80) → Save history
-```
-
-- The system prompt is dynamically assembled from the user's persona, Skill catalog, self-improvement memory, long-term memory, knowledge base paths, active task plans, and other components
-- The Web UI streams reasoning progress, response content, and task plan status in real time through SSE
-- Tool-call chaining is automatically repaired when needed and supports multi-round continuous reasoning
-- Task planning: sub-agent analyzes conversation → generates step-by-step plan → Web UI progress bubble tracks in real time → auto/manual execution
-
-**Self-learning**
-
-Successful and failed tool executions both generate learning records. Relevant lessons are automatically injected into future conversations for continuous improvement.
-
-**Context management**
-
-Auto token estimation (CJK-aware) with pre-overflow compression: system prompt truncation + old message summary replacement, ensuring the context window limit is never exceeded.
-
-## Configuration
-
-After a user is created, `users/<name>/` contains that user's independent persona, configuration, and data directories.
-
-### Provider config (`users/<name>/config.json`)
+OpenAI-compatible example:
 
 ```json
 {
   "provider": {
     "type": "openai",
     "api_style": "chat",
-    "model": "deepseek-v4-pro",
-    "api_key": "sk-xxx",
+    "model": "deepseek-chat",
+    "api_key": "<your-api-key>",
     "base_url": "https://api.deepseek.com",
-    "think": true,
+    "stream": true,
+    "think": false
+  }
+}
+```
+
+Anthropic example:
+
+```json
+{
+  "provider": {
+    "type": "anthropic",
+    "model": "claude-3-5-sonnet-latest",
+    "api_key": "<your-api-key>",
     "stream": true
   }
 }
 ```
 
-- `type`: `"openai"` (OpenAI protocol) or `"anthropic"` (Anthropic protocol)
-- `api_style`: `"responses"` (Responses API) or `"chat"` (Chat Completions), OpenAI protocol only
-- Changes take effect immediately after clicking "Save" in the Web panel (instant Provider rebuild).
-- `POST /api/reload` invalidates the prompt cache and reloads system prompt, tools, and ToolRunner.
+Environment variables are fallback only:
 
-### Priority
+```env
+DEEPSEEK_API_KEY=sk-xxx
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+OPENAI_API_KEY=sk-xxx
+ANTHROPIC_API_KEY=sk-ant-xxx
+TAVILY_API_KEY=tvly-xxx
+```
 
-`config.json` > `.env` environment variables. `.env` serves as a global fallback only.
+Priority:
 
-> `.gitignore` excludes runtime data such as `users/*/history/`, `users/*/tmp/`, `memory/`, and `logs/`, private files such as `.env` and `*.key`, build caches such as `__pycache__/`, and `开发文档/`. The project-level `tmp/` is the agent temporary file directory and is pushable. See [`.gitignore`](./.gitignore) for details.
+```text
+users/<name>/config.json > environment variables > defaults
+```
 
-## Dependencies
+## Multimodal
 
-- Python 3.10+ · Flask ≥ 3.0 · openai ≥ 1.0 · anthropic ≥ 0.30
-- Node.js ≥ 18 (frontend development / build)
-- requests · yt-dlp · python-docx · pyyaml, and more
+Capability names:
 
-See [requirements.txt](./requirements.txt) for the full list.
+```text
+vision
+audio_transcription
+image_generation
+speech_generation
+```
+
+Advanced configuration:
+
+```json
+{
+  "provider": {
+    "capabilities_override": [
+      "vision",
+      "audio_transcription",
+      "image_generation",
+      "speech_generation"
+    ],
+    "audio_transcription_model": "whisper-1",
+    "image_generation_model": "dall-e-3",
+    "speech_generation_model": "tts-1"
+  }
+}
+```
+
+Call priority:
+
+```text
+dedicated model > default chat model
+```
+
+Common tools:
+
+| Tool | Description |
+|---|---|
+| `vision_analyze` | Image understanding, supports multiple images |
+| `audio_transcribe` | Audio to text |
+| `image_generate` | Text to image, defaults to `users/<name>/download/` |
+| `speech_generate` | Text to speech, defaults to `users/<name>/download/` |
+
+## Usage
+
+```bash
+python start_web.py
+python start_web.py --port=8080
+python start.py
+python start.py --user <username> --prompt "<message>" --once
+```
+
+After Linux installation:
+
+```bash
+votx
+votx cli
+votx web --port=8080
+```
+
+Slash commands:
+
+| Command | Description |
+|---|---|
+| `/clear` | Clear current conversation |
+| `/new` | Archive current conversation and start a new one |
+| `/archive` | Archive manually |
+| `/summarize` | Generate a summary |
+| `/retry` | Retry the previous turn |
+| `/stats` | Show statistics |
+| `/help` | Show help |
+
+## External Message Router
+
+Config priority:
+
+```text
+VOTX_MESSAGE_CONFIG
+message/config.local.json
+message/config.json
+```
+
+Docker recommended path:
+
+```text
+message-runtime/config.json
+```
+
+OneBot/NapCat example:
+
+```json
+{
+  "enabled": true,
+  "platforms": {
+    "onebot": {
+      "enabled": true,
+      "ws_url": "ws://127.0.0.1:3001",
+      "access_token": "",
+      "bound_users": {
+        "qq:123456789": "kesepain"
+      }
+    }
+  }
+}
+```
+
+Telegram example:
+
+```json
+{
+  "enabled": true,
+  "platforms": {
+    "telegram": {
+      "enabled": true,
+      "bot_token": "<telegram-bot-token>",
+      "bound_users": {
+        "tg:987654321": "kesepain"
+      }
+    }
+  }
+}
+```
+
+External attachments are saved to:
+
+```text
+users/<username>/history/file/
+```
+
+Attachment log:
+
+```text
+users/<username>/history/log/external_attachments.jsonl
+```
+
+Supported inputs:
+
+- OneBot/NapCat: image, record, video, file
+- Telegram: photo, document, voice, audio, video
+- External commands: `/cron list|add|update|delete`, `/plan list|view|approve|abort`
+
+## Files and Knowledge
+
+| Path | Purpose |
+|---|---|
+| `users/<name>/history/file/` | Web uploads, external attachments, regular user files |
+| `users/<name>/download/` | Image/speech generation defaults, downloader output, legacy downloads |
+| `users/<name>/knowledge/` | User private knowledge base |
+| `knowledge/` | Global shared knowledge base |
+| `tmp/` | Temporary files |
+
+After writing to global `knowledge/`, update:
+
+```text
+knowledge/data_structure.md
+```
+
+## Skills / Plugins
+
+| Directory | Description |
+|---|---|
+| `plugins/` | Built-in framework skills, can be overwritten by updates |
+| `skills/` | User extension skills, never overwritten by updates |
+
+Current built-ins: 23 skills, including 19 tool skills and 4 instruction skills, registering 48 tools.
+
+Core built-ins cannot be disabled:
+
+```text
+file shell time network task_plan auto_improve skill_creator task_time kb_retriever
+```
+
+User skills can override same-name built-ins with `override: true`.
+
+## Project Structure
+
+```text
+votx-agent/
+├── agents/             # Sub-agents: auto_improve, task_plan
+├── config/             # Global config and base persona
+├── cron/               # Scheduler
+├── knowledge/          # Global knowledge base
+├── message/            # OneBot/NapCat, Telegram, push queue
+├── message-runtime/    # Docker external message runtime config
+├── plugins/            # Built-in skills
+├── provider/           # OpenAI-compatible, Anthropic, multimodal capability layer
+├── run/                # Conversation engine, history, tool runner
+├── skills/             # User extension skills
+├── users/              # User data
+├── web/                # Flask + React + TypeScript + Vite
+├── AGENTS.md           # Agent operation manual
+├── update.py           # Linux/Docker updater
+├── version.json        # Current version
+└── build_windows.bat   # Windows package script
+```
+
+## Updates
+
+Native Linux:
+
+```bash
+python update.py --check
+python update.py --native
+```
+
+Docker:
+
+```bash
+python update.py --check
+python update.py --docker
+```
+
+The updater overwrites framework code and `plugins/`, while preserving `users/`, `skills/`, `.env`, `message-runtime/`, and message queues. `knowledge/` update is interactive: merge, skip, or full overwrite.
+
+## Windows Package Contents
+
+Included:
+
+```text
+agents/ config/ cron/ message/ message-runtime/ plugins/ provider/ run/
+skills/ web/ users/ tmp/ knowledge/
+paths.py AGENTS.md set_user.py setup.py version.json .env.example
+```
+
+Excluded:
+
+```text
+update.py tests/ 使用手册-AI/ tools/ web/node_modules/
+message/config.json message/config.local.json message/identity/identity_map.json
+message/push_queue/ .env .session_secret *.pyc *.pyo __pycache__/
+```
 
 ## Development
 
 ```bash
-# Backend
-python setup.py --check     # Check environment only
-python setup.py --skip-env  # Skip .env configuration
-pytest                      # Run tests
+python -m py_compile <file.py>
+python -m compileall -q .
 
-# Frontend
 cd web
-npm install                 # Install dependencies
-npm run dev                 # Vite dev server (localhost:5173, proxies Flask backend)
-npm run build               # Production build → dist/
-npx tsc --noEmit            # TypeScript type check
+npm install
+npm run dev
+npm run build
+npx tsc --noEmit
 ```
 
-Maintainer docs in `开发文档/` are gitignored and not included in the public repository. [`AGENTS.md`](./AGENTS.md) is the operation manual for AI coding agents.
+Maintainer docs:
+
+```text
+开发文档.md
+开发文档/
+AGENTS.md
+knowledge/
+使用手册-AI/
+```
 
 ## Related Projects
 
-- [OpenAI Responses API](https://platform.openai.com/docs/guides/responses) — primary protocol, auto-fallback to Chat Completions
-- [Anthropic Messages API](https://docs.anthropic.com/) — native extended thinking support
-- [standard-readme](https://github.com/RichardLitt/standard-readme) — English README standard
-- [ChineseREADME](https://sunyctf.github.io/ChineseREADME/) — reference for this Chinese README
-- [yt-dlp](https://github.com/yt-dlp/yt-dlp) — video download engine
+- [OpenAI API](https://platform.openai.com/docs)
+- [Anthropic API](https://docs.anthropic.com/)
+- [NapCat](https://github.com/NapNeko/NapCatQQ)
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp)
 
 ## Maintainer
 
-[@kesepain](https://github.com/kesepain-KE) — project creator and main maintainer
+[@kesepain](https://github.com/kesepain-KE)
 
 ## Contributing
 
@@ -403,11 +433,7 @@ Pull Requests and Issues are welcome:
 - [Pull Requests](https://github.com/kesepain-KE/votx-agent/pulls)
 - [Issues](https://github.com/kesepain-KE/votx-agent/issues)
 
-Please read [`AGENTS.md`](./AGENTS.md) before contributing. For large changes, open an Issue first to discuss the plan and avoid duplicated work.
-
-### Contributors
-
-Thanks to everyone who contributes to this project.
+Please read [AGENTS.md](./AGENTS.md) before contributing. For large changes, open an Issue first to discuss the plan.
 
 ## License
 
