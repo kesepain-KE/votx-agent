@@ -451,3 +451,48 @@ def api_reload_dynamic():
         result["warnings"] = warnings
 
     return jsonify(result)
+
+
+@app.route("/api/version")
+def api_version():
+    """返回主框架 + 所有插件的版本信息。"""
+    import json as _json
+    from pathlib import Path as _Path
+
+    project_root = _Path(__file__).resolve().parent.parent.parent
+
+    # 主框架版本
+    framework = {"name": "votx-agent", "version": "0.0.0"}
+    root_vf = project_root / "version.json"
+    if root_vf.is_file():
+        try:
+            data = _json.loads(root_vf.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                framework["name"] = str(data.get("name", framework["name"]))
+                framework["version"] = str(data.get("version", framework["version"]))
+        except Exception:
+            pass
+
+    # 插件版本
+    plugins: list[dict] = []
+    plugins_dir = project_root / "plugins"
+    if plugins_dir.is_dir():
+        for d in sorted(plugins_dir.iterdir()):
+            if not d.is_dir() or d.name.startswith("_") or d.name == "__pycache__":
+                continue
+            vf = d / "version.json"
+            pv = {"name": d.name, "version": "0.0.0"}
+            if vf.is_file():
+                try:
+                    data = _json.loads(vf.read_text(encoding="utf-8"))
+                    if isinstance(data, dict):
+                        pv["name"] = str(data.get("name", pv["name"]))
+                        pv["version"] = str(data.get("version", pv["version"]))
+                except Exception:
+                    pass
+            plugins.append(pv)
+
+    return _json.dumps(
+        {"framework": framework, "plugins": plugins},
+        ensure_ascii=False,
+    ), 200, {"Content-Type": "application/json"}

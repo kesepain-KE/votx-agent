@@ -178,6 +178,12 @@ export interface UserInfo {
   model: string
 }
 
+/** 描述插件版本信息。 */
+export interface PluginVersion {
+  name: string
+  version: string
+}
+
 /** 描述 AppStore 数据结构。 */
 export interface AppStore {
   users: UserInfo[]
@@ -211,6 +217,8 @@ export interface AppStore {
   config: UserConfig
   lastSavedConfig: Partial<UserConfig>
   stats: { messages: string; tools: string; size: string }
+  frameworkVersion: string
+  pluginVersions: PluginVersion[]
   profileName: string
   profileInfo: string
   avatarUrl: string

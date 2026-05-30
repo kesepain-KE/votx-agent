@@ -75,6 +75,8 @@ export const useAppStore = create<AppStore>(() => ({
   },
   lastSavedConfig: {},
   stats: { messages: '-', tools: '-', size: '-' },
+  frameworkVersion: '-',
+  pluginVersions: [],
   profileName: '未连接',
   profileInfo: '选择用户开始',
   avatarUrl: '',

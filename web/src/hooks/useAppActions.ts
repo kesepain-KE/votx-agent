@@ -240,7 +240,7 @@ export function useAppActions() {
         chatTitle: `${user} · 对话`, mainSub: '输入消息开始对话', modelName: '-',
         messages: [], attachChips: [], activeConv: '__current__', isPreview: false, previewConvId: null,
       })
-      await Promise.all([refreshConversations(), loadToolLogs(), loadTasks(), loadTaskPlans(), loadFileList(), loadSystemPrompt(), loadDebugConfig(), updateStats()])
+      await Promise.all([refreshConversations(), loadToolLogs(), loadTasks(), loadTaskPlans(), loadFileList(), loadSystemPrompt(), loadDebugConfig(), updateStats(), loadVersion()])
       toast(`已连接 ${user}`)
     } catch (error) {
       set({ selectErr: `连接失败: ${(error as Error).message}` })
@@ -770,6 +770,14 @@ export function useAppActions() {
     } catch { /* ignore */ }
   }, [set, get])
 
+  const loadVersion = useCallback(async () => {
+    try {
+      const data = await api<{framework:{name:string;version:string};plugins:{name:string;version:string}[]}>('/api/version')
+      if (data.framework) set({ frameworkVersion: `v${data.framework.version}` })
+      if (Array.isArray(data.plugins)) set({ pluginVersions: data.plugins })
+    } catch { /* ignore */ }
+  }, [set])
+
   const loadDebugConfig = useCallback(async () => {
     if (!get().userActive) return
     try {
@@ -862,18 +870,18 @@ export function useAppActions() {
 
   const refreshOverview = useCallback(async () => {
     set({ refreshing: true })
-    try { await Promise.all([updateStats(), loadSystemPrompt(), loadDebugConfig(), loadToolLogs(), loadFileList(), refreshConversations()]); toast('已刷新') } catch { /* ignore */ }
+    try { await Promise.all([updateStats(), loadSystemPrompt(), loadDebugConfig(), loadToolLogs(), loadFileList(), refreshConversations(), loadVersion()]); toast('已刷新') } catch { /* ignore */ }
     window.setTimeout(() => set({ refreshing: false }), 600)
-  }, [set, updateStats, loadSystemPrompt, loadDebugConfig, loadToolLogs, loadFileList, refreshConversations])
+  }, [set, updateStats, loadSystemPrompt, loadDebugConfig, loadToolLogs, loadFileList, refreshConversations, loadVersion])
 
   const restoreSession = useCallback(async () => {
     try {
       const session = await api<{ active?: boolean; user?: string }>('/api/session'); if (!session.active) return
       set({ userActive: true, selectedUser: session.user || get().selectedUser, profileName: session.user || '已连接用户', profileInfo: '已连接', avatarUrl: `/api/avatar?t=${Date.now()}`, chatTitle: `${session.user || ''} · 对话`, mainSub: '输入消息开始对话' })
       try { const msgs = await api<RawMessage[]>('/api/messages'); if (Array.isArray(msgs) && msgs.length) { set({ messages: [] }); renderMessages(msgs); scrollBottom() } } catch { /* ignore */ }
-      await Promise.all([refreshConversations(), loadToolLogs(), loadFileList(), loadSystemPrompt(), loadDebugConfig(), updateStats()])
+      await Promise.all([refreshConversations(), loadToolLogs(), loadFileList(), loadSystemPrompt(), loadDebugConfig(), updateStats(), loadVersion()])
     } catch { /* ignore */ }
-  }, [set, get, renderMessages, refreshConversations, loadToolLogs, loadFileList, loadSystemPrompt, loadDebugConfig, updateStats])
+  }, [set, get, renderMessages, refreshConversations, loadToolLogs, loadFileList, loadSystemPrompt, loadDebugConfig, updateStats, loadVersion])
 
   const toggleThemeMenu = useCallback((event: MouseEvent<HTMLButtonElement>) => {
     const rect = event.currentTarget.getBoundingClientRect(); const menuW = 162; const menuH = 330; const gap = 8
@@ -919,7 +927,7 @@ export function useAppActions() {
     loadFileList, downloadFile, deleteFile, deleteAllFiles, deleteCheckedFiles,
     loadToolLogs, loadToolResult, loadTasks, deleteTask, loadTaskPlans, clearCompletedPlans,
     abortPlan, approvePlan, rejectPlan, modifyPlan, exitAbortPlan, stopModifyPlan, continuePlan, exitPlan,
-    loadSystemPrompt, loadDebugConfig, saveConfigField, toggleConfigSwitch,
+    loadSystemPrompt, loadDebugConfig, loadVersion, saveConfigField, toggleConfigSwitch,
     saveAllConfig, applyConfig, reloadAgent, restoreConfig,
     fetchCapabilities, setCapabilitiesMode, toggleCapability, saveCapabilities,
     refreshOverview, restoreSession, toggleThemeMenu, chooseTheme, onTextareaKeyDown,
