@@ -5,7 +5,7 @@
 import { type ChangeEvent, type DragEvent, type KeyboardEvent, type MouseEvent, useCallback, useEffect, useMemo, useRef } from 'react'
 import { api, jsonBody } from '@/api/client'
 import { defaultPromptData, THEMES, useAppStore } from '@/store/useAppStore'
-import type { AttachChip, Conversation, FileItem, Message, Plan, PlanStep, RawConfig, RawConversation, RawMessage, RawToolLog, SSEEvent, Task, ThemeId, ToolCard, UsageInfo } from '@/types'
+import type { AttachChip, Conversation, FileItem, Message, Plan, PlanStep, RawConfig, RawConversation, RawMessage, RawToolLog, SSEEvent, Task, ThemeId, ToolCard, UsageInfo, UserInfo } from '@/types'
 import { fmtMs, fmtSize, fmtTime, formatContent, formatNumber, isImageFile } from '@/utils/format'
 
 /* ── 纯函数 ── */
@@ -208,8 +208,8 @@ export function useAppActions() {
   const loadUsers = useCallback(async () => {
     try {
       const payload = await api<unknown>('/api/users')
-      const users = Array.isArray(payload) ? payload.filter((u): u is string => typeof u === 'string') : []
-      set((s) => ({ users, selectedUser: s.selectedUser || users[0] || '' }))
+      const users = Array.isArray(payload) ? payload.filter((u): u is {name:string} => typeof u === 'object' && u !== null && 'name' in u) : []
+      set((s) => ({ users: users as UserInfo[], selectedUser: s.selectedUser || users[0]?.name || '' }))
     } catch { /* ignore */ }
   }, [set])
 

@@ -151,9 +151,16 @@ export interface ContextMenuState {
   y: number
 }
 
+/** 描述 UserInfo 数据结构。 */
+export interface UserInfo {
+  name: string
+  provider_type: string
+  model: string
+}
+
 /** 描述 AppStore 数据结构。 */
 export interface AppStore {
-  users: string[]
+  users: UserInfo[]
   selectedUser: string
   userActive: boolean
   selectErr: string

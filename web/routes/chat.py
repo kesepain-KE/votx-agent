@@ -3,7 +3,7 @@ import json
 import os
 import traceback
 
-from flask import Response, jsonify, render_template, request, stream_with_context, session as flask_session
+from flask import Response, jsonify, render_template, request, send_file, stream_with_context, session as flask_session
 
 from web.server import app
 from web.session import _root, get_session, require_session, clear_session, init_user_session
@@ -110,13 +110,54 @@ def index():
 
 @app.route("/api/users")
 def api_users():
-    """处理 api_users 相关逻辑。"""
+    """返回用户列表及 provider 元数据。"""
     users_dir = os.path.join(_root, "users")
     try:
         names = sorted(os.listdir(users_dir))
     except OSError:
         names = []
-    return jsonify([n for n in names if os.path.isdir(os.path.join(users_dir, n))])
+    result = []
+    for name in names:
+        user_dir = os.path.join(users_dir, name)
+        if not os.path.isdir(user_dir):
+            continue
+        provider_type = ""
+        model = ""
+        try:
+            cfg_path = os.path.join(user_dir, "config.json")
+            if os.path.isfile(cfg_path):
+                with open(cfg_path, encoding="utf-8") as f:
+                    cfg = json.load(f)
+                p = cfg.get("provider", {})
+                provider_type = p.get("type", "")
+                model = p.get("model", "")
+        except Exception:
+            pass
+        result.append({"name": name, "provider_type": provider_type, "model": model})
+    return jsonify(result)
+
+
+AVATAR_NAMES = ["avatar.jpg", "avatar.png", "avatar.jpeg", "avatar.webp", "avatar.gif"]
+AVATAR_MIME = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+               ".webp": "image/webp", ".gif": "image/gif"}
+
+
+@app.route("/api/avatar/<username>")
+def api_avatar_public(username):
+    """公开头像接口 — 不需要 session，用于登录前显示。"""
+    user_dir = os.path.join(_root, "users", os.path.basename(username))
+    avatar_dir = os.path.join(user_dir, "avatar")
+    if not os.path.isdir(avatar_dir):
+        return "", 204
+    for name in AVATAR_NAMES:
+        path = os.path.join(avatar_dir, name)
+        if os.path.isfile(path):
+            ext = os.path.splitext(name)[1].lower()
+            mime = AVATAR_MIME.get(ext, "image/jpeg")
+            response = send_file(path, mimetype=mime, as_attachment=False, conditional=True)
+            response.headers["Cache-Control"] = "public, max-age=300"
+            return response
+    return "", 204
 
 
 @app.route("/api/select-user", methods=["POST"])

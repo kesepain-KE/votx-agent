@@ -30,35 +30,35 @@ export default function App() {
         />
 
         <ErrorBoundary>
-          <MainChat
-            saveChat={a.saveChat}
-            newChat={a.newChat}
-            continueAfterMaxRounds={a.continueAfterMaxRounds}
-            sendMessage={a.sendMessage}
-            stopRun={a.stopRun}
-            sendCommand={a.sendCommand}
-            continueConversation={a.continueConversation}
-            loadConversation={a.loadConversation}
-            removeAttach={a.removeAttach}
-            onUploadFiles={a.onUploadFiles}
-            onPaste={a.onPaste}
-            onTextareaKeyDown={a.onTextareaKeyDown}
-            onDragEnter={a.onDragEnter}
-            onDragLeave={a.onDragLeave}
-            onDrop={a.onDrop}
-            onChatScroll={a.onChatScroll}
-            patchMessage={a.patchMessage}
-            copyMsg={a.copyMsg}
-            chatRef={a.chatRef}
-            textRef={a.textRef}
-            uploadRef={a.uploadRef}
-            rejectPlan={a.rejectPlan}
-            approvePlan={a.approvePlan}
-            modifyPlan={a.modifyPlan}
-            exitAbortPlan={a.exitAbortPlan}
-            stopModifyPlan={a.stopModifyPlan}
-            exitPlan={a.exitPlan}
-          />
+            <MainChat
+              saveChat={a.saveChat}
+              newChat={a.newChat}
+              continueAfterMaxRounds={a.continueAfterMaxRounds}
+              sendMessage={a.sendMessage}
+              stopRun={a.stopRun}
+              sendCommand={a.sendCommand}
+              continueConversation={a.continueConversation}
+              loadConversation={a.loadConversation}
+              removeAttach={a.removeAttach}
+              onUploadFiles={a.onUploadFiles}
+              onPaste={a.onPaste}
+              onTextareaKeyDown={a.onTextareaKeyDown}
+              onDragEnter={a.onDragEnter}
+              onDragLeave={a.onDragLeave}
+              onDrop={a.onDrop}
+              onChatScroll={a.onChatScroll}
+              patchMessage={a.patchMessage}
+              copyMsg={a.copyMsg}
+              chatRef={a.chatRef}
+              textRef={a.textRef}
+              uploadRef={a.uploadRef}
+              rejectPlan={a.rejectPlan}
+              approvePlan={a.approvePlan}
+              modifyPlan={a.modifyPlan}
+              exitAbortPlan={a.exitAbortPlan}
+              stopModifyPlan={a.stopModifyPlan}
+              exitPlan={a.exitPlan}
+            />
         </ErrorBoundary>
 
         <ErrorBoundary>
