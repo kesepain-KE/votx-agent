@@ -14,7 +14,13 @@ class AgentService:
         self.root = root
         self.core_config = core_config
 
-    def chat(self, username: str, text: str, source: dict[str, Any] | None = None) -> str:
+    def chat(
+        self,
+        username: str,
+        text: str,
+        source: dict[str, Any] | None = None,
+        attachments: list[dict[str, Any]] | None = None,
+    ) -> str:
         lock = get_user_lock(username)
         with lock:
             session = self._ensure_session(username)
@@ -34,12 +40,19 @@ class AgentService:
             # External platform turns reuse the normal Web/CLI session state.
             # The source prefix gives the model enough context without creating
             # a second conversation stack for each transport.
-            prompt = self._with_source(text, source)
+            if attachments:
+                from message.attachments import format_external_message
+                prompt = format_external_message(text, attachments, source)
+            else:
+                prompt = self._with_source(text, source)
             # 每轮工具执行前重新绑定用户上下文（防治消息路由单线程串号）
             import plugins.auto_improve.tool as ai_tool
             import plugins.task_plan.tool as tp_tool
             ai_tool.set_auto_improve_context(provider=provider, chat=chat, user_name=username)
             tp_tool.set_task_plan_context(provider=provider, chat=chat, user_name=username)
+            # 多模态上下文 — 外部图片/语音触发 vision_analyze/audio_transcribe 时走当前用户 provider
+            from plugins._common import set_multimodal_context
+            set_multimodal_context(provider=provider, chat=chat, user_name=username)
 
             chat.add_user_message(prompt)
             tool_runner.reset_count()

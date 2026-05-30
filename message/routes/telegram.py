@@ -120,24 +120,7 @@ class TelegramRouter:
         if not identity:
             return
 
-        # Store Telegram attachments as local files before invoking the Agent;
-        # downstream tools see the same users/<name>/download paths as Web UI.
-        downloaded = await self._download_telegram_files(msg, identity["internal_user"])
-
         text = self._extract_text(msg)
-        if downloaded:
-            file_lines = "\n".join(f"[本地文件: {p}]" for p in downloaded)
-            text = f"{file_lines}\n{text}" if text else file_lines
-        if not text:
-            return
-
-        is_command = text.startswith(("/cron", "/plan"))
-        allowed, reason = self._check_access(identity, msg, chat_type, is_command)
-        if not allowed:
-            if is_command:
-                await self._reply(chat_id, reason)
-            return
-
         source = {
             "platform": "telegram",
             "external_id": user_id,
@@ -147,53 +130,81 @@ class TelegramRouter:
             "group_id": chat_id if chat_type in ("group", "supergroup") else "",
         }
 
+        is_command = text.startswith(("/cron", "/plan"))
+        allowed, reason = self._check_access(identity, msg, chat_type, is_command)
+        if not allowed:
+            if is_command:
+                await self._reply(chat_id, reason)
+            return
+
+        attachments = []
+        if not is_command:
+            # Attachments are saved to users/<name>/history/file (same pool as Web uploads)
+            # and formatted into a structured prompt block by AgentService.
+            attachments = await self._download_telegram_files(
+                msg, identity["internal_user"], str(user_id), str(msg.get("message_id", "")),
+            )
+
+        if not text and not attachments:
+            return
+
         try:
             if is_command:
                 response = await asyncio.to_thread(self._handle_command, identity, text, source)
             else:
                 await self._send_chat_action(chat_id, "typing")
                 response = await asyncio.to_thread(
-                    self.agent.chat, identity["internal_user"], text, source
+                    self.agent.chat, identity["internal_user"], text, source, attachments
                 )
         except Exception as e:
             response = f"处理失败: {e}"
 
         await self._reply(chat_id, response)
 
-    async def _download_telegram_files(self, msg: dict[str, Any], username: str) -> list[str]:
-        """Download file attachments from Telegram message. Returns list of local paths."""
-        from message.routes._download import download_url
+    async def _download_telegram_files(self, msg: dict[str, Any], username: str,
+                                         source_id: str = "", message_id: str = "") -> list[dict]:
+        """Download file attachments from Telegram message. Returns list of AttachmentRecord dicts.
 
-        downloaded: list[str] = []
+        文件名优先级: file_name > Telegram file_path basename > 自动名
+        """
+        from message.attachments import AttachmentRecord, save_url_attachment
 
-        # Collect file_ids from all attachment types
-        file_ids: list[tuple[str, str]] = []  # (file_id, name)
+        # (file_id, kind, name) — kind 按 Telegram 类型映射
+        file_specs: list[tuple[str, str, str]] = []  # [(file_id, kind, name), ...]
 
-        for key in ("document", "audio", "video", "voice"):
+        for key, kind in (("document", "file"), ("audio", "audio"), ("video", "video"), ("voice", "voice")):
             attach = msg.get(key)
             if isinstance(attach, dict) and attach.get("file_id"):
                 name = attach.get("file_name") or ""
-                file_ids.append((attach["file_id"], name))
+                file_specs.append((attach["file_id"], kind, name))
 
         photos = msg.get("photo")
         if isinstance(photos, list) and photos:
             # 取最大尺寸的 photo
             largest = max(photos, key=lambda p: p.get("width", 0) * p.get("height", 0))
             if largest.get("file_id"):
-                file_ids.append((largest["file_id"], "photo.jpg"))
+                file_specs.append((largest["file_id"], "image", "photo.jpg"))
 
-        for file_id, name in file_ids:
+        downloaded: list[AttachmentRecord] = []
+        for file_id, kind, name in file_specs:
             try:
                 # 1. 获取文件路径
                 gf = await self._api("getFile", {"file_id": file_id})
                 file_path = gf.get("result", {}).get("file_path", "")
                 if not file_path:
                     continue
+                # 文件名优先级: file_name > Telegram file_path basename > 自动名
+                if not name:
+                    name = file_path.rsplit("/", 1)[-1] if "/" in file_path else file_path
                 # 2. 下载文件
                 url = f"https://api.telegram.org/file/bot{self.bot_token}/{file_path}"
-                local = await download_url(self.root, username, url, name)
-                if local:
-                    downloaded.append(local)
+                record = await save_url_attachment(
+                    self.root, username, url, kind=kind,
+                    platform="telegram", message_id=message_id, source_id=source_id,
+                    filename=name,
+                )
+                if record:
+                    downloaded.append(record)
             except Exception as e:
                 print(f"[message:telegram] 下载文件失败 {file_id}: {e}")
 

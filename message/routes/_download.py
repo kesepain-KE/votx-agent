@@ -1,4 +1,11 @@
-"""Shared file download helper for message routers."""
+"""Shared file download helper for message routers.
+
+兼容说明:
+- 旧函数 download_url() / save_base64_data() 保留，返回 str | None
+- 新代码建议用 message.attachments.save_url_attachment() / save_base64_attachment()
+  获取 AttachmentRecord（含类型/来源/路径等完整元数据）
+- 保存目录已统一为 users/<user>/history/file（与 Web 上传同池）
+"""
 from __future__ import annotations
 
 import asyncio
@@ -8,10 +15,16 @@ import uuid
 from pathlib import Path
 
 
-def _user_download_dir(root: str, username: str) -> Path:
-    p = Path(root) / "users" / username / "download"
+def _user_file_dir(root: str, username: str) -> Path:
+    """返回并确保 users/<username>/history/file 目录存在。"""
+    p = Path(root) / "users" / username / "history" / "file"
     p.mkdir(parents=True, exist_ok=True)
     return p
+
+
+# 兼容别名: 旧代码引用的 _user_download_dir
+def _user_download_dir(root: str, username: str) -> Path:
+    return _user_file_dir(root, username)
 
 
 def _safe_filename(name: str, fallback_ext: str = "") -> str:
@@ -26,91 +39,33 @@ def _safe_filename(name: str, fallback_ext: str = "") -> str:
 
 
 async def download_url(root: str, username: str, url: str, filename: str = "") -> str | None:
-    """Download a file from URL to user's download directory. Returns local path or None."""
-    import urllib.request
+    """Download a file from URL to user's history/file directory. Returns local path or None.
 
-    # SSRF 防护
-    from plugins._common import validate_url as _validate_url
-    err = _validate_url(url)
-    if err:
-        print(f"[download] URL 校验失败 {url}: {err}")
-        return None
+    此函数保持向后兼容 (返回 str | None)。
+    新代码如需结构化 AttachmentRecord，请用 message.attachments.save_url_attachment()。
+    """
+    from message.attachments import save_url_attachment
 
-    dest_dir = _user_download_dir(root, username)
-    ext = _ext_from_url(url)
-    dest_name = _safe_filename(filename, ext) if filename else f"{uuid.uuid4().hex[:8]}{ext}"
-    dest = dest_dir / dest_name
-
-    MAX_SIZE = 100 * 1024 * 1024  # 100 MB
-
-    def _dl():
-        # 自定义 redirect handler：每次重定向前校验新地址
-        class _SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
-            def redirect_request(self, req, fp, code, msg, headers, newurl):
-                err = _validate_url(newurl)
-                if err:
-                    raise urllib.request.HTTPError(newurl, 403, f"重定向目标被拒绝: {err}", headers, None)
-                return urllib.request.HTTPRedirectHandler.redirect_request(self, req, fp, code, msg, headers, newurl)
-
-        try:
-            opener = urllib.request.build_opener(_SafeRedirectHandler())
-            req = urllib.request.Request(url, method="GET")
-            req.add_header("User-Agent", "votx-agent/1.0")
-            with opener.open(req, timeout=60) as resp:
-                # 检查 Content-Length 防止 OOM
-                cl = resp.headers.get("Content-Length")
-                if cl:
-                    try:
-                        if int(cl) > MAX_SIZE:
-                            print(f"[download] 文件过大 {url}: {cl} bytes")
-                            return None
-                    except ValueError:
-                        pass
-                # 流式读取，分块写入
-                with open(dest, "wb") as f:
-                    total = 0
-                    while True:
-                        chunk = resp.read(65536)
-                        if not chunk:
-                            break
-                        total += len(chunk)
-                        if total > MAX_SIZE:
-                            f.close()
-                            try:
-                                os.remove(dest)
-                            except OSError:
-                                pass
-                            print(f"[download] 下载超出大小限制 {url}")
-                            return None
-                        f.write(chunk)
-            return str(dest)
-        except Exception as e:
-            print(f"[download] URL 下载失败 {url}: {e}")
-            return None
-
-    return await asyncio.to_thread(_dl)
+    record = await save_url_attachment(
+        root=root, username=username, url=url,
+        kind="file", platform="legacy", filename=filename,
+    )
+    return record["path"] if record else None
 
 
 def save_base64_data(root: str, username: str, b64_data: str, filename: str = "") -> str | None:
-    """Decode base64 data and save to user's download directory. Returns local path or None."""
-    # 输入大小限制：base64 编码 ~1.37x，限制解码后最大 100 MB
-    MAX_BASE64_LEN = 140 * 1024 * 1024  # ~140 MB base64 ≈ 100 MB decoded
-    if len(b64_data) > MAX_BASE64_LEN:
-        print(f"[download] base64 数据过大: {len(b64_data)} 字符")
-        return None
+    """Decode base64 data and save to user's history/file directory. Returns local path or None.
 
-    dest_dir = _user_download_dir(root, username)
-    dest_name = _safe_filename(filename) if filename else f"{uuid.uuid4().hex[:8]}.bin"
-    dest = dest_dir / dest_name
+    此函数保持向后兼容 (返回 str | None)。
+    新代码如需结构化 AttachmentRecord，请用 message.attachments.save_base64_attachment()。
+    """
+    from message.attachments import save_base64_attachment
 
-    try:
-        data = base64.b64decode(b64_data)
-        dest.write_bytes(data)
-        print(f"[download] base64 保存成功: {dest}")
-        return str(dest)
-    except Exception as e:
-        print(f"[download] base64 保存失败: {e}")
-        return None
+    record = save_base64_attachment(
+        root=root, username=username, b64_data=b64_data,
+        kind="file", platform="legacy", filename=filename,
+    )
+    return record["path"] if record else None
 
 
 def _ext_from_url(url: str) -> str:

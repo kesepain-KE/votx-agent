@@ -125,24 +125,7 @@ class OneBotRouter:
         chat_type = "group" if message_type == "group" else "private"
         chat_id = str(group_id if chat_type == "group" else user_id)
 
-        # Attachments are stored under users/<name>/download and passed back to
-        # the Agent as local paths so tools can inspect them normally.
-        downloaded = await self._download_onebot_files(msg, identity["internal_user"])
-
         text = onebot_text(msg, self.self_id)
-        if downloaded:
-            file_lines = "\n".join(f"[本地文件: {p}]" for p in downloaded)
-            text = f"{file_lines}\n{text}" if text else file_lines
-        if not text:
-            return
-
-        is_command = text.startswith(("/cron", "/plan"))
-        allowed, reason = self._check_access(identity, msg, chat_type, is_command)
-        if not allowed:
-            if is_command:
-                await self._reply(chat_type, chat_id, reason)
-            return
-
         source = {
             "platform": "onebot",
             "external_id": user_id,
@@ -152,47 +135,81 @@ class OneBotRouter:
             "group_id": str(group_id) if group_id else "",
         }
 
+        is_command = text.startswith(("/cron", "/plan"))
+        allowed, reason = self._check_access(identity, msg, chat_type, is_command)
+        if not allowed:
+            if is_command:
+                await self._reply(chat_type, chat_id, reason)
+            return
+
+        attachments = []
+        if not is_command:
+            # Attachments are saved to users/<name>/history/file (same pool as Web uploads)
+            # and formatted into a structured prompt block by AgentService.
+            attachments = await self._download_onebot_files(
+                msg, identity["internal_user"], str(user_id), str(msg.get("message_id", "")),
+            )
+
+        if not text and not attachments:
+            return
+
         try:
             if is_command:
                 response = await asyncio.to_thread(self._handle_command, identity, text, source)
             else:
                 response = await asyncio.to_thread(
-                    self.agent.chat, identity["internal_user"], text, source
+                    self.agent.chat, identity["internal_user"], text, source, attachments
                 )
         except Exception as e:
             response = f"处理失败: {e}"
 
         await self._reply(chat_type, chat_id, response)
 
-    async def _download_onebot_files(self, msg: dict[str, Any], username: str) -> list[str]:
-        """Download file segments from OneBot message. Returns list of local paths."""
-        from message.routes._download import download_url, save_base64_data
+    async def _download_onebot_files(self, msg: dict[str, Any], username: str,
+                                      source_id: str = "", message_id: str = "") -> list[dict]:
+        """Download file segments from OneBot message. Returns list of AttachmentRecord dicts.
+
+        NapCat 多字段容错: 依次取 file / file_id / name / url / file_unique / path
+        """
+        from message.attachments import AttachmentRecord, save_url_attachment, save_base64_attachment
 
         segments = msg.get("message", [])
         if not isinstance(segments, list):
             return []
 
-        downloaded: list[str] = []
+        # kind 映射
+        _KIND_MAP = {"image": "image", "record": "voice", "video": "video", "file": "file"}
+
+        downloaded: list[AttachmentRecord] = []
         for seg in segments:
             if not isinstance(seg, dict):
                 continue
             seg_type = seg.get("type", "")
-            if seg_type not in ("image", "record", "video", "file"):
+            if seg_type not in _KIND_MAP:
                 continue
+            kind = _KIND_MAP[seg_type]
 
             data = seg.get("data", {})
-            original_name = data.get("file", "")
+            # NapCat 多字段容错: 文件名可能在不同字段
+            original_name = (
+                data.get("file") or data.get("file_id") or data.get("name")
+                or data.get("file_unique") or data.get("path") or ""
+            )
 
             # 1. Try URL download first
             url = data.get("url", "")
             if url:
-                local = await download_url(self.root, username, url, original_name)
-                if local:
-                    downloaded.append(local)
+                record = await save_url_attachment(
+                    self.root, username, url, kind=kind,
+                    platform="onebot", message_id=message_id, source_id=source_id,
+                    filename=original_name,
+                )
+                if record:
+                    downloaded.append(record)
                     continue
 
             # 2. Fall back to OneBot API (get_image / get_record / get_file)
-            file_ref = data.get("file", "")
+            file_ref = data.get("file", "") or data.get("file_id", "") or data.get("url", "")
             if not file_ref:
                 continue
 
@@ -209,13 +226,21 @@ class OneBotRouter:
                 result = await self.call_api(api_name, {api_param: file_ref})
                 b64 = (result.get("data") or result).get("file", "")
                 if b64.startswith("base64://"):
-                    local = save_base64_data(self.root, username, b64[len("base64://"):], original_name)
-                    if local:
-                        downloaded.append(local)
+                    record = save_base64_attachment(
+                        self.root, username, b64[len("base64://"):], kind=kind,
+                        platform="onebot", message_id=message_id, source_id=source_id,
+                        filename=original_name,
+                    )
+                    if record:
+                        downloaded.append(record)
                 elif b64.startswith(("http://", "https://")):
-                    local = await download_url(self.root, username, b64, original_name)
-                    if local:
-                        downloaded.append(local)
+                    record = await save_url_attachment(
+                        self.root, username, b64, kind=kind,
+                        platform="onebot", message_id=message_id, source_id=source_id,
+                        filename=original_name,
+                    )
+                    if record:
+                        downloaded.append(record)
             except Exception as e:
                 print(f"[message:onebot] 下载文件失败 {file_ref}: {e}")
 
