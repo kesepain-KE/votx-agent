@@ -375,6 +375,7 @@ def run_chat_turn(chat, tool_runner, provider, tools: list[dict]):
                     "elapsed": d["elapsed"],
                     "success": d["success"],
                     "line": line,
+                    "log_id": d.get("log_id", ""),
                 }
 
                 # 死循环检测：同一命令连续失败 3 次就警告

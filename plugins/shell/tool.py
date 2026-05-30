@@ -3,7 +3,7 @@ import os
 import shlex
 import subprocess
 from run.tool import register_tool
-from skills._common import err, truncate, check_dangerous_command, safe_working_dir, sanitize_env, get_current_user_dir
+from plugins._common import err, truncate, check_dangerous_command, safe_working_dir, sanitize_env, get_current_user_dir
 
 
 def run_command(command: str, working_dir: str = "") -> str:

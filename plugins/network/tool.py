@@ -6,7 +6,7 @@ import ssl
 import urllib.error
 
 from run.tool import register_tool
-from skills._common import err, validate_url, MAX_RESPONSE_BYTES
+from plugins._common import err, validate_url, MAX_RESPONSE_BYTES
 
 try:
     import urllib.request as _req

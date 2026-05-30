@@ -42,6 +42,7 @@ export interface ToolCard {
   success: boolean
   detail: string
   open: boolean
+  log_id?: string
 }
 
 /** 描述 UsageInfo 数据结构。 */
@@ -98,8 +99,11 @@ export interface UserConfig {
 /** 描述 LogEntry 数据结构。 */
 export interface LogEntry {
   _key: string | number
+  id?: string
   text: string
   success: boolean
+  result?: string | null
+  resultLoading?: boolean
 }
 
 /** 描述 Task 数据结构。 */
@@ -257,6 +261,8 @@ export interface RawConfig {
 
 /** 描述后端返回的工具日志原始数据。 */
 export interface RawToolLog {
+  id?: string
+  tool_call_id?: string
   ts?: string
   success: boolean
   tool: string

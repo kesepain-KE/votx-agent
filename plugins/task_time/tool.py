@@ -2,7 +2,7 @@
 import uuid
 
 from run.tool import register_tool
-from skills._common import err, get_current_user_dir
+from plugins._common import err, get_current_user_dir
 
 
 def _get_user_dir():

@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 
 from run.tool import register_tool
-from skills._common import err, truncate
+from plugins._common import err, truncate
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 _VALID_SUBS = {"memory", "self-improving", "ontology"}
@@ -241,6 +241,85 @@ def auto_improve_cleanup(retention_days: int = 7) -> str:
     return f"已遗忘 {count} 个过期临时文件（保留期 {retention_days} 天）:\n{lines}"
 
 
+def auto_improve_cleanup_reviewed() -> str:
+    """清理已被 review 标记为 absorbed 的临时文件。
+
+   读取 review_log.jsonl，删除所有已被吸收的临时文件。
+   仅在用户明确要求清理已审阅文件时调用。
+   """
+    user_name = _get_user_name()
+    # 确保用户目录路径正确
+    user_dir = str(_PROJECT_ROOT / "users" / user_name)
+    try:
+        from agents.auto_improve.agent import cleanup_reviewed_temp_files
+        count, paths = cleanup_reviewed_temp_files(user_dir)
+    except Exception as e:
+        return err(f"清理失败: {e}")
+    if count == 0:
+        return "无需清理：没有已被吸收的临时文件"
+    lines = "\n".join(f"  - {p}" for p in paths)
+    return f"已删除 {count} 个已被审阅吸收的临时文件:\n{lines}"
+
+
+def auto_improve_list_pending() -> str:
+    """列出当前所有待审阅的临时记忆/规则/知识图谱文件。"""
+    user_name = _get_user_name()
+    improve = _improve_dir(user_name)
+    if not improve.exists():
+        return "暂无待审阅的临时记忆"
+
+    lines = []
+    total = 0
+    for sub in sorted(_VALID_SUBS):
+        temp_dir = improve / sub / "temporary"
+        if not temp_dir.is_dir():
+            continue
+        for fp in sorted(temp_dir.glob("*.md")):
+            try:
+                content = fp.read_text(encoding="utf-8")
+                size = len(content)
+                preview = content[:120].replace("\n", " ")
+                lines.append(f"- [{sub}] {fp.name} ({size} 字符): {preview}...")
+                total += 1
+            except Exception:
+                lines.append(f"- [{sub}] {fp.name} (读取失败)")
+
+    if total == 0:
+        return "暂无待审阅的临时记忆"
+    return f"待审阅临时文件（共 {total} 个）:\n\n" + "\n".join(lines)
+
+
+def auto_improve_review_log(limit: int = 5) -> str:
+    """查看最近 N 条 review 日志，了解哪些临时记忆已被吸收/拒绝。
+
+    Args:
+        limit: 返回最近 N 条记录（默认 5）
+    """
+    user_name = _get_user_name()
+    user_dir = str(_PROJECT_ROOT / "users" / user_name)
+    try:
+        from agents.auto_improve.agent import get_review_log
+        entries = get_review_log(user_dir, limit=max(1, min(limit, 50)))
+    except Exception as e:
+        return err(f"读取日志失败: {e}")
+
+    if not entries:
+        return "暂无 review 日志"
+
+    lines = [f"最近 {len(entries)} 条 review 记录:\n"]
+    for i, entry in enumerate(reversed(entries), 1):
+        ops = entry.get("ops_count", 0)
+        absorbed = len(entry.get("files_absorbed", []))
+        ts = entry.get("ts", "?")
+        errors = entry.get("errors", [])
+        status = "✓" if not errors else f"⚠ ({len(errors)} 错误)"
+        lines.append(
+            f"  {i}. [{ts}] {status}  执行 {ops} 个操作, 吸收 {absorbed} 个文件"
+        )
+
+    return "\n".join(lines)
+
+
 # ---- Schema ----
 
 SCHEMAS = [
@@ -349,6 +428,48 @@ SCHEMAS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "auto_improve_cleanup_reviewed",
+            "description": "Delete temporary files that have been absorbed (merged into permanent) by a previous review. Use when user says 清理已审阅/删除已吸收的临时文件.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "auto_improve_list_pending",
+            "description": "List all temporary memory/rule/ontology files waiting for review. Use when user asks 有哪些待审阅/查看临时记忆.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "auto_improve_review_log",
+            "description": "Show recent review logs — which temp files were absorbed/rejected. Use when user asks 审阅记录/review log.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "limit": {
+                        "type": "integer",
+                        "description": "返回最近 N 条（默认 5）",
+                        "default": 5,
+                    },
+                },
+                "required": [],
+            },
+        },
+    },
 ]
 
 HANDLERS = {
@@ -358,6 +479,9 @@ HANDLERS = {
     "auto_improve_delete": auto_improve_delete,
     "auto_improve_review": auto_improve_review,
     "auto_improve_cleanup": auto_improve_cleanup,
+    "auto_improve_cleanup_reviewed": auto_improve_cleanup_reviewed,
+    "auto_improve_list_pending": auto_improve_list_pending,
+    "auto_improve_review_log": auto_improve_review_log,
 }
 
 

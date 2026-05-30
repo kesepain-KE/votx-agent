@@ -49,6 +49,7 @@ export default function App() {
               onChatScroll={a.onChatScroll}
               patchMessage={a.patchMessage}
               copyMsg={a.copyMsg}
+              loadToolResult={a.loadToolResult}
               chatRef={a.chatRef}
               textRef={a.textRef}
               uploadRef={a.uploadRef}
@@ -70,6 +71,7 @@ export default function App() {
             restoreConfig={a.restoreConfig}
             reloadAgent={a.reloadAgent}
             loadToolLogs={a.loadToolLogs}
+            loadToolResult={a.loadToolResult}
             loadTasks={a.loadTasks}
             deleteTask={a.deleteTask}
             loadTaskPlans={a.loadTaskPlans}

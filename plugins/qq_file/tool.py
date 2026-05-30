@@ -2,7 +2,7 @@
 from pathlib import Path
 
 from run.tool import register_tool
-from skills._common import err as _err, safe_path, check_sandbox, get_current_user_dir
+from plugins._common import err as _err, safe_path, check_sandbox, get_current_user_dir
 
 
 def _load_push_queue_dir() -> str:

@@ -1,4 +1,5 @@
 /** 描述 Props 数据结构。 */
+import { useState } from 'react'
 import type { Message, ToolCard } from '@/types'
 import { formatContent } from '@/utils/format'
 import { useAppStore } from '@/store/useAppStore'
@@ -8,6 +9,7 @@ interface Props {
   message: Message
   patchMessage: (id: number, patch: Partial<Message> | ((m: Message) => Message)) => void
   copyMsg: (m: Message) => void
+  loadToolResult: (logId: string) => Promise<string>
 }
 
 /** 渲染 ThinkBlock 组件。 */
@@ -25,21 +27,43 @@ function ThinkBlock({ message, patchMessage }: { message: Message; patchMessage:
 }
 
 /** 渲染 ToolCallCard 组件。 */
-function ToolCallCard({ tc, message, patchMessage }: { tc: ToolCard; message: Message; patchMessage: Props['patchMessage'] }) {
+function ToolCallCard({ tc, message, patchMessage, loadToolResult }: { tc: ToolCard; message: Message; patchMessage: Props['patchMessage']; loadToolResult: Props['loadToolResult'] }) {
   const showToolCalls = useAppStore((s) => s.showToolCalls)
+  const [result, setResult] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  const handleToggle = async () => {
+    const willOpen = !tc.open
+    patchMessage(message.id, (msg) => { msg.tools = (msg.tools || []).map((t) => (t._key === tc._key ? { ...t, open: !t.open } : t)); return msg })
+    if (willOpen && result === null && tc.log_id) {
+      setLoading(true)
+      try { setResult(await loadToolResult(tc.log_id) || '(无输出)') }
+      catch { setResult('加载失败') }
+      finally { setLoading(false) }
+    }
+  }
+
   return (
     <div key={tc._key} className={`tool-call ${tc.open ? 'open' : ''}`} style={{ display: showToolCalls ? undefined : 'none' }}>
-      <div
-        className="tc-header"
-        onClick={() => patchMessage(message.id, (msg) => { msg.tools = (msg.tools || []).map((t) => (t._key === tc._key ? { ...t, open: !t.open } : t)); return msg })}
-      >
+      <div className="tc-header" onClick={handleToggle}>
         <span>{tc.icon}</span>
         <span className="tc-name">{tc.name}</span>
         <span className="tc-param">{tc.param}</span>
         <span className="tc-time">{tc.time}</span>
         <span className={`tc-status ${tc.success ? 'ok' : 'fail'}`}>{tc.success ? 'OK' : 'FAIL'}</span>
       </div>
-      <div className="tc-detail"><pre>{tc.detail}</pre></div>
+      <div className="tc-detail">
+        <div className="tc-section-label">参数</div>
+        <pre>{tc.detail}</pre>
+        {loading && <div className="tc-loading">加载结果中...</div>}
+        {result && (
+          <>
+            <div className="tc-section-label">结果</div>
+            <pre className="tc-result">{result}</pre>
+            <button className="tc-copy-btn" onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(result) }}>复制结果</button>
+          </>
+        )}
+      </div>
     </div>
   )
 }
@@ -62,12 +86,12 @@ function UserMessage({ message, copyMsg }: { message: Message; copyMsg: Props['c
 }
 
 /** 渲染 AssistantMessage 组件。 */
-function AssistantMessage({ message, patchMessage, copyMsg }: Props) {
+function AssistantMessage({ message, patchMessage, copyMsg, loadToolResult }: Props) {
   return (
     <div className="bubble-wrap">
       <ThinkBlock message={message} patchMessage={patchMessage} />
       {(message.tools || []).map((tc) => (
-        <ToolCallCard key={tc._key} tc={tc} message={message} patchMessage={patchMessage} />
+        <ToolCallCard key={tc._key} tc={tc} message={message} patchMessage={patchMessage} loadToolResult={loadToolResult} />
       ))}
       {message.streaming
         ? <div className="bubble">{message._raw}</div>
@@ -101,13 +125,14 @@ function AssistantMessage({ message, patchMessage, copyMsg }: Props) {
 interface MessageListProps {
   patchMessage: (id: number, patch: Partial<Message> | ((m: Message) => Message)) => void
   copyMsg: (m: Message) => void
+  loadToolResult: (logId: string) => Promise<string>
   continueAfterMaxRounds: () => void
   chatRef: React.RefObject<HTMLDivElement>
   onChatScroll: () => void
 }
 
 /** 渲染 MessageList 组件。 */
-export function MessageList({ patchMessage, copyMsg, continueAfterMaxRounds, chatRef, onChatScroll }: MessageListProps) {
+export function MessageList({ patchMessage, copyMsg, loadToolResult, continueAfterMaxRounds, chatRef, onChatScroll }: MessageListProps) {
   const messages = useAppStore((s) => s.messages)
 
   return (
@@ -131,7 +156,7 @@ export function MessageList({ patchMessage, copyMsg, continueAfterMaxRounds, cha
             <div className="msg-avatar">{m.role === 'user' ? '你' : '🤖'}</div>
             {m.role === 'user'
               ? <UserMessage message={m} copyMsg={copyMsg} />
-              : <AssistantMessage message={m} patchMessage={patchMessage} copyMsg={copyMsg} />
+              : <AssistantMessage message={m} patchMessage={patchMessage} copyMsg={copyMsg} loadToolResult={loadToolResult} />
             }
           </div>
         )

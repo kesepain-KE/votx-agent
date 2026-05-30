@@ -46,10 +46,10 @@ def main():
     chat.set_system_prompt(system_prompt)
 
     # 注入 auto_improve 上下文（供 auto_improve_review 工具使用）
-    import skills.auto_improve.tool as ai_tool
+    import plugins.auto_improve.tool as ai_tool
     ai_tool.set_auto_improve_context(provider=provider, chat=chat, user_name=user_name)
     # 注入 task_plan 上下文（供 task_plan_create 工具使用）
-    import skills.task_plan.tool as tp_tool
+    import plugins.task_plan.tool as tp_tool
     tp_tool.set_task_plan_context(provider=provider, chat=chat, user_name=user_name)
     chat.load_history()
 

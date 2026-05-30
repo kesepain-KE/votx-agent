@@ -258,8 +258,8 @@ def api_chat():
             # 用户发送新消息时自动将暂停的计划恢复为执行中
             _auto_resume_paused_plans(user_dir)
             # 每轮工具执行前重新绑定用户上下文（防治 Flask 线程池复用串号）
-            from skills.auto_improve.tool import set_auto_improve_context
-            from skills.task_plan.tool import set_task_plan_context
+            from plugins.auto_improve.tool import set_auto_improve_context
+            from plugins.task_plan.tool import set_task_plan_context
             set_auto_improve_context(provider=provider, chat=chat, user_name=session_data.get("user_name", ""))
             set_task_plan_context(provider=provider, chat=chat, user_name=session_data.get("user_name", ""))
             prev_snap = _snapshot_plans(user_dir)

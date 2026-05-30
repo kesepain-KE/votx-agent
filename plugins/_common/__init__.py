@@ -4,6 +4,7 @@ import json
 import os
 import re as _re
 import socket
+import uuid
 from contextvars import ContextVar, Token
 from datetime import datetime, timezone
 from pathlib import Path
@@ -276,11 +277,11 @@ def _get_tool_log_max() -> int:
     return _TOOL_LOG_MAX_CACHE
 
 
-def log_tool_call(name: str, args: dict, result: str, success: bool, elapsed: float, user_dir: str | None = None):
-    """处理 log_tool_call 相关逻辑。"""
+def log_tool_call(name: str, args: dict, result: str, success: bool, elapsed: float, user_dir: str | None = None, tool_call_id: str = ""):
+    """处理 log_tool_call 相关逻辑。返回生成的 log_id。"""
     path = _log_path(user_dir)
     if not path:
-        return
+        return ""
     _sensitive_keys = {"api_key", "key", "token", "secret", "password", "authorization", "auth"}
     safe_args = {}
     for k, v in args.items():
@@ -298,7 +299,9 @@ def log_tool_call(name: str, args: dict, result: str, success: bool, elapsed: fl
             break
     else:
         safe_result = result[:2000]
+    log_id = uuid.uuid4().hex[:8]
     entry = {
+        "id": log_id,
         "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "tool": name,
         "args": safe_args,
@@ -306,6 +309,8 @@ def log_tool_call(name: str, args: dict, result: str, success: bool, elapsed: fl
         "success": success,
         "elapsed": round(elapsed, 3),
     }
+    if tool_call_id:
+        entry["tool_call_id"] = tool_call_id
     try:
         append_jsonl(path, entry)
     except Exception:
@@ -322,3 +327,5 @@ def log_tool_call(name: str, args: dict, result: str, success: bool, elapsed: fl
                 f.writelines(lines[-max_lines:])
     except Exception:
         pass
+
+    return log_id

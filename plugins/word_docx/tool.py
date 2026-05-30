@@ -2,7 +2,7 @@
 import os
 from pathlib import Path
 from run.tool import register_tool
-from skills._common import err, truncate, safe_path, check_sandbox
+from plugins._common import err, truncate, safe_path, check_sandbox
 
 try:
     from docx import Document

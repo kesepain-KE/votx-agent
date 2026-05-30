@@ -2,7 +2,7 @@
 import os
 import subprocess
 from run.tool import register_tool
-from skills._common import err, truncate, safe_path, check_sandbox
+from plugins._common import err, truncate, safe_path, check_sandbox
 
 
 def download_video(url: str, output_dir: str = "", filename: str = "", format_spec: str = "") -> str:

@@ -36,8 +36,8 @@ class AgentService:
             # a second conversation stack for each transport.
             prompt = self._with_source(text, source)
             # 每轮工具执行前重新绑定用户上下文（防治消息路由单线程串号）
-            import skills.auto_improve.tool as ai_tool
-            import skills.task_plan.tool as tp_tool
+            import plugins.auto_improve.tool as ai_tool
+            import plugins.task_plan.tool as tp_tool
             ai_tool.set_auto_improve_context(provider=provider, chat=chat, user_name=username)
             tp_tool.set_task_plan_context(provider=provider, chat=chat, user_name=username)
 

@@ -75,10 +75,10 @@ def init_user_session(root: str, user_dir: str, user_name: str, user_config: dic
     chat.set_provider(provider)
 
     # 注入 auto_improve 上下文（供 auto_improve_review 工具使用）
-    import skills.auto_improve.tool as ai_tool
+    import plugins.auto_improve.tool as ai_tool
     ai_tool.set_auto_improve_context(provider=provider, chat=chat, user_name=user_name)
     # 注入 task_plan 上下文（供 task_plan_create 工具使用）
-    import skills.task_plan.tool as tp_tool
+    import plugins.task_plan.tool as tp_tool
     tp_tool.set_task_plan_context(provider=provider, chat=chat, user_name=user_name)
     try:
         chat.load_history()
@@ -109,7 +109,7 @@ def init_user_session(root: str, user_dir: str, user_name: str, user_config: dic
 
     # 会话初始化时自动清理过期临时文件（默认保留 7 天）
     try:
-        from skills.auto_improve.tool import cleanup_temp_files
+        from plugins.auto_improve.tool import cleanup_temp_files
         count, _ = cleanup_temp_files(user_name, retention_days=7)
         if count > 0:
             print(f"[auto_improve] 已清理 {user_name} 的 {count} 个过期临时文件")

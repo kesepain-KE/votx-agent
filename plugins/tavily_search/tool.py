@@ -1,7 +1,7 @@
 """Tavily 网络搜索工具"""
 import os
 from run.tool import register_tool
-from skills._common import err, truncate
+from plugins._common import err, truncate
 
 try:
     from tavily import TavilyClient

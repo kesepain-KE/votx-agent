@@ -5,7 +5,7 @@ import time as _time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from typing import Any, TYPE_CHECKING
 
-from skills._common import err, log_tool_call, reset_current_user_dir, set_current_user_dir
+from plugins._common import err, log_tool_call, reset_current_user_dir, set_current_user_dir
 
 if TYPE_CHECKING:
     from provider.schema import ProviderResponse
@@ -119,8 +119,8 @@ class ToolRunner:
                 limit_err = self._check_limit(name)
                 if limit_err:
                     results.append(_tool_msg(tc_id, limit_err))
-                    details.append({"name": name, "args": {}, "elapsed": 0, "success": False})
-                    log_tool_call(name, {}, limit_err, False, 0, user_dir=self.user_dir)
+                    log_id = log_tool_call(name, {}, limit_err, False, 0, user_dir=self.user_dir, tool_call_id=tc_id)
+                    details.append({"name": name, "args": {}, "elapsed": 0, "success": False, "log_id": log_id, "tool_call_id": tc_id})
                     continue
 
                 # 执行（带全局超时）
@@ -159,8 +159,8 @@ class ToolRunner:
 
                 self._count(name)
                 results.append(_tool_msg(tc_id, output))
-                details.append({"name": name, "args": args, "elapsed": elapsed, "success": success})
-                log_tool_call(name, args, output, success, elapsed, user_dir=self.user_dir)
+                log_id = log_tool_call(name, args, output, success, elapsed, user_dir=self.user_dir, tool_call_id=tc_id)
+                details.append({"name": name, "args": args, "elapsed": elapsed, "success": success, "log_id": log_id, "tool_call_id": tc_id})
         finally:
             reset_current_user_dir(ctx_token)
 

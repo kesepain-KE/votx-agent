@@ -2,7 +2,7 @@
 import subprocess
 from pathlib import Path
 from run.tool import register_tool
-from skills._common import err, safe_path, check_sandbox, check_dangerous_command
+from plugins._common import err, safe_path, check_sandbox, check_dangerous_command
 
 
 def convert_to_markdown(

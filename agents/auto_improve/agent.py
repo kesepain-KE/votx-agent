@@ -1,22 +1,26 @@
 # -*- coding: utf-8 -*-
 """Auto Improve 子代理 — 对话记忆提取与管理
 
-两种触发模式：
+两种触发模式 + 权限边界：
 
-1. 被动触发 (消息达上限) — run_auto_improve()
-   读: improve/*/permanent/  (已知的永久内容)
+1. 被动触发 (消息达上限 / cron) — run_auto_improve()
+   读: improve/*/temporary/  (已有临时内容，用于去重)
    写: improve/*/temporary/  (新发现的临时内容)
-   逻辑: 对比永久记忆，发现新事实/偏好/模式 → 暂存临时层
+   禁止: 读取 permanent、写入 permanent
 
-2. 主动触发 (用户调用) — run_auto_improve_active()
-   读: improve/*/temporary/  (待审阅的临时内容)
-   写: improve/*/permanent/  (确认晋升为永久)
-   逻辑: 审阅临时记忆 → 去重/合并/提炼 → 晋升到永久层
+2. 主动触发 (用户调用 auto_improve_review) — run_auto_improve_active()
+   读: improve/*/temporary/ + improve/*/permanent/
+   写: improve/*/permanent/ (确认晋升)
+   写: improve/review_log.jsonl (记录合并结果)
+   禁止: 直接修改 temporary
+
+临时文件清理由 auto_improve_cleanup_reviewed 工具独立处理。
 """
 
 import json
 import os
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 
 from run.io_utils import atomic_write_text
@@ -70,6 +74,18 @@ def _read_files_by_tier(user_dir: str, tier: str) -> dict[str, str]:
                     result[f"{sub}/{tier}/{name}"] = content
                 except Exception:
                     pass
+    return result
+
+
+def _list_temp_files(user_dir: str) -> dict[str, list[str]]:
+    """返回 temporary 层文件快照: {sub: [filename, ...]}"""
+    result = {}
+    for sub in _VALID_SUBS:
+        temp_dir = os.path.join(_improve_dir(user_dir), sub, "temporary")
+        if os.path.isdir(temp_dir):
+            files = [f for f in os.listdir(temp_dir) if f.endswith(".md")]
+            if files:
+                result[sub] = files
     return result
 
 
@@ -191,17 +207,125 @@ def _apply_operations(ops: list[dict], user_dir: str, target_tier: str) -> tuple
     return executed, errors
 
 
+# ──── review_log ────
+
+def _review_log_path(user_dir: str) -> str:
+    """返回 review_log.jsonl 的完整路径"""
+    return os.path.join(_improve_dir(user_dir), "review_log.jsonl")
+
+
+def _write_review_log(
+    user_dir: str,
+    ops: list[dict],
+    temp_files_before: dict[str, list[str]],
+    executed: int,
+    errors: list,
+):
+    """将一次 active review 的结果写入 review_log.jsonl。
+
+    每条记录:
+      { ts, ops_count, ops_summary, files_absorbed, files_remaining, errors }
+    """
+    log_path = _review_log_path(user_dir)
+
+    # 记录哪些临时文件被本次 review 覆盖了（作为 "absorbed" 候选）
+    # 简化策略：所有 review 前存在的临时文件都标记为"已被审阅"
+    files_absorbed = []
+    for sub, filenames in temp_files_before.items():
+        for fn in filenames:
+            files_absorbed.append(f"{sub}/{fn}")
+
+    ops_summary = []
+    for op in ops:
+        ops_summary.append({
+            "action": op.get("action"),
+            "sub": op.get("sub"),
+            "filename": op.get("filename"),
+        })
+
+    entry = {
+        "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "ops_count": executed,
+        "ops_summary": ops_summary[:50],  # 最多记录 50 个操作摘要
+        "files_absorbed": files_absorbed,
+        "errors": errors[:10],
+    }
+
+    try:
+        os.makedirs(os.path.dirname(log_path), exist_ok=True)
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+
+
+def get_review_log(user_dir: str, limit: int = 20) -> list[dict]:
+    """读取最近 N 条 review 日志"""
+    log_path = _review_log_path(user_dir)
+    if not os.path.exists(log_path):
+        return []
+    entries = []
+    try:
+        with open(log_path, encoding="utf-8") as f:
+            for line in f:
+                try:
+                    entries.append(json.loads(line.strip()))
+                except json.JSONDecodeError:
+                    pass
+    except Exception:
+        pass
+    return entries[-limit:]
+
+
+def get_absorbed_temp_files(user_dir: str) -> set:
+    """从 review_log 中提取所有已被标记为 absorbed 的临时文件路径"""
+    absorbed = set()
+    entries = get_review_log(user_dir, limit=100)
+    for entry in entries:
+        for f in entry.get("files_absorbed", []):
+            absorbed.add(f)
+    return absorbed
+
+
+def cleanup_reviewed_temp_files(user_dir: str) -> tuple[int, list[str]]:
+    """删除已被 review 标记为 absorbed 的临时文件。
+
+    Returns:
+        (deleted_count, deleted_paths)
+    """
+    absorbed = get_absorbed_temp_files(user_dir)
+    if not absorbed:
+        return 0, []
+
+    deleted = []
+    for absorbed_path in absorbed:
+        # absorbed_path 格式: "memory/identity.md"
+        full_path = os.path.join(_improve_dir(user_dir), absorbed_path)
+        try:
+            if os.path.isfile(full_path):
+                os.remove(full_path)
+                deleted.append(absorbed_path)
+        except OSError:
+            pass
+
+    if deleted:
+        from run.prompt_cache import invalidate_prompt_cache
+        invalidate_prompt_cache(os.path.basename(user_dir))
+
+    return len(deleted), deleted
+
+
 # ──── 入口函数 ────
 
 
 def run_auto_improve(provider, messages: list[dict], user_dir: str) -> dict:
-    """被动触发 — 消息达上限时调用。
+    """被动触发 — 消息达上限或 cron 时调用。
 
-    读 permanent（已知内容，避免重复）→ 分析对话 → 写 temporary（新发现）
+    权限: 只读 temporary，只写 temporary。禁止访问 permanent。
 
     Args:
         provider: LLM provider
-        messages: 被裁剪的旧消息
+        messages: 被裁剪的旧消息（或当前消息）
         user_dir: 用户目录
     """
     _ensure_dirs(user_dir)
@@ -210,11 +334,12 @@ def run_auto_improve(provider, messages: list[dict], user_dir: str) -> dict:
     if len(conv_core) < 2:
         return {"operations": 0, "errors": [], "summary": "用户消息太少，跳过记忆提取"}
 
-    reference = _read_files_by_tier(user_dir, "permanent")
+    # 被动模式: 只读 temporary，用于临时层内部去重
+    reference = _read_files_by_tier(user_dir, "temporary")
     agent_messages = _build_agent_messages(
         conv_core, reference,
-        mode="被动触发（消息达上限）",
-        reference_label="永久记忆/规则/知识图谱",
+        mode="被动触发（消息达上限/cron）",
+        reference_label="临时记忆/规则/知识图谱",
         target_label="临时记忆/规则/知识图谱",
     )
 
@@ -238,7 +363,8 @@ def run_auto_improve(provider, messages: list[dict], user_dir: str) -> dict:
 def run_auto_improve_active(provider, messages: list[dict], user_dir: str) -> dict:
     """主动触发 — 用户调用 auto_improve_review 时调用。
 
-    读 temporary（待审阅内容）→ 分析对话 → 写 permanent（确认晋升）
+    权限: 读 temporary + permanent，只写 permanent + review_log。
+    禁止直接修改 temporary。
 
     Args:
         provider: LLM provider
@@ -251,11 +377,18 @@ def run_auto_improve_active(provider, messages: list[dict], user_dir: str) -> di
     if len(conv_core) < 2:
         return {"operations": 0, "errors": [], "summary": "对话太短，跳过记忆审阅"}
 
-    reference = _read_files_by_tier(user_dir, "temporary")
+    # 快照：审阅前的临时文件列表
+    temp_before = _list_temp_files(user_dir)
+
+    # 同时读取 temporary + permanent 作为参考层
+    ref_temp = _read_files_by_tier(user_dir, "temporary")
+    ref_perm = _read_files_by_tier(user_dir, "permanent")
+    reference = {**ref_temp, **ref_perm}  # temp 优先出现在 key 中（虽然不会冲突）
+
     agent_messages = _build_agent_messages(
         conv_core, reference,
         mode="主动触发（用户调用审阅）",
-        reference_label="临时记忆/规则/知识图谱（待审阅）",
+        reference_label="临时记忆 + 永久记忆（待审阅 vs 已固化）",
         target_label="永久记忆/规则/知识图谱",
     )
 
@@ -270,7 +403,11 @@ def run_auto_improve_active(provider, messages: list[dict], user_dir: str) -> di
         return {"operations": 0, "errors": [], "summary": "未解析出记忆操作"}
 
     executed, errors = _apply_operations(ops, user_dir, "permanent")
-    summary = f"[主动] 已执行 {executed} 个永久记忆操作"
+
+    # 写入 review_log（用于后续 cleanup_reviewed）
+    _write_review_log(user_dir, ops, temp_before, executed, errors)
+
+    summary = f"[主动] 已执行 {executed} 个永久记忆操作，审阅日志已记录"
     if errors:
         summary += f"，{len(errors)} 个失败"
     return {"operations": executed, "errors": errors, "summary": summary}

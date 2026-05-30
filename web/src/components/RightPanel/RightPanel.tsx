@@ -1,4 +1,5 @@
 /** 描述 Props 数据结构。 */
+import { useState } from 'react'
 import { useAppStore } from '@/store/useAppStore'
 import type { AppStore, FileItem } from '@/types'
 import { planStatusColor, planStatusLabel, planStepIcon, PROMPT_TABS } from '@/hooks/useAppActions'
@@ -12,6 +13,7 @@ interface Props {
   restoreConfig: () => void
   reloadAgent: () => Promise<void>
   loadToolLogs: () => Promise<void>
+  loadToolResult: (logId: string) => Promise<string>
   loadTasks: () => Promise<void>
   deleteTask: (id: string) => Promise<void>
   loadTaskPlans: () => Promise<void>
@@ -48,6 +50,7 @@ export function RightPanel(props: Props) {
   const tasks = useAppStore((s) => s.tasks)
   const taskPlans = useAppStore((s) => s.taskPlans)
   const files = useAppStore((s) => s.files)
+  const [logResults, setLogResults] = useState<Record<string, { result?: string; loading?: boolean }>>({})
   const set = useAppStore.setState
   const get = useAppStore.getState
 
@@ -165,7 +168,26 @@ export function RightPanel(props: Props) {
           {statusSubTab === 'logs' && (
             <div className="list">
               {!logs.length && <div style={{ color: 'var(--text-secondary)', fontSize: 12, padding: 4 }}>选择用户后加载日志...</div>}
-              {logs.map((log) => <div key={log._key} className={`log-row ${log.success ? '' : 'fail'}`}>{log.text}</div>)}
+              {logs.map((log) => {
+                const lr = logResults[String(log._key)]
+                const handleClick = async () => {
+                  if (!log.id || lr) return
+                  setLogResults((p) => ({ ...p, [String(log._key)]: { loading: true } }))
+                  try {
+                    const r = await props.loadToolResult(log.id)
+                    setLogResults((p) => ({ ...p, [String(log._key)]: { result: r || '(无输出)' } }))
+                  } catch {
+                    setLogResults((p) => ({ ...p, [String(log._key)]: { result: '加载失败' } }))
+                  }
+                }
+                return (
+                  <div key={log._key} className={`log-row ${log.success ? '' : 'fail'} ${log.id ? 'clickable' : ''}`} onClick={handleClick}>
+                    <div>{log.text}</div>
+                    {lr?.loading && <div className="log-loading">加载结果中...</div>}
+                    {lr?.result && <pre className="log-result">{lr.result}</pre>}
+                  </div>
+                )
+              })}
             </div>
           )}
 

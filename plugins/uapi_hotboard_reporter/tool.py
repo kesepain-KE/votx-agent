@@ -2,7 +2,7 @@
 import os
 import sys
 from run.tool import register_tool
-from skills._common import err, truncate
+from plugins._common import err, truncate
 
 _script_dir = os.path.dirname(__file__)
 if _script_dir not in sys.path:

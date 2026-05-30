@@ -186,9 +186,9 @@ export function useAppActions() {
     return id
   }
 
-  function makeToolCard(name: string, args: unknown, elapsed?: number, success = true): ToolCard {
+  function makeToolCard(name: string, args: unknown, elapsed?: number, success = true, log_id?: string): ToolCard {
     const param = JSON.stringify(args || {}).slice(0, 80)
-    return { _key: nextId(), name, icon: '🔧', param, time: elapsed ? `${elapsed.toFixed(1)}s` : '', success, detail: JSON.stringify(args || {}, null, 2), open: false }
+    return { _key: nextId(), name, icon: '🔧', param, time: elapsed ? `${elapsed.toFixed(1)}s` : '', success, detail: JSON.stringify(args || {}, null, 2), open: false, log_id }
   }
 
   function calcHitRate(cached: number, prompt: number) {
@@ -284,7 +284,7 @@ export function useAppActions() {
                 const name = tc.function?.name || 'unknown'
                 let args = {}
                 try { args = JSON.parse(tc.function?.arguments || '{}') } catch { /* keep empty */ }
-                return makeToolCard(name, args, 0, true)
+                return makeToolCard(name, args, 0, true, (tc as any).log_id)
               })
             }
             if (raw.content) { msg.content = raw.content; msg._raw = '' }
@@ -488,7 +488,7 @@ export function useAppActions() {
           try { ev = JSON.parse(data) } catch { continue }
           switch (ev.type) {
             case 'tool_call':
-              updateLastAssistant((msg) => { msg.tools = [...(msg.tools || []), makeToolCard(ev.name, ev.args, ev.elapsed, ev.success)] })
+              updateLastAssistant((msg) => { msg.tools = [...(msg.tools || []), makeToolCard(ev.name, ev.args, ev.elapsed, ev.success, (ev as any).log_id)] })
               break
             case 'text_chunk':
               updateLastAssistant((msg) => { msg._raw = (msg._raw || '') + (ev.content || '') })
@@ -662,11 +662,18 @@ export function useAppActions() {
         logs: logs.slice(-30).reverse().map((l, i) => {
           let ts = ''
           if (l.ts) { try { const d = new Date(l.ts); ts = Number.isNaN(d.getTime()) ? String(l.ts).replace('T', ' ').slice(0, 19) : d.toLocaleString('zh-CN') } catch { ts = String(l.ts).replace('T', ' ').slice(0, 19) } }
-          return { _key: i, text: `${ts} ${l.success ? '✓' : '×'} ${l.tool} ${JSON.stringify(l.args || {}).slice(0, 80)}`, success: !!l.success }
+          return { _key: i, id: l.id, text: `${ts} ${l.success ? '✓' : '×'} ${l.tool} ${JSON.stringify(l.args || {}).slice(0, 80)}`, success: !!l.success }
         }),
       })
     } catch { /* ignore */ }
   }, [set, get])
+
+  const loadToolResult = useCallback(async (logId: string): Promise<string> => {
+    try {
+      const res = await api<{ result: string; tool: string; success: boolean }>(`/api/tool-results/${encodeURIComponent(logId)}`)
+      return res?.result || ''
+    } catch { return '' }
+  }, [])
 
   const loadTasks = useCallback(async () => { if (!get().userActive) return; try { set({ tasks: (await api<Task[]>('/api/tasks')) || [] }) } catch { /* ignore */ } }, [set, get])
 
@@ -831,7 +838,7 @@ export function useAppActions() {
     removeAttach, guideFile, onUploadFiles, uploadFiles,
     onDragEnter, onDragLeave, onDrop, onPaste,
     loadFileList, downloadFile, deleteFile, deleteAllFiles, deleteCheckedFiles,
-    loadToolLogs, loadTasks, deleteTask, loadTaskPlans, clearCompletedPlans,
+    loadToolLogs, loadToolResult, loadTasks, deleteTask, loadTaskPlans, clearCompletedPlans,
     abortPlan, approvePlan, rejectPlan, modifyPlan, exitAbortPlan, stopModifyPlan, exitPlan,
     loadSystemPrompt, loadDebugConfig, saveConfigField, toggleConfigSwitch,
     saveAllConfig, applyConfig, reloadAgent, restoreConfig,

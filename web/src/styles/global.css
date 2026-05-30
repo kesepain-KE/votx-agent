@@ -1135,6 +1135,32 @@
 
     .tool-call.open .tc-detail { display: block; }
 
+    .tc-section-label {
+      font-size: 10px; color: var(--text-tertiary);
+      text-transform: uppercase; letter-spacing: 0.05em;
+      margin: 8px 0 4px;
+    }
+    .tc-section-label:first-child { margin-top: 0; }
+
+    .tc-loading {
+      font-size: 11px; color: var(--text-secondary); padding: 6px 0;
+    }
+
+    .tc-result {
+      max-height: 300px; overflow-y: auto;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      padding-top: 6px; margin-top: 4px;
+    }
+
+    .tc-copy-btn {
+      margin-top: 6px; padding: 3px 10px;
+      border: 1px solid var(--glass-border); border-radius: 8px;
+      background: transparent; color: var(--text-secondary);
+      cursor: pointer; font: inherit; font-size: 11px;
+      transition: border-color var(--duration) var(--ease-out);
+    }
+    .tc-copy-btn:hover { border-color: var(--glass-border-hover); color: var(--text-primary); }
+
     /* Composer */
     .composer {
       padding: 14px 18px;
@@ -1487,6 +1513,21 @@
       background: var(--glass-bg-hover);
       transform: translateX(2px);
     }
+
+    .log-row.clickable { cursor: pointer; }
+    .log-row.clickable:hover { border-left-color: var(--accent); }
+
+    .log-loading { font-size: 10px; color: var(--text-tertiary); margin-top: 4px; }
+
+    .log-result {
+      margin-top: 6px; max-height: 200px; overflow: auto;
+      font: 10px/1.5 var(--font-mono);
+      color: var(--text-primary);
+      background: rgba(0,0,0,0.15); border-radius: 8px;
+      padding: 6px 8px;
+      white-space: pre-wrap; word-break: break-all;
+    }
+    body[data-color-scheme="light"] .log-result { background: rgba(0,0,0,0.04); }
 
     .log-row.fail { border-left-color: var(--danger); }
 

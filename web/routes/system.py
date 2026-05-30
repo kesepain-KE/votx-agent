@@ -13,12 +13,41 @@ from run.prompt_cache import invalidate_prompt_cache
 
 @app.route("/api/messages")
 def api_messages():
-    """处理 api_messages 相关逻辑。"""
+    """处理 api_messages 相关逻辑。返回消息列表，role:tool 消息已过滤，tool_calls 装饰 log_id。"""
     session_data, err, code = require_session()
     if err:
         return err, code
     chat = session_data["chat"]
-    return jsonify(chat.messages)
+    messages = [m for m in chat.messages if m.get("role") != "tool"]
+
+    # 构建 {tool_call_id: log_id} 映射表
+    tc_to_log: dict[str, str] = {}
+    user_dir = session_data.get("user_dir", "")
+    log_path = os.path.join(user_dir, "history", "log", "tool_log.jsonl")
+    if os.path.exists(log_path):
+        try:
+            with open(log_path, encoding="utf-8") as f:
+                for line in f:
+                    try:
+                        entry = json.loads(line.strip())
+                        tcid = entry.get("tool_call_id", "")
+                        lid = entry.get("id", "")
+                        if tcid and lid:
+                            tc_to_log[tcid] = lid
+                    except json.JSONDecodeError:
+                        pass
+        except Exception:
+            pass
+
+    # 给 assistant 消息的 tool_calls 装饰 log_id
+    for msg in messages:
+        if msg.get("role") == "assistant" and msg.get("tool_calls"):
+            for tc in msg["tool_calls"]:
+                tc_id = tc.get("id", "")
+                if tc_id in tc_to_log:
+                    tc["log_id"] = tc_to_log[tc_id]
+
+    return jsonify(messages)
 
 
 @app.route("/api/system-prompt")
@@ -73,33 +102,21 @@ def api_system_prompt():
 
     # ── 顺序与 engine.py build_system_prompt() 保持一致 ──
 
-    # 1. Skill 目录
-    skill_lines = []
-    skills_dir = os.path.join(root, "skills")
-    if os.path.isdir(skills_dir):
-        for dirpath, dirnames, filenames in os.walk(skills_dir):
-            if "SKILL.md" in filenames:
-                skmd_path = os.path.join(dirpath, "SKILL.md")
-                skill_dir = os.path.basename(dirpath)
-                if skill_dir.startswith("_") or skill_dir == "__pycache__":
-                    continue
-                try:
-                    text = open(skmd_path, encoding="utf-8").read()
-                except Exception:
-                    continue
-                desc = ""
-                if text.startswith("---"):
-                    parts = text.split("---\n", 2)
-                    if len(parts) >= 3:
-                        m = re.search(r"^description:\s*(.+)$", parts[1], re.MULTILINE)
-                        if m:
-                            desc = m.group(1).strip().strip('"')
-                has_tools = os.path.exists(os.path.join(dirpath, "tool.py"))
-                skill_type = "🔧 工具型" if has_tools else "📋 指令型"
-                skill_lines.append(f"- **{skill_dir}** ({skill_type}): {desc}")
-    if skill_lines:
-        other_parts.append("## Skill 目录（共 {} 个）\n\n{}".format(
-            len(skill_lines), "\n".join(sorted(skill_lines))))
+    # 1. Skill 目录 — 复用 skills 模块缓存的扫描结果
+    try:
+        from skills import get_cached_skills_info as _get_skills
+        all_skills = _get_skills()
+    except Exception:
+        all_skills = []
+    if all_skills:
+        builtin = [s for s in all_skills if s.get("origin") == "builtin"]
+        user = [s for s in all_skills if s.get("origin") == "user"]
+        if builtin:
+            lines = [s.get("summary", f"- **{s['name']}**") for s in builtin]
+            other_parts.append("## 内置技能（共 {} 个）\n\n{}".format(len(builtin), "\n".join(lines)))
+        if user:
+            lines = [s.get("summary", f"- **{s['name']}**") for s in user]
+            other_parts.append("## 拓展技能（共 {} 个）\n\n{}".format(len(user), "\n".join(lines)))
 
     # 2. 知识库索引（双层架构，data_structure.md）
     user_kb = os.path.join(user_dir, "knowledge")
@@ -308,12 +325,13 @@ def api_stats():
 
 @app.route("/api/tool-logs")
 def api_tool_logs():
-    """处理 api_tool_logs 相关逻辑。"""
+    """处理 api_tool_logs 相关逻辑。返回摘要，不含 result/elapsed。"""
     session_data, err, code = require_session()
     if err:
         return err, code
     user_dir = session_data["user_dir"]
     logs = []
+    skip_keys = {"result", "elapsed"}
     new_log_path = os.path.join(user_dir, "history", "log", "tool_log.jsonl")
     old_log_path = os.path.join(user_dir, "history", "log", "tool_log.json")
     for log_path in (new_log_path, old_log_path):
@@ -324,13 +342,42 @@ def api_tool_logs():
                         line = line.strip()
                         if line:
                             try:
-                                logs.append(json.loads(line))
+                                entry = json.loads(line)
+                                logs.append({k: v for k, v in entry.items() if k not in skip_keys})
                             except json.JSONDecodeError:
                                 pass
             except Exception:
                 pass
 
     return jsonify(logs)
+
+
+@app.route("/api/tool-results/<log_id>")
+def api_tool_result(log_id):
+    """根据 log_id 返回单条工具调用的结果。"""
+    session_data, err, code = require_session()
+    if err:
+        return err, code
+    user_dir = session_data["user_dir"]
+    log_path = os.path.join(user_dir, "history", "log", "tool_log.jsonl")
+    if not os.path.exists(log_path):
+        return jsonify({"error": "日志不存在"}), 404
+    try:
+        with open(log_path, encoding="utf-8") as f:
+            for line in f:
+                try:
+                    entry = json.loads(line.strip())
+                    if entry.get("id") == log_id:
+                        return jsonify({
+                            "result": entry.get("result", ""),
+                            "tool": entry.get("tool", ""),
+                            "success": entry.get("success", False),
+                        })
+                except json.JSONDecodeError:
+                    pass
+    except Exception:
+        return jsonify({"error": "读取日志失败"}), 500
+    return jsonify({"error": "未找到"}), 404
 
 
 @app.route("/api/reload", methods=["POST"])

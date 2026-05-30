@@ -1,6 +1,6 @@
 """通用消息发送工具 — 通过 PushQueue 异步投递到 QQ/Telegram"""
 from run.tool import register_tool
-from skills._common import err as _err
+from plugins._common import err as _err
 
 
 def _load_push_queue_dir() -> str:

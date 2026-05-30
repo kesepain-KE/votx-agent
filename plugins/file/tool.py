@@ -2,7 +2,7 @@
 import os
 from pathlib import Path
 from run.tool import register_tool
-from skills._common import err, truncate, safe_path, check_sandbox, get_current_user_dir
+from plugins._common import err, truncate, safe_path, check_sandbox, get_current_user_dir
 
 def read_file(path: str, encoding: str = "utf-8") -> str:
     """读取文件内容，受沙箱保护"""

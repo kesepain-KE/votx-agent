@@ -26,6 +26,7 @@ interface Props {
   onChatScroll: () => void
   patchMessage: (id: number, patch: Partial<Message> | ((m: Message) => Message)) => void
   copyMsg: (m: Message) => void
+  loadToolResult: (logId: string) => Promise<string>
   chatRef: React.RefObject<HTMLDivElement>
   textRef: React.RefObject<HTMLTextAreaElement>
   uploadRef: React.RefObject<HTMLInputElement>
@@ -42,7 +43,7 @@ export function MainChat({
   saveChat, newChat, continueAfterMaxRounds, sendMessage, stopRun, sendCommand,
   continueConversation, loadConversation, removeAttach, onUploadFiles, onPaste,
   onTextareaKeyDown, onDragEnter, onDragLeave, onDrop, onChatScroll,
-  patchMessage, copyMsg, chatRef, textRef, uploadRef,
+  patchMessage, copyMsg, loadToolResult, chatRef, textRef, uploadRef,
   rejectPlan, approvePlan, modifyPlan, exitAbortPlan, stopModifyPlan, exitPlan,
 }: Props) {
   const dragging = useAppStore((s) => s.dragging)
@@ -63,7 +64,7 @@ export function MainChat({
       )}
 
       <TopBar saveChat={saveChat} newChat={newChat} />
-      <MessageList patchMessage={patchMessage} copyMsg={copyMsg} continueAfterMaxRounds={continueAfterMaxRounds} chatRef={chatRef} onChatScroll={onChatScroll} />
+      <MessageList patchMessage={patchMessage} copyMsg={copyMsg} continueAfterMaxRounds={continueAfterMaxRounds} chatRef={chatRef} onChatScroll={onChatScroll} loadToolResult={loadToolResult} />
       <Composer
         sendCommand={sendCommand} sendMessage={sendMessage} stopRun={stopRun}
         continueConversation={continueConversation} loadConversation={loadConversation}

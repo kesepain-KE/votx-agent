@@ -2,7 +2,7 @@
 import time as _time
 from datetime import datetime, timezone
 from run.tool import register_tool
-from skills._common import err
+from plugins._common import err
 
 
 def get_time() -> str:

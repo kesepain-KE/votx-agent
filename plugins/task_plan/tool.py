@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from run.tool import register_tool
-from skills._common import err, truncate
+from plugins._common import err, truncate
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 _VALID_PLAN_FILE = re.compile(r'^plan_\w+\.json$')

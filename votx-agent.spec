@@ -19,7 +19,7 @@ def _collect_tree(rel: str) -> list[tuple[str, str]]:
 
 # 数据文件：（源路径, 目标相对路径）
 datas = []
-for d in ["web", "config", "skills", "provider", "tools", "run", "cron", "agents", "message"]:
+for d in ["web", "config", "skills", "plugins", "provider", "tools", "run", "cron", "agents", "message"]:
     datas.extend(_collect_tree(d))
 datas.append((str(_root / "paths.py"), "paths.py"))
 datas.append((str(_root / "AGENTS.md"), "AGENTS.md"))
@@ -50,7 +50,7 @@ hiddenimports = [
     "provider.responses_api",
     "provider.anthropic_adapter",
     # Skill tool.py 动态依赖
-    "skills._common",
+    "plugins._common",
     # 可选工具包
     "yaml",
     "docx",

@@ -30,7 +30,7 @@ async def download_url(root: str, username: str, url: str, filename: str = "") -
     import urllib.request
 
     # SSRF 防护
-    from skills._common import validate_url as _validate_url
+    from plugins._common import validate_url as _validate_url
     err = _validate_url(url)
     if err:
         print(f"[download] URL 校验失败 {url}: {err}")
