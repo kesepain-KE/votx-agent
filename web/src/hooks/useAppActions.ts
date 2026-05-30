@@ -453,96 +453,105 @@ export function useAppActions() {
     scrollBottom()
   }, [get, set])
 
-  const streamChat = useCallback(async (message: string) => {
-    set({ userScrolledUp: false, running: true })
-    set({ abortCtrl: new AbortController() })
+  const streamEvents = useCallback(async (url: string, body: unknown) => {
     const reqStart = Date.now()
-    startAssistantMsg()
     let pendingUsage: UsageInfo | null = null
 
-    try {
-      const res = await fetch('/api/chat', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message }), signal: get().abortCtrl!.signal })
-      const ct = res.headers.get('Content-Type') || ''
-      if (ct.includes('application/json')) {
-        const data = await res.json()
-        updateLastAssistant((msg) => { msg.streaming = false; msg.content = data.content || data.error || '' })
-        scrollBottom()
-        return
-      }
-      const reader = res.body?.getReader()
-      if (!reader) throw new Error('响应体不可读')
-      const decoder = new TextDecoder()
-      let buffer = ''
+    const res = await fetch(url, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: get().abortCtrl!.signal,
+    })
+    const ct = res.headers.get('Content-Type') || ''
+    if (ct.includes('application/json')) {
+      const data = await res.json()
+      updateLastAssistant((msg) => { msg.streaming = false; msg.content = data.content || data.error || '' })
+      scrollBottom()
+      return
+    }
+    const reader = res.body?.getReader()
+    if (!reader) throw new Error('响应体不可读')
+    const decoder = new TextDecoder()
+    let buffer = ''
 
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue
-          const data = line.slice(6)
-          if (data === '{"type":"done"}') continue
-          let ev: SSEEvent
-          try { ev = JSON.parse(data) } catch { continue }
-          switch (ev.type) {
-            case 'tool_call':
-              updateLastAssistant((msg) => { msg.tools = [...(msg.tools || []), makeToolCard(ev.name, ev.args, ev.elapsed, ev.success, (ev as any).log_id)] })
-              break
-            case 'text_chunk':
-              updateLastAssistant((msg) => { msg._raw = (msg._raw || '') + (ev.content || '') })
-              break
-            case 'text_done':
-              updateLastAssistant((msg) => {
-                msg.content = msg._raw || ''; msg.streaming = false
-                if (pendingUsage) { pendingUsage.time = fmtMs(Date.now() - reqStart); pendingUsage.hit_rate = calcHitRate(pendingUsage._cached, pendingUsage._prompt); msg.usage = pendingUsage; pendingUsage = null }
-              })
-              break
-            case 'text':
-              updateLastAssistant((msg) => {
-                msg.content = ev.content || ''; msg.streaming = false
-                if (pendingUsage) { pendingUsage.time = fmtMs(Date.now() - reqStart); pendingUsage.hit_rate = calcHitRate(pendingUsage._cached, pendingUsage._prompt); msg.usage = pendingUsage; pendingUsage = null }
-              })
-              break
-            case 'thinking_chunk':
-              updateLastAssistant((msg) => { msg.think = (msg.think || '') + (ev.content || ''); msg.thinkOpen = true })
-              break
-            case 'thinking':
-              updateLastAssistant((msg) => { msg.think = ev.content || ''; msg.thinkOpen = true })
-              break
-            case 'thinking_done': break
-            case 'usage':
-              if (!pendingUsage) pendingUsage = { _prompt: 0, _completion: 0, _cached: 0, input: '', output: '', hit: '', time: '', hit_rate: '...' }
-              pendingUsage._prompt += ev.data?.prompt_tokens || 0; pendingUsage._completion += ev.data?.completion_tokens || 0; pendingUsage._cached += ev.data?.cached_tokens || 0
-              pendingUsage.input = formatNumber(pendingUsage._prompt); pendingUsage.output = formatNumber(pendingUsage._completion); pendingUsage.hit = formatNumber(pendingUsage._cached)
-              pendingUsage.time = fmtMs(ev.data?.total_elapsed_ms || ev.data?.elapsed || 0)
-              break
-            case 'error': pushError(ev.content || '未知错误'); break
-            case 'deadlock_warning': pushWarn('同命令连败 3 次，已提示 LLM 换思路'); break
-            case 'max_rounds': pushWarn('已达到最大工具调用轮数', true); break
-            case 'plan_created':
-              if (ev.plan) { const a = get().activePlan; if (a && a.id === ev.plan_id) set({ activePlan: { ...a, ...ev.plan } }); else set({ activePlan: ev.plan, planPhase: 'review' }); void loadTaskPlans() }
-              break
-            case 'plan_started':
-              if (get().activePlan?.id === ev.plan_id) set({ activePlan: { ...get().activePlan!, status: 'in_progress' }, planPhase: 'executing' })
-              break
-            case 'plan_step':
-              if (ev.step) updatePlanStep(ev.plan_id, ev.step)
-              break
-            case 'plan_complete':
-              if (get().activePlan?.id === ev.plan_id) { set({ activePlan: { ...get().activePlan!, status: 'completed' }, planPhase: 'completed' }); void loadTaskPlans() }
-              break
-            case 'plan_pause':
-              if (get().activePlan?.id === ev.plan_id) { set({ activePlan: { ...get().activePlan!, status: 'paused' }, planPhase: 'paused' }); void loadTaskPlans() }
-              break
-            case 'plan_aborted':
-              if (get().activePlan?.id === ev.plan_id) { set({ activePlan: null, planPhase: null }); void loadTaskPlans() }
-              break
-          }
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue
+        const data = line.slice(6)
+        if (data === '{"type":"done"}') continue
+        let ev: SSEEvent
+        try { ev = JSON.parse(data) } catch { continue }
+        switch (ev.type) {
+          case 'tool_call':
+            updateLastAssistant((msg) => { msg.tools = [...(msg.tools || []), makeToolCard(ev.name, ev.args, ev.elapsed, ev.success, (ev as any).log_id)] })
+            break
+          case 'text_chunk':
+            updateLastAssistant((msg) => { msg._raw = (msg._raw || '') + (ev.content || '') })
+            break
+          case 'text_done':
+            updateLastAssistant((msg) => {
+              msg.content = msg._raw || ''; msg.streaming = false
+              if (pendingUsage) { pendingUsage.time = fmtMs(Date.now() - reqStart); pendingUsage.hit_rate = calcHitRate(pendingUsage._cached, pendingUsage._prompt); msg.usage = pendingUsage; pendingUsage = null }
+            })
+            break
+          case 'text':
+            updateLastAssistant((msg) => {
+              msg.content = ev.content || ''; msg.streaming = false
+              if (pendingUsage) { pendingUsage.time = fmtMs(Date.now() - reqStart); pendingUsage.hit_rate = calcHitRate(pendingUsage._cached, pendingUsage._prompt); msg.usage = pendingUsage; pendingUsage = null }
+            })
+            break
+          case 'thinking_chunk':
+            updateLastAssistant((msg) => { msg.think = (msg.think || '') + (ev.content || ''); msg.thinkOpen = true })
+            break
+          case 'thinking':
+            updateLastAssistant((msg) => { msg.think = ev.content || ''; msg.thinkOpen = true })
+            break
+          case 'thinking_done': break
+          case 'usage':
+            if (!pendingUsage) pendingUsage = { _prompt: 0, _completion: 0, _cached: 0, input: '', output: '', hit: '', time: '', hit_rate: '...' }
+            pendingUsage._prompt += ev.data?.prompt_tokens || 0; pendingUsage._completion += ev.data?.completion_tokens || 0; pendingUsage._cached += ev.data?.cached_tokens || 0
+            pendingUsage.input = formatNumber(pendingUsage._prompt); pendingUsage.output = formatNumber(pendingUsage._completion); pendingUsage.hit = formatNumber(pendingUsage._cached)
+            pendingUsage.time = fmtMs(ev.data?.total_elapsed_ms || ev.data?.elapsed || 0)
+            break
+          case 'error': pushError(ev.content || '未知错误'); break
+          case 'deadlock_warning': pushWarn('同命令连败 3 次，已提示 LLM 换思路'); break
+          case 'max_rounds': pushWarn('已达到最大工具调用轮数', true); break
+          case 'plan_created':
+            if (ev.plan) { const a = get().activePlan; if (a && a.id === ev.plan_id) set({ activePlan: { ...a, ...ev.plan } }); else set({ activePlan: ev.plan, planPhase: 'review' }); void loadTaskPlans() }
+            break
+          case 'plan_started':
+            if (get().activePlan?.id === ev.plan_id) set({ activePlan: { ...get().activePlan!, status: 'in_progress' }, planPhase: 'executing' })
+            break
+          case 'plan_step':
+            if (ev.step) updatePlanStep(ev.plan_id, ev.step)
+            break
+          case 'plan_complete':
+            if (get().activePlan?.id === ev.plan_id) { set({ activePlan: { ...get().activePlan!, status: 'completed' }, planPhase: 'completed' }); void loadTaskPlans() }
+            break
+          case 'plan_pause':
+            if (get().activePlan?.id === ev.plan_id) { set({ activePlan: { ...get().activePlan!, status: 'paused' }, planPhase: 'paused' }); void loadTaskPlans() }
+            break
+          case 'plan_aborted':
+            if (get().activePlan?.id === ev.plan_id) { set({ activePlan: null, planPhase: null }); void loadTaskPlans() }
+            break
         }
-        scrollBottom()
       }
+      scrollBottom()
+    }
+  }, [get, set, updateLastAssistant, scrollBottom, pushError, pushWarn, makeToolCard, updatePlanStep, calcHitRate, fmtMs, formatNumber])
+
+  const streamChat = useCallback(async (message: string) => {
+    set({ userScrolledUp: false, running: true, abortCtrl: new AbortController() })
+    startAssistantMsg()
+    try {
+      await streamEvents('/api/chat', { message })
     } catch (error) {
       if ((error as Error).name !== 'AbortError') pushError(`连接错误: ${(error as Error).message}`)
     } finally {
@@ -551,7 +560,22 @@ export function useAppActions() {
       scrollBottom(); void refreshOverview()
       window.requestAnimationFrame(() => textRef.current?.focus())
     }
-  }, [set, get])
+  }, [get, set, streamEvents, startAssistantMsg, updateLastAssistant, scrollBottom, pushError])
+
+  const streamPlanRun = useCallback(async (planId: string) => {
+    set({ running: true, abortCtrl: new AbortController() })
+    startAssistantMsg()
+    try {
+      await streamEvents(`/api/task-plan/${encodeURIComponent(planId)}/approve-run`, {})
+    } catch (error) {
+      if ((error as Error).name !== 'AbortError') pushError(`连接错误: ${(error as Error).message}`)
+    } finally {
+      set({ running: false, abortCtrl: null })
+      updateLastAssistant((msg) => { msg.streaming = false })
+      scrollBottom(); void refreshOverview()
+      window.requestAnimationFrame(() => textRef.current?.focus())
+    }
+  }, [get, set, streamEvents, startAssistantMsg, updateLastAssistant, scrollBottom, pushError])
 
   function updatePlanStep(planId: string, step: PlanStep) {
     const active = get().activePlan
@@ -696,20 +720,24 @@ export function useAppActions() {
 
   const approvePlan = useCallback(async () => {
     const activePlan = get().activePlan; if (!activePlan) return
-    try {
-      await api(`/api/task-plan/${encodeURIComponent(activePlan.id)}/resume`, { method: 'POST' })
-      const steps = activePlan.steps.map((s, i) => (i === activePlan.steps.findIndex((x) => x.status === 'pending') ? { ...s, status: 'in_progress' } : s))
-      set({ activePlan: { ...activePlan, status: 'in_progress', steps }, planPhase: 'executing', input: '执行计划' })
-      toast('计划已批准，开始执行'); await sendMessage()
-    } catch (error) { toast(`操作失败: ${(error as Error).message}`) }
-  }, [get, set, sendMessage])
+    if (get().running) { toast('当前正在执行中，请勿重复启动'); return }
+    const steps = activePlan.steps.map((s, i) =>
+      i === activePlan.steps.findIndex((x) => x.status === 'pending') ? { ...s, status: 'in_progress' } : s
+    )
+    set({ activePlan: { ...activePlan, status: 'in_progress', steps }, planPhase: 'executing' })
+    toast('计划已批准，开始执行')
+    await streamPlanRun(activePlan.id)
+  }, [get, set, streamPlanRun])
 
   const rejectPlan = useCallback(async () => {
     const activePlan = get().activePlan; if (!activePlan) return
-    set({ activePlan: null, planPhase: null, input: '拒绝此项计划' })
-    toast('已发送拒绝')
-    await sendMessage()
-  }, [get, set, sendMessage])
+    try {
+      await api(`/api/task-plan/${encodeURIComponent(activePlan.id)}/reject`, { method: 'POST' })
+      set({ activePlan: null, planPhase: null })
+      await loadTaskPlans()
+      toast('计划已拒绝')
+    } catch (error) { toast(`操作失败: ${(error as Error).message}`) }
+  }, [get, set, loadTaskPlans])
 
   const modifyPlan = useCallback(() => { toast('请直接发送修改要求，例如"把第2步改成..."'); textRef.current?.focus() }, [])
 
@@ -723,6 +751,14 @@ export function useAppActions() {
     const activePlan = get().activePlan; if (!activePlan) return; if (get().running) stopRun()
     try { await api(`/api/task-plan/${encodeURIComponent(activePlan.id)}/pause`, { method: 'POST' }); set({ activePlan: { ...activePlan, status: 'paused' }, planPhase: 'paused' }); toast('计划已暂停，请发送修改要求'); textRef.current?.focus() } catch (error) { toast(`操作失败: ${(error as Error).message}`) }
   }, [get, set])
+
+  const continuePlan = useCallback(async () => {
+    const activePlan = get().activePlan; if (!activePlan) return
+    if (get().running) { toast('当前正在执行中，请勿重复启动'); return }
+    set({ activePlan: { ...activePlan, status: 'in_progress' }, planPhase: 'executing' })
+    toast('继续执行计划')
+    await streamPlanRun(activePlan.id)
+  }, [get, set, streamPlanRun])
 
   const exitPlan = useCallback(() => { set({ activePlan: null, planPhase: null }); toast('任务已退出') }, [set])
 
@@ -839,9 +875,10 @@ export function useAppActions() {
     onDragEnter, onDragLeave, onDrop, onPaste,
     loadFileList, downloadFile, deleteFile, deleteAllFiles, deleteCheckedFiles,
     loadToolLogs, loadToolResult, loadTasks, deleteTask, loadTaskPlans, clearCompletedPlans,
-    abortPlan, approvePlan, rejectPlan, modifyPlan, exitAbortPlan, stopModifyPlan, exitPlan,
+    abortPlan, approvePlan, rejectPlan, modifyPlan, exitAbortPlan, stopModifyPlan, continuePlan, exitPlan,
     loadSystemPrompt, loadDebugConfig, saveConfigField, toggleConfigSwitch,
     saveAllConfig, applyConfig, reloadAgent, restoreConfig,
     refreshOverview, restoreSession, toggleThemeMenu, chooseTheme, onTextareaKeyDown,
+    streamPlanRun, streamEvents,
   }
 }

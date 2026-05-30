@@ -1,6 +1,7 @@
 """核心聊天路由 — index, users, session, chat SSE, command, disconnect"""
 import json
 import os
+import threading
 import traceback
 
 from flask import Response, jsonify, render_template, request, send_file, stream_with_context, session as flask_session
@@ -9,6 +10,9 @@ from web.server import app
 from web.session import _root, get_session, require_session, clear_session, init_user_session
 from web.commands import _dispatch
 from run.user_locks import get_user_lock
+
+_active_plan_runs_guard = threading.Lock()
+_active_plan_runs: set[str] = set()
 
 
 def _snapshot_plans(user_dir: str) -> dict[str, dict]:
@@ -100,6 +104,67 @@ def _diff_plans(prev: dict, curr: dict) -> list[dict]:
                 })
 
     return events
+
+
+def _run_chat_stream(session_data: dict, extra_user_message: str | None = None):
+    """公共 SSE 聊天执行流 — 供 /api/chat 和 /api/task-plan/<id>/approve-run 共用
+
+    Args:
+        session_data: 会话数据字典
+        extra_user_message: 可选，临时注入的内部用户消息（不持久化）
+    """
+    from run.engine import run_chat_turn
+
+    chat = session_data["chat"]
+    tool_runner = session_data["tool_runner"]
+    provider = session_data["provider"]
+    tools = session_data["tools"]
+    user_dir = session_data.get("user_dir", "")
+    user_name = session_data.get("user_name", "")
+
+    chat.refresh_system_prompt(_root)
+    tool_runner.reset_count()
+
+    from plugins.auto_improve.tool import set_auto_improve_context
+    from plugins.task_plan.tool import set_task_plan_context
+    set_auto_improve_context(provider=provider, chat=chat, user_name=user_name)
+    set_task_plan_context(provider=provider, chat=chat, user_name=user_name)
+
+    # 按对象引用注入临时内部消息，finally 中按引用安全删除（避免 index pop 受历史裁剪影响）
+    internal_msg = None
+    if extra_user_message:
+        internal_msg = {"role": "user", "content": extra_user_message, "internal": True}
+        chat.messages.append(internal_msg)
+
+    prev_snap = _snapshot_plans(user_dir)
+    try:
+        for event in run_chat_turn(chat, tool_runner, provider, tools):
+            yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+            # 工具调用后检查计划文件变化
+            if event.get("type") == "tool_call":
+                curr_snap = _snapshot_plans(user_dir)
+                for pe in _diff_plans(prev_snap, curr_snap):
+                    yield f"data: {json.dumps(pe, ensure_ascii=False)}\n\n"
+                prev_snap = curr_snap
+    except Exception as e:
+        yield f"data: {json.dumps({'type': 'error', 'content': str(e)}, ensure_ascii=False)}\n\n"
+    finally:
+        # 按对象引用安全删除（build_messages 可能裁剪历史，不能用 index pop）
+        if internal_msg is not None and internal_msg in chat.messages:
+            chat.messages.remove(internal_msg)
+        # 先删 internal 再 save，确保 save_log 不会写入内部指令
+        try:
+            curr_snap = _snapshot_plans(user_dir)
+            for pe in _diff_plans(prev_snap, curr_snap):
+                yield f"data: {json.dumps(pe, ensure_ascii=False)}\n\n"
+        except Exception:
+            pass
+        try:
+            chat.save_history()
+            chat.save_log(chat.build_messages())
+        except Exception:
+            pass
+        yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
 
 @app.route("/")
@@ -242,52 +307,11 @@ def api_chat():
             result = {"type": "command_result", "content": f"未知命令: {message}"}
         return jsonify(result)
 
-    from run.engine import run_chat_turn
-
-    tool_runner = session_data["tool_runner"]
-    provider = session_data["provider"]
-    tools = session_data["tools"]
-
     def generate():
         """处理 generate 相关逻辑。"""
         with get_user_lock(session_data.get("user_name", "")):
             chat.add_user_message(message)
-            tool_runner.reset_count()
-            chat.refresh_system_prompt(_root)
-            user_dir = session_data.get("user_dir", "")
-            # 用户发送新消息时自动将暂停的计划恢复为执行中
-            _auto_resume_paused_plans(user_dir)
-            # 每轮工具执行前重新绑定用户上下文（防治 Flask 线程池复用串号）
-            from plugins.auto_improve.tool import set_auto_improve_context
-            from plugins.task_plan.tool import set_task_plan_context
-            set_auto_improve_context(provider=provider, chat=chat, user_name=session_data.get("user_name", ""))
-            set_task_plan_context(provider=provider, chat=chat, user_name=session_data.get("user_name", ""))
-            prev_snap = _snapshot_plans(user_dir)
-            try:
-                for event in run_chat_turn(chat, tool_runner, provider, tools):
-                    yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
-                    # 工具调用后检查计划文件变化
-                    if event.get("type") == "tool_call":
-                        curr_snap = _snapshot_plans(user_dir)
-                        for pe in _diff_plans(prev_snap, curr_snap):
-                            yield f"data: {json.dumps(pe, ensure_ascii=False)}\n\n"
-                        prev_snap = curr_snap
-            except Exception as e:
-                yield f"data: {json.dumps({'type': 'error', 'content': str(e)}, ensure_ascii=False)}\n\n"
-            finally:
-                # 最终检查一次计划变化
-                try:
-                    curr_snap = _snapshot_plans(user_dir)
-                    for pe in _diff_plans(prev_snap, curr_snap):
-                        yield f"data: {json.dumps(pe, ensure_ascii=False)}\n\n"
-                except Exception:
-                    pass
-                try:
-                    chat.save_history()
-                    chat.save_log(chat.build_messages())
-                except Exception:
-                    pass
-                yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            yield from _run_chat_stream(session_data)
 
     return Response(
         stream_with_context(generate()),
@@ -320,6 +344,90 @@ def api_command():
     if result is None:
         result = {"type": "command_result", "content": f"未知命令: {cmd}"}
     return jsonify(result)
+
+
+@app.route("/api/task-plan/<plan_id>/approve-run", methods=["POST"])
+def api_task_plan_approve_run(plan_id):
+    """批准并执行计划 — SSE 流式端点
+
+    幂等容错: pending/paused → in_progress; 已 in_progress → 直接执行; completed/aborted → 拒绝。
+    """
+    from web.routes.task_plan import _validate_plan_id, _load_plan, _save_plan
+
+    session_data, err, code = require_session()
+    if err:
+        return err, code
+
+    user_dir = session_data["user_dir"]
+    path, plan_err = _validate_plan_id(user_dir, plan_id)
+    if plan_err:
+        return jsonify({"error": plan_err}), 400
+
+    initial_plan = _load_plan(path)
+    if initial_plan is None:
+        return jsonify({"error": "无法读取计划文件"}), 500
+
+    current_status = initial_plan.get("status", "pending")
+
+    # 幂等容错
+    if current_status in ("completed", "aborted"):
+        return jsonify({"error": f"计划已完成/已中止，无法执行 (status={current_status})"}), 400
+
+    run_key = f"{session_data.get('user_name', '')}:{os.path.abspath(path)}"
+
+    def generate():
+        """处理 generate 相关逻辑。"""
+        with _active_plan_runs_guard:
+            if run_key in _active_plan_runs:
+                yield f"data: {json.dumps({'type': 'error', 'content': '计划正在执行中，请勿重复启动'}, ensure_ascii=False)}\n\n"
+                yield f"data: {json.dumps({'type': 'done'})}\n\n"
+                return
+            _active_plan_runs.add(run_key)
+
+        try:
+            with get_user_lock(session_data.get("user_name", "")):
+                plan = _load_plan(path)
+                if plan is None:
+                    yield f"data: {json.dumps({'type': 'error', 'content': '无法读取计划文件'}, ensure_ascii=False)}\n\n"
+                    yield f"data: {json.dumps({'type': 'done'})}\n\n"
+                    return
+
+                current_status = plan.get("status", "pending")
+                if current_status in ("completed", "aborted"):
+                    yield f"data: {json.dumps({'type': 'error', 'content': f'计划已完成/已中止，无法执行 (status={current_status})'}, ensure_ascii=False)}\n\n"
+                    yield f"data: {json.dumps({'type': 'done'})}\n\n"
+                    return
+
+                if current_status in ("pending", "paused"):
+                    plan["status"] = "in_progress"
+                    # 第一个 pending step → in_progress
+                    for step in plan.get("steps", []):
+                        if step.get("status") == "pending":
+                            step["status"] = "in_progress"
+                            break
+                    _save_plan(path, plan)
+
+                from run.prompt_cache import invalidate_prompt_cache
+                invalidate_prompt_cache(user_dir)
+
+                # 立即推送 plan_started，不依赖文件 diff
+                yield f"data: {json.dumps({'type': 'plan_started', 'plan_id': plan.get('id', plan_id.replace('.json', '')), 'plan': plan}, ensure_ascii=False)}\n\n"
+                yield from _run_chat_stream(
+                    session_data,
+                    extra_user_message="用户已批准执行计划，请继续执行当前活跃任务计划。",
+                )
+        finally:
+            with _active_plan_runs_guard:
+                _active_plan_runs.discard(run_key)
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @app.route("/api/disconnect", methods=["POST"])

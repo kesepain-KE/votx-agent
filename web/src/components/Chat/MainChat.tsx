@@ -35,6 +35,7 @@ interface Props {
   modifyPlan: () => void
   exitAbortPlan: () => Promise<void>
   stopModifyPlan: () => Promise<void>
+  continuePlan: () => Promise<void>
   exitPlan: () => void
 }
 
@@ -44,7 +45,7 @@ export function MainChat({
   continueConversation, loadConversation, removeAttach, onUploadFiles, onPaste,
   onTextareaKeyDown, onDragEnter, onDragLeave, onDrop, onChatScroll,
   patchMessage, copyMsg, loadToolResult, chatRef, textRef, uploadRef,
-  rejectPlan, approvePlan, modifyPlan, exitAbortPlan, stopModifyPlan, exitPlan,
+  rejectPlan, approvePlan, modifyPlan, exitAbortPlan, stopModifyPlan, continuePlan, exitPlan,
 }: Props) {
   const dragging = useAppStore((s) => s.dragging)
 
@@ -71,7 +72,7 @@ export function MainChat({
         removeAttach={removeAttach} onUploadFiles={onUploadFiles} onPaste={onPaste}
         onTextareaKeyDown={onTextareaKeyDown} textRef={textRef} uploadRef={uploadRef}
         rejectPlan={rejectPlan} approvePlan={approvePlan} modifyPlan={modifyPlan}
-        exitAbortPlan={exitAbortPlan} stopModifyPlan={stopModifyPlan} exitPlan={exitPlan}
+        exitAbortPlan={exitAbortPlan} stopModifyPlan={stopModifyPlan} continuePlan={continuePlan} exitPlan={exitPlan}
       />
     </main>
   )

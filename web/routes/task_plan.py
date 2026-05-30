@@ -10,13 +10,20 @@ from web.server import app
 from web.session import require_session
 
 
-_VALID_PLAN_FILE = re.compile(r'^plan_\w+\.json$')
+_VALID_PLAN_FILE = re.compile(r'^plan_\w+(\.json)?$')
 
 
 def _validate_plan_id(user_dir: str, plan_id: str) -> tuple[str | None, str | None]:
-    """校验 plan_id，返回 (resolved_path, error_msg)"""
+    """校验 plan_id，返回 (resolved_path, error_msg)
+
+    同时接受 plan_abc 和 plan_abc.json 两种格式。
+    """
     if "/" in plan_id or "\\" in plan_id or ".." in plan_id:
         return (None, f"非法计划 ID: {plan_id}")
+
+    # 自动补 .json 后缀，兼容前端传入的裸 plan_abc
+    if not plan_id.endswith('.json'):
+        plan_id = plan_id + '.json'
 
     if not _VALID_PLAN_FILE.match(plan_id):
         return (None, f"非法计划文件名: {plan_id}")
@@ -204,6 +211,32 @@ def api_task_plan_edit_step(plan_id):
     if not found:
         return jsonify({"error": f"步骤不存在: {step_id}"}), 404
 
+    _save_plan(path, plan)
+    from run.prompt_cache import invalidate_prompt_cache
+    invalidate_prompt_cache(user_dir)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/task-plan/<plan_id>/reject", methods=["POST"])
+def api_task_plan_reject(plan_id):
+    """拒绝计划 — 标记为 aborted，未完成步骤标记为 skipped"""
+    session_data, err, code = require_session()
+    if err:
+        return err, code
+
+    user_dir = session_data["user_dir"]
+    path, err = _validate_plan_id(user_dir, plan_id)
+    if err:
+        return jsonify({"error": err}), 400
+
+    plan = _load_plan(path)
+    if plan is None:
+        return jsonify({"error": "无法读取计划文件"}), 500
+
+    plan["status"] = "aborted"
+    for step in plan.get("steps", []):
+        if step["status"] in ("pending", "in_progress"):
+            step["status"] = "skipped"
     _save_plan(path, plan)
     from run.prompt_cache import invalidate_prompt_cache
     invalidate_prompt_cache(user_dir)

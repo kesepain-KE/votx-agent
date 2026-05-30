@@ -58,6 +58,7 @@ export default function App() {
               modifyPlan={a.modifyPlan}
               exitAbortPlan={a.exitAbortPlan}
               stopModifyPlan={a.stopModifyPlan}
+              continuePlan={a.continuePlan}
               exitPlan={a.exitPlan}
             />
         </ErrorBoundary>

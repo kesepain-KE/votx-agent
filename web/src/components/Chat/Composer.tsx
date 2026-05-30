@@ -21,11 +21,12 @@ interface Props {
   modifyPlan: () => void
   exitAbortPlan: () => Promise<void>
   stopModifyPlan: () => Promise<void>
+  continuePlan: () => Promise<void>
   exitPlan: () => void
 }
 
 /** 渲染 Composer 组件。 */
-export function Composer({ sendCommand, sendMessage, stopRun, continueConversation, loadConversation, removeAttach, onUploadFiles, onPaste, onTextareaKeyDown, textRef, uploadRef, rejectPlan, approvePlan, modifyPlan, exitAbortPlan, stopModifyPlan, exitPlan }: Props) {
+export function Composer({ sendCommand, sendMessage, stopRun, continueConversation, loadConversation, removeAttach, onUploadFiles, onPaste, onTextareaKeyDown, textRef, uploadRef, rejectPlan, approvePlan, modifyPlan, exitAbortPlan, stopModifyPlan, continuePlan, exitPlan }: Props) {
   const input = useAppStore((s) => s.input)
   const set = useAppStore.setState
   const userActive = useAppStore((s) => s.userActive)
@@ -91,10 +92,17 @@ export function Composer({ sendCommand, sendMessage, stopRun, continueConversati
                 <button className="btn btn-primary small" onClick={approvePlan}>批准</button>
               </>
             )}
-            {(planPhase === 'executing' || planPhase === 'paused') && (
+            {planPhase === 'executing' && (
               <>
                 <button className="btn btn-danger small" onClick={exitAbortPlan}>退出并终止</button>
                 <button className="btn btn-ghost small" onClick={stopModifyPlan}>停止并修改</button>
+              </>
+            )}
+            {planPhase === 'paused' && (
+              <>
+                <button className="btn btn-danger small" onClick={exitAbortPlan}>退出并终止</button>
+                <button className="btn btn-primary small" onClick={continuePlan}>继续执行</button>
+                <button className="btn btn-ghost small" onClick={modifyPlan}>修改</button>
               </>
             )}
             {planPhase === 'completed' && <button className="btn btn-primary small" onClick={exitPlan}>退出任务</button>}
