@@ -25,6 +25,8 @@ VOTX Agent is a local multi-user AI Agent framework with Web UI, CLI, tool calli
 - **Global/user knowledge bases**: shared `knowledge/` plus per-user `users/<name>/knowledge/`.
 - **Linux/Docker updater**: `update.py` updates framework code while preserving user data.
 
+![VOTX Agent Web UI](votx-agent-web-UI.png)
+
 ## Quick Start
 
 ### Docker
