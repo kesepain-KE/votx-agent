@@ -136,19 +136,27 @@ rmdir /s /q dist\votx-agent\message\push_queue 2>nul
 del /q dist\votx-agent\message\identity\identity_map.json 2>nul
 mkdir dist\votx-agent\message-runtime 2>nul
 copy /Y message\config.example.json dist\votx-agent\message-runtime\config.example.json >nul
+xcopy /E /I /Y plugins dist\votx-agent\plugins\ >nul
 xcopy /E /I /Y provider dist\votx-agent\provider\ >nul
 xcopy /E /I /Y run dist\votx-agent\run\ >nul
 xcopy /E /I /Y skills dist\votx-agent\skills\ >nul
-xcopy /E /I /Y tools dist\votx-agent\tools\ >nul
+xcopy /E /I /Y knowledge dist\votx-agent\knowledge\ >nul
 copy /Y paths.py dist\votx-agent\ >nul
 copy /Y AGENTS.md dist\votx-agent\ >nul
 copy /Y set_user.py dist\votx-agent\ >nul
 copy /Y setup.py dist\votx-agent\ >nul
+copy /Y version.json dist\votx-agent\ >nul
 if exist ".env.example" copy /Y .env.example dist\votx-agent\ >nul
 
-REM ---- 复制 web/（含 src 和 dist）----
+REM ---- 复制 web/（除 node_modules，保留 src/routes/dist 等源码与构建结果）----
 echo [COPY] Copying web/...
-xcopy /E /I /Y web dist\votx-agent\web\ >nul
+robocopy web dist\votx-agent\web /E /XD node_modules __pycache__ /XF *.pyc *.pyo >nul
+if %ERRORLEVEL% GEQ 8 (
+    echo.
+    echo [ERROR] Copy web/ failed
+    pause
+    exit /b 1
+)
 
 REM ---- 构建前端 ----
 echo.
@@ -175,21 +183,9 @@ if %ERRORLEVEL% NEQ 0 (
 popd
 echo   React frontend built successfully
 
-REM ---- 清理 web/ 中构建不需要的文件（只保留 dist/）----
-echo [CLEANUP] Stripping web source and node_modules from package...
+REM ---- 清理 web/ 中构建不需要的依赖目录，保留源码与 dist/ ----
+echo [CLEANUP] Removing web node_modules from package...
 rmdir /s /q dist\votx-agent\web\node_modules 2>nul
-rmdir /s /q dist\votx-agent\web\src 2>nul
-rmdir /s /q dist\votx-agent\web\routes 2>nul
-rmdir /s /q dist\votx-agent\web\__pycache__ 2>nul
-del /q dist\votx-agent\web\package.json 2>nul
-del /q dist\votx-agent\web\package-lock.json 2>nul
-del /q dist\votx-agent\web\tsconfig.json 2>nul
-del /q dist\votx-agent\web\vite.config.ts 2>nul
-del /q dist\votx-agent\web\index.html 2>nul
-del /q dist\votx-agent\web\__init__.py 2>nul
-del /q dist\votx-agent\web\commands.py 2>nul
-del /q dist\votx-agent\web\session.py 2>nul
-del /q dist\votx-agent\web\server.py 2>nul
 
 REM ---- 打包 ----
 echo.

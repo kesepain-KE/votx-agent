@@ -19,11 +19,12 @@ def _collect_tree(rel: str) -> list[tuple[str, str]]:
 
 # 数据文件：（源路径, 目标相对路径）
 datas = []
-for d in ["web", "config", "skills", "plugins", "provider", "tools", "run", "cron", "agents", "message"]:
+for d in ["web", "config", "skills", "plugins", "provider", "run", "cron", "agents", "message", "knowledge"]:
     datas.extend(_collect_tree(d))
 datas.append((str(_root / "paths.py"), "paths.py"))
 datas.append((str(_root / "AGENTS.md"), "AGENTS.md"))
 datas.append((str(_root / ".env.example"), ".env.example"))
+datas.append((str(_root / "version.json"), "version.json"))
 
 # ── 隐藏导入（动态 importlib / __import__ 加载的模块） ──
 hiddenimports = [
