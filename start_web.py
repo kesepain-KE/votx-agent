@@ -7,8 +7,13 @@
 启动时自动检测用户，无用户则交互式创建后再启动。
 """
 import os
+import base64
+import json
+import platform
 import socket
 import sys
+import threading
+import urllib.request
 
 from paths import get_project_root
 _root = get_project_root()
@@ -48,6 +53,88 @@ def _check_users() -> bool:
         return False
 
 
+def _read_local_version() -> str:
+    try:
+        with open(os.path.join(_root, "version.json"), encoding="utf-8") as f:
+            data = json.load(f)
+        return str(data.get("version", "")).strip() or "unknown"
+    except Exception:
+        return "unknown"
+
+
+def _version_tuple(value: str) -> tuple[int, ...] | None:
+    parts = value.strip().split(".")
+    if not parts or any(not p.isdigit() for p in parts):
+        return None
+    return tuple(int(p) for p in parts)
+
+
+def _compare_versions(left: str, right: str) -> int:
+    a = _version_tuple(left)
+    b = _version_tuple(right)
+    if a is None or b is None:
+        return 0
+    n = max(len(a), len(b))
+    a = a + (0,) * (n - len(a))
+    b = b + (0,) * (n - len(b))
+    return (a > b) - (a < b)
+
+
+def _print_windows_version_status():
+    """在 Windows Web 启动终端里提示当前版本状态，不执行自动更新。"""
+    if os.environ.get("VOTX_SKIP_VERSION_CHECK", "").strip() in ("1", "true", "yes"):
+        return
+    if platform.system().lower() != "windows":
+        return
+
+    local_version = _read_local_version()
+
+    def _read_remote_version() -> str:
+        urls = []
+        custom_url = os.environ.get("VOTX_VERSION_URL", "").strip()
+        if custom_url:
+            urls.append(("custom", custom_url))
+        urls.extend([
+            ("raw", "https://raw.githubusercontent.com/kesepain-KE/votx-agent/main/version.json"),
+            ("api", "https://api.github.com/repos/kesepain-KE/votx-agent/contents/version.json?ref=main"),
+            ("cdn", "https://cdn.jsdelivr.net/gh/kesepain-KE/votx-agent@main/version.json"),
+        ])
+
+        last_error = None
+        for source, url in urls:
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "votx-agent-version-check"})
+                with urllib.request.urlopen(req, timeout=3) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                if source == "api" and isinstance(data, dict) and "content" in data:
+                    raw = base64.b64decode(str(data["content"]).encode("ascii")).decode("utf-8")
+                    data = json.loads(raw)
+                version = str(data.get("version", "")).strip()
+                if version:
+                    return version
+            except Exception as e:
+                last_error = e
+                continue
+        raise RuntimeError(last_error or "all version endpoints failed")
+
+    def _worker():
+        try:
+            remote_version = _read_remote_version()
+        except Exception as e:
+            print(f"[版本] 本地 {local_version}；远程版本检查未完成，已跳过。({e})")
+            return
+
+        cmp_result = _compare_versions(local_version, remote_version)
+        if cmp_result < 0:
+            print(f"[版本] 本地 {local_version}；远程 {remote_version}。发现新版本，请前往 GitHub releases 下载 Windows 特供版。")
+        elif cmp_result > 0:
+            print(f"[版本] 本地 {local_version}；远程 {remote_version}。本地版本高于 main 发布版本。")
+        else:
+            print(f"[版本] 本地 {local_version}；远程 {remote_version}。当前已是最新版本。")
+
+    threading.Thread(target=_worker, daemon=True, name="version-check").start()
+
+
 port = int(os.environ.get("PORT", "1478"))
 host = os.environ.get("VOTX_HOST", "127.0.0.1")
 for arg in sys.argv:
@@ -68,6 +155,8 @@ except ModuleNotFoundError as e:
 
 if not _check_users():
     sys.exit(1)
+
+_print_windows_version_status()
 
 
 def _can_bind(host: str, port: int) -> tuple[bool, str]:
