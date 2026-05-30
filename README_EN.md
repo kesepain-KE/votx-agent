@@ -1,3 +1,7 @@
+# Standard Readme
+
+[![standard-readme compliant](https://img.shields.io/badge/readme%20style-standard-brightgreen.svg?style=flat-square)](https://github.com/RichardLitt/standard-readme)
+
 <p align="center"><img src="votx-agent.png" width="160" alt="votx-agent"></p>
 
 # votx-agent
@@ -10,9 +14,22 @@
 
 [中文](./README.md) | English
 
+## Table of Contents
+
+- [Background](#background)
+- [Install](#install)
+- [Usage](#usage)
+- [Related Efforts](#related-efforts)
+- [Maintainers](#maintainers)
+- [Contributing](#contributing)
+  - [Contributors](#contributors)
+- [License](#license)
+
+## Background
+
 VOTX Agent is a local multi-user AI Agent framework with Web UI, CLI, tool calling, task plans, persistent memory, self-improvement, external message routing, and multimodal capabilities. See [version.json](./version.json) for the current version.
 
-## Features
+### Features
 
 - **Multiple providers**: OpenAI-compatible APIs, Responses API, Chat Completions, and Anthropic Messages API.
 - **Multi-user isolation**: each user has independent `config.json`, `self_soul.md`, history, files, memory, and knowledge base.
@@ -27,7 +44,7 @@ VOTX Agent is a local multi-user AI Agent framework with Web UI, CLI, tool calli
 
 ![VOTX Agent Web UI](votx-agent-web-UI.png)
 
-## Quick Start
+## Install
 
 ### Docker
 
@@ -417,14 +434,14 @@ knowledge/
 使用手册-AI/
 ```
 
-## Related Projects
+## Related Efforts
 
 - [OpenAI API](https://platform.openai.com/docs)
 - [Anthropic API](https://docs.anthropic.com/)
 - [NapCat](https://github.com/NapNeko/NapCatQQ)
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp)
 
-## Maintainer
+## Maintainers
 
 [@kesepain](https://github.com/kesepain-KE)
 
@@ -436,6 +453,11 @@ Pull Requests and Issues are welcome:
 - [Issues](https://github.com/kesepain-KE/votx-agent/issues)
 
 Please read [AGENTS.md](./AGENTS.md) before contributing. For large changes, open an Issue first to discuss the plan.
+
+### Contributors
+
+Thanks to all the people who contribute.
+[@kesepain](https://github.com/kesepain-KE)
 
 ## License
 
