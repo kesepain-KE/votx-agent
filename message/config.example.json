@@ -49,6 +49,9 @@
       "api_timeout": 30,
       "_api_timeout": "API 调用超时（秒）",
 
+      "proxy": "",
+      "_proxy": "HTTP 代理地址（如 \"http://127.0.0.1:7890\"），用于被墙环境访问 Telegram API。留空则自动检测 HTTPS_PROXY 环境变量",
+
       "bound_users": {
         "tg:987654321": "your_username"
       },

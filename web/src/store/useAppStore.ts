@@ -95,4 +95,6 @@ export const useAppStore = create<AppStore>(() => ({
   toastText: '',
   toastVisible: false,
   menu: { show: false, id: '', label: '', x: 0, y: 0 },
+  topStatusText: '',
+  topStatusKind: '',
 }))

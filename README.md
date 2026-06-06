@@ -294,6 +294,7 @@ Telegram 示例：
     "telegram": {
       "enabled": true,
       "bot_token": "<telegram-bot-token>",
+      "proxy": "http://127.0.0.1:7890",
       "bound_users": {
         "tg:987654321": "kesepain"
       }
@@ -325,7 +326,7 @@ users/<用户名>/history/log/external_attachments.jsonl
 | 路径 | 用途 |
 |---|---|
 | `users/<name>/history/file/` | Web 上传、外部消息附件、普通用户文件池 |
-| `users/<name>/download/` | 图像/语音生成默认输出、下载工具输出、旧版兼容下载 |
+| `users/<name>/download/` | 生成类媒体与下载工具默认输出（图像/语音/视频下载） |
 | `users/<name>/knowledge/` | 用户私有知识库 |
 | `knowledge/` | 全局共享知识库 |
 | `tmp/` | 临时文件 |
@@ -343,7 +344,7 @@ knowledge/data_structure.md
 | `plugins/` | 框架内置基础技能，更新脚本可覆盖 |
 | `skills/` | 用户拓展技能，更新脚本永不覆盖 |
 
-当前内置技能 23 个，其中 19 个工具型、4 个指令型，注册工具 48 个。
+当前内置技能 23 个，其中 19 个工具型、4 个指令型，注册工具 49 个。
 
 核心内置技能不可禁用：
 

@@ -106,12 +106,14 @@ def _diff_plans(prev: dict, curr: dict) -> list[dict]:
     return events
 
 
-def _run_chat_stream(session_data: dict, extra_user_message: str | None = None):
+def _run_chat_stream(session_data: dict, extra_user_message: str | None = None,
+                     user_message: str | None = None):
     """公共 SSE 聊天执行流 — 供 /api/chat 和 /api/task-plan/<id>/approve-run 共用
 
     Args:
         session_data: 会话数据字典
         extra_user_message: 可选，临时注入的内部用户消息（不持久化）
+        user_message: 可选，用户真实消息（持久化，在 SSE 流内写入以支持压缩状态通知）
     """
     from run.engine import run_chat_turn
 
@@ -132,15 +134,46 @@ def _run_chat_stream(session_data: dict, extra_user_message: str | None = None):
     set_task_plan_context(provider=provider, chat=chat, user_name=user_name)
     set_multimodal_context(provider=provider, chat=chat, user_name=user_name)
 
+    # 清除上一轮可能遗留的压缩 flag（save_log 中的 build_messages 可能设置它）
+    chat._compress_occurred = False
+
     # 按对象引用注入临时内部消息，finally 中按引用安全删除（避免 index pop 受历史裁剪影响）
     internal_msg = None
     if extra_user_message:
         internal_msg = {"role": "user", "content": extra_user_message, "internal": True}
         chat.messages.append(internal_msg)
 
+    # add_user_message 可能触发 _trim_if_needed（含 auto_improve），耗时较长。
+    # 先做无副作用预判，压缩可能时发 ui_status 通知前端，让用户看到"进行中"。
+    if user_message:
+        est_compress = len(chat.messages) >= getattr(chat, 'max_history', 999999)
+        if not est_compress:
+            sys_prompt = getattr(chat, 'system_prompt', '')
+            est_msgs = [{"role": "system", "content": sys_prompt}] if sys_prompt else []
+            est_msgs.extend(chat.messages)
+            est_msgs.append({"role": "user", "content": user_message})
+            context_max = getattr(chat, 'context_max', 200000)
+            safe_ratio = getattr(chat, 'context_safe_ratio', 0.85)
+            est_compress = sum(chat._msg_tokens(m) for m in est_msgs) > context_max * safe_ratio
+        if est_compress:
+            yield f"data: {json.dumps({'type': 'ui_status', 'content': '正在压缩上下文...'}, ensure_ascii=False)}\n\n"
+        chat.add_user_message(user_message)
+        if est_compress:
+            yield f"data: {json.dumps({'type': 'ui_status_clear'}, ensure_ascii=False)}\n\n"
+
+    def _emit_compress_status():
+        """消费 _compress_occurred flag 并发出 ui_status 事件对."""
+        if getattr(chat, '_compress_occurred', False):
+            chat._compress_occurred = False
+            yield f"data: {json.dumps({'type': 'ui_status', 'content': '正在压缩上下文...'}, ensure_ascii=False)}\n\n"
+            yield f"data: {json.dumps({'type': 'ui_status_clear'}, ensure_ascii=False)}\n\n"
+
     prev_snap = _snapshot_plans(user_dir)
     try:
+        # 预检：压缩可能在 run_chat_turn 第一个 event 之前已发生（add_user_message / build_messages）
+        yield from _emit_compress_status()
         for event in run_chat_turn(chat, tool_runner, provider, tools):
+            yield from _emit_compress_status()
             yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
             # 工具调用后检查计划文件变化
             if event.get("type") == "tool_call":
@@ -162,8 +195,12 @@ def _run_chat_stream(session_data: dict, extra_user_message: str | None = None):
         except Exception:
             pass
         try:
+            # build_messages 可能触发 token 压缩并改写 chat.messages；
+            # 先拿 full_messages 再 save_history，确保压缩版持久化到 chat_data.json
+            full_messages = chat.build_messages()
             chat.save_history()
-            chat.save_log(chat.build_messages())
+            chat.save_log(full_messages)
+            chat._compress_occurred = False  # 清零本轮压缩 flag，避免遗留到下一请求
         except Exception:
             pass
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
@@ -312,8 +349,7 @@ def api_chat():
     def generate():
         """处理 generate 相关逻辑。"""
         with get_user_lock(session_data.get("user_name", "")):
-            chat.add_user_message(message)
-            yield from _run_chat_stream(session_data)
+            yield from _run_chat_stream(session_data, user_message=message)
 
     return Response(
         stream_with_context(generate()),
@@ -447,8 +483,9 @@ def api_disconnect():
     if chat:
         try:
             _web_summarize(session_data)
+            full_messages = chat.build_messages()
             chat.save_history()
-            chat.save_log(chat.build_messages())
+            chat.save_log(full_messages)
         except Exception:
             pass
 

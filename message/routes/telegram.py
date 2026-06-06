@@ -7,6 +7,7 @@ import re
 import urllib.request
 from typing import Any
 
+from message.attachments import _get_proxy_handler
 from message.identity import IdentityStore
 from message.permissions import is_admin, split_message
 
@@ -26,6 +27,7 @@ class TelegramRouter:
         self.bot_token = str(config.get("bot_token", "")).strip()
         self.poll_interval = int(config.get("poll_interval", 2))
         self.api_timeout = int(config.get("api_timeout", 30))
+        self.proxy = str(config.get("proxy", "")).strip()
         self.running = False
         self.identity = IdentityStore(root, app_config)
         self._me: dict[str, Any] = {}
@@ -201,7 +203,7 @@ class TelegramRouter:
                 record = await save_url_attachment(
                     self.root, username, url, kind=kind,
                     platform="telegram", message_id=message_id, source_id=source_id,
-                    filename=name,
+                    filename=name, proxy=self.proxy,
                 )
                 if record:
                     downloaded.append(record)
@@ -433,6 +435,8 @@ class TelegramRouter:
         import mimetypes
         import os
 
+        _proxy_handler = _get_proxy_handler(self.proxy)
+
         def _sync_upload():
             boundary = "votx-telegram-upload-boundary"
             filename = os.path.basename(file_path)
@@ -463,7 +467,8 @@ class TelegramRouter:
             url = f"https://api.telegram.org/bot{self.bot_token}/{method}"
             req = urllib.request.Request(url, data=body)
             req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
-            with urllib.request.urlopen(req, timeout=60) as resp:
+            opener = urllib.request.build_opener(*([_proxy_handler] if _proxy_handler else []))
+            with opener.open(req, timeout=60) as resp:
                 return json.loads(resp.read().decode("utf-8"))
 
         result = await asyncio.to_thread(_sync_upload)
@@ -500,6 +505,7 @@ class TelegramRouter:
         raise RuntimeError(f"Telegram API 调用失败 ({method}): {last_error}")
 
     async def _api_raw(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
+        _proxy_handler = _get_proxy_handler(self.proxy)
         def _call():
             url = f"https://api.telegram.org/bot{self.bot_token}/{method}"
             clean = {k: v for k, v in params.items() if v is not None}
@@ -508,7 +514,8 @@ class TelegramRouter:
             req.add_header("Content-Type", "application/json")
             req.add_header("User-Agent", "votx-agent/1.0")
             try:
-                with urllib.request.urlopen(req, timeout=self.api_timeout) as resp:
+                opener = urllib.request.build_opener(*([_proxy_handler] if _proxy_handler else []))
+                with opener.open(req, timeout=self.api_timeout) as resp:
                     return json.loads(resp.read().decode("utf-8"))
             except OSError as e:
                 # getUpdates 长轮询超时是正常行为，返回空结果

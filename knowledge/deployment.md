@@ -152,6 +152,15 @@ VOTX_USER_DIR         用户目录根路径，默认 users/
 VOTX_PROVIDER         临时指定 provider 类型
 ```
 
+### 沙箱控制
+
+```text
+VOTX_FILE_READ_OUTSIDE_SANDBOX=1       允许 read_file 读取工作区外任意路径
+VOTX_FILE_EDIT_OUTSIDE_SANDBOX=1       允许 edit_file 编辑工作区外任意路径
+VOTX_VIDEO_DOWNLOAD_OUTSIDE_SANDBOX=1  允许视频下载输出到任意目录
+VOTX_DOWNLOAD_ANYTHING_OUTSIDE_SANDBOX=1  允许 download_anything 输出到任意目录
+```
+
 ### 模型服务
 
 ```text

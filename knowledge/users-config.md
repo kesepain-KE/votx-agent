@@ -10,12 +10,12 @@ users/<用户名>/
 
 ## 目录结构
 
-常见结构：
-
 ```text
 users/<用户名>/
 ├── config.json
 ├── self_soul.md
+├── avatar/            ← 用户头像图片
+├── download/          ← 生成类媒体与下载工具默认输出（图像/语音/视频）
 ├── knowledge/
 ├── history/
 │   ├── chat/
@@ -31,6 +31,8 @@ users/<用户名>/
 
 - `config.json`：当前用户的模型、工具、技能、任务配置。
 - `self_soul.md`：用户专属系统提示词/人格设定。
+- `avatar/`：用户头像目录，放 `avatar.jpg/png/jpeg/webp/gif` 即可，前端自动读取。
+- `download/`：生成类媒体与下载工具默认输出（图像生成、语音生成、视频下载等）。
 - `knowledge/`：用户个人知识库。
 - `history/chat/`：聊天历史。
 - `history/log/`：工具日志、附件日志等。
@@ -38,6 +40,29 @@ users/<用户名>/
 - `task-plan/`：智能体任务计划文件。
 - `tasks/`：定时任务文件。
 - `improve/`：auto_improve 的记忆和规则数据。
+
+## 用户头像
+
+用户头像通过文件方式配置，无需修改 `config.json`：
+
+1. 在 `users/<用户名>/avatar/` 目录下放入图片文件。
+2. 支持的格式和文件名：
+
+| 格式 | 文件名 |
+|------|--------|
+| JPEG | `avatar.jpg` 或 `avatar.jpeg` |
+| PNG | `avatar.png` |
+| WebP | `avatar.webp` |
+| GIF | `avatar.gif` |
+
+3. 多个文件同时存在时的优先级：上面的表格从上到下，匹配第一个即返回。
+4. 前端 Sidebar 和用户切换面板会自动显示头像。
+5. 如果没有头像文件，前端显示用户名首字母作为默认头像。
+
+Web API：
+
+- `/api/avatar` — 当前登录用户的头像
+- `/api/avatar/<用户名>` — 指定用户的头像（可跨用户访问）
 
 ## 创建用户
 
@@ -66,7 +91,8 @@ users/<用户名>/self_soul.md
     "api_key": "",
     "base_url": "https://api.deepseek.com",
     "stream": true,
-    "think": false
+    "think": false,
+    "timeout": 120
   },
   "history": {
     "data": true,
@@ -95,6 +121,26 @@ openai     OpenAI 兼容接口，例如 OpenAI、DeepSeek、硅基流动、OpenR
 anthropic  Anthropic Claude 接口
 ```
 
+### 完整的 provider 字段
+
+| 字段 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `type` | string | `"openai"` | 服务商类型：`openai` 或 `anthropic` |
+| `api_style` | string | `"chat"` | API 风格：`"chat"`（标准 chat completions）、`"responses"`（OpenAI Responses API） |
+| `model` | string | 必填 | 模型名称 |
+| `api_key` | string | `""` | API 密钥，留空读取环境变量 |
+| `base_url` | string | 模型默认 | API 端点地址 |
+| `stream` | bool | `true` | 是否启用流式输出 |
+| `think` | bool | `false` | 是否启用思考模式（DeepSeek 等支持） |
+| `thinking` | bool/object | - | Anthropic 扩展思考模式（可传 `{"type":"enabled","budget_tokens":4000}`） |
+| `timeout` | int | 120 | API 请求超时秒数 |
+| `max_tokens` | int | - | 最大输出 token 数（不设则用模型默认值） |
+| `vision_model` | string | `""` | 专用视觉模型（留空使用默认聊天模型） |
+| `audio_transcription_model` | string | `""` | 专用语音转文字模型 |
+| `image_generation_model` | string | `""` | 专用文生图模型 |
+| `speech_generation_model` | string | `""` | 专用文生语音模型 |
+| `capabilities_override` | array | - | 手动声明多模态能力，见下文 |
+
 OpenAI 兼容示例：
 
 ```json
@@ -105,7 +151,8 @@ OpenAI 兼容示例：
     "api_key": "<你的 API Key>",
     "base_url": "https://api.deepseek.com",
     "stream": true,
-    "think": false
+    "think": false,
+    "timeout": 120
   }
 }
 ```
@@ -119,7 +166,11 @@ Anthropic 示例：
     "model": "claude-3-5-sonnet-latest",
     "api_key": "<你的 API Key>",
     "base_url": "",
-    "stream": true
+    "stream": true,
+    "thinking": {
+      "type": "enabled",
+      "budget_tokens": 4000
+    }
   }
 }
 ```
@@ -174,6 +225,7 @@ speech_generation
       "image_generation",
       "speech_generation"
     ],
+    "vision_model": "",
     "audio_transcription_model": "whisper-1",
     "image_generation_model": "dall-e-3",
     "speech_generation_model": "tts-1"
@@ -187,7 +239,7 @@ speech_generation
 专用模型配置 > 默认聊天模型
 ```
 
-例如语音生成会优先使用 `speech_generation_model`，没有配置时才尝试默认模型或返回不支持。
+例如语音生成会优先使用 `speech_generation_model`，没有配置时才尝试默认模型或返回不支持。视觉识别同理，`vision_model` 优先于默认模型。
 
 如果当前 provider 不支持某项能力，智能体会明确提示需要修改配置，而不会自动切换到其他 provider。
 
@@ -204,8 +256,10 @@ speech_generation
 
 含义：
 
-- `data`: 是否保存聊天历史。
-- `log`: 是否保存工具调用和运行日志。
+- `data`: 是否保存聊天历史。可以是布尔值，也可以是自定义文件名（如 `"kesepain_chat_data.json"`）。
+- `log`: 是否保存工具调用和运行日志。可以是布尔值，也可以是自定义文件名（如 `"kesepain_chat_log.json"`）。
+
+设置为 `true` 时使用默认文件路径，设置为 `false` 不保存，设置为字符串则使用自定义文件名。
 
 ## 工具配置
 
@@ -222,10 +276,10 @@ speech_generation
 说明：
 
 - `tool_timeout`: 单次工具调用超时时间，单位秒。
-- `enabled`: 工具白名单，留空表示不限制。
-- `deny`: 工具黑名单。
+- `enabled`: 工具白名单。可以是数组 `[]`（不限制）或对象 `{}`（键值对映射）。留空表示不限制。
+- `deny`: 工具黑名单，数组格式。
 
-如果同一个工具同时出现在白名单和黑名单，建议以黑名单为准，避免误调用。
+如果同一个工具同时出现在白名单和黑名单，以黑名单为准（deny 优先），避免误调用。
 
 ## 技能配置
 

@@ -238,8 +238,9 @@ def api_conversations_continue():
         # 1. 如果当前有消息，先自动归档
         if chat.messages:
             _web_summarize(session_data)
+            full_messages = chat.build_messages()
             chat.save_history()
-            chat.save_log(chat.build_messages())
+            chat.save_log(full_messages)
             chat.archive_now()
 
         # 2. 读归档消息

@@ -11,6 +11,8 @@ from __future__ import annotations
 import asyncio
 import base64
 import os
+import shutil
+import urllib.request
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -61,14 +63,20 @@ def _user_file_dir(root: str, username: str) -> Path:
     return p
 
 
-def _safe_filename(name: str, fallback_ext: str = "") -> str:
-    """清洗文件名：仅保留安全字符，加 UUID 前缀防冲突。"""
+def _safe_filename(name: str, fallback_ext: str = "", add_uuid_prefix: bool = True) -> str:
+    """清洗文件名：仅保留安全字符，可选 UUID 前缀防冲突。
+
+    add_uuid_prefix=False 时只清洗不添加前缀，适合本地文件复制场景，
+    此时冲突由调用方的 _unique_dest() 处理，产生 PID.py → PID_1.py 行为。
+    """
     safe = "".join(c for c in name if c.isalnum() or c in "._- ()（）").strip()
     if not safe:
         safe = f"file_{uuid.uuid4().hex[:6]}"
     if fallback_ext and "." not in safe.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]:
         safe += fallback_ext
-    return f"{uuid.uuid4().hex[:6]}_{safe}"
+    if add_uuid_prefix:
+        return f"{uuid.uuid4().hex[:6]}_{safe}"
+    return safe
 
 
 def _ext_from_url(url: str) -> str:
@@ -126,6 +134,24 @@ def _make_record(
 
 # ── 公开 API ──
 
+def _get_proxy_handler(proxy: str = ""):
+    """构建 urllib ProxyHandler。
+
+    优先级：
+    1. 传入的 proxy 字符串（如 "http://127.0.0.1:7890"）
+    2. 环境变量 HTTPS_PROXY / https_proxy / HTTP_PROXY / http_proxy
+    返回 ProxyHandler 或 None（无代理）。
+    """
+    if not proxy:
+        for key in ("HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy"):
+            proxy = os.environ.get(key, "")
+            if proxy:
+                break
+    if not proxy:
+        return None
+    return urllib.request.ProxyHandler({"http": proxy, "https": proxy})
+
+
 async def save_url_attachment(
     root: str,
     username: str,
@@ -135,10 +161,13 @@ async def save_url_attachment(
     message_id: str = "",
     source_id: str = "",
     filename: str = "",
+    proxy: str = "",
 ) -> AttachmentRecord | None:
-    """从 URL 下载附件并保存到 users/<user>/history/file，返回 AttachmentRecord。"""
-    import urllib.request
+    """从 URL 下载附件并保存到 users/<user>/history/file，返回 AttachmentRecord。
 
+    proxy 可选：传入代理地址（如 "http://127.0.0.1:7890"），或通过环境变量
+    HTTPS_PROXY/http_proxy 自动检测。 Telegram 等需要代理的网络可传入。
+    """
     # SSRF 防护
     from plugins._common import validate_url as _validate_url
     err_msg = _validate_url(url)
@@ -152,6 +181,7 @@ async def save_url_attachment(
     dest = dest_dir / dest_name
 
     MAX_SIZE = 100 * 1024 * 1024  # 100 MB
+    _proxy_handler = _get_proxy_handler(proxy)
 
     def _dl():
         class _SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -162,7 +192,10 @@ async def save_url_attachment(
                 return urllib.request.HTTPRedirectHandler.redirect_request(self, req, fp, code, msg, headers, newurl)
 
         try:
-            opener = urllib.request.build_opener(_SafeRedirectHandler())
+            handlers = [_SafeRedirectHandler()]
+            if _proxy_handler:
+                handlers.append(_proxy_handler)
+            opener = urllib.request.build_opener(*handlers)
             req = urllib.request.Request(url, method="GET")
             req.add_header("User-Agent", "votx-agent/1.0")
             with opener.open(req, timeout=60) as resp:
@@ -246,6 +279,130 @@ def save_base64_attachment(
         return None
 
     record = _make_record(root, username, dest, kind, platform, message_id, source_id, filename)
+    try:
+        _log_attachment(record, root, username)
+    except Exception as e:
+        print(f"[attachments] 日志写入失败: {e}")
+    return record
+
+
+def _resolve_container_path(container_path: str, container_name: str = "napcat") -> str | None:
+    """将容器内路径映射为宿主机路径（通过 docker inspect 获取 volume 挂载）。
+
+    如果宿主机上文件存在，返回宿主机路径；否则返回 None。
+    """
+    import subprocess
+
+    # 1. 如果宿主机上直接存在，不转换
+    if os.path.exists(container_path):
+        return container_path
+
+    # 2. 尝试 docker inspect 获取 volume 映射
+    try:
+        result = subprocess.run(
+            ["docker", "inspect", container_name],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0:
+            import json
+            data = json.loads(result.stdout)
+            mounts = data[0].get("Mounts", []) if data else []
+            # 按挂载点路径长度降序排列，优先匹配最长路径（最精确）
+            mounts.sort(key=lambda m: len(m.get("Destination", "")), reverse=True)
+            for mount in mounts:
+                dest = mount.get("Destination", "")
+                src = mount.get("Source", "")
+                if dest and src and container_path.startswith(dest):
+                    host_path = container_path.replace(dest, src, 1)
+                    if os.path.exists(host_path):
+                        return host_path
+                    # 如果直接替换不命中，尝试拼接方式
+                    # 某些情况下 container_path 可能以 dest + "/" 开头
+                    if not container_path.startswith(dest + "/"):
+                        continue
+                    rel = container_path[len(dest):]
+                    host_path = os.path.join(src, rel.lstrip("/"))
+                    if os.path.exists(host_path):
+                        return host_path
+    except Exception as e:
+        print(f"[attachments] docker inspect {container_name} 失败: {e}")
+
+    # 3. 兜底：尝试常见挂载路径（NapCat 默认 data 目录）
+    fallbacks = [
+        "/mnt/sata2-4/docker/volumes/napcat/_data",
+        "/var/lib/docker/volumes/napcat/_data",
+    ]
+    for fb in fallbacks:
+        # 取容器路径中 /app/.config/QQ/NapCat/ 之后的部分
+        marker = "/NapCat/"
+        if marker in container_path:
+            rel = container_path.split(marker, 1)[-1]
+            candidate = os.path.join(fb, rel)
+            if os.path.exists(candidate):
+                return candidate
+        # 也尝试直接拼接全路径
+        candidate = os.path.join(fb, os.path.basename(container_path))
+        if os.path.exists(candidate):
+            return candidate
+
+    return None
+
+
+def _unique_dest(dest_dir: Path, filename: str) -> Path:
+    """在 dest_dir 下生成不冲突的文件名（PID.py → PID_1.py → PID_2.py ...）。"""
+    base, ext = os.path.splitext(filename)
+    candidate = dest_dir / filename
+    if not candidate.exists():
+        return candidate
+    n = 1
+    while True:
+        new_name = f"{base}_{n}{ext}"
+        candidate = dest_dir / new_name
+        if not candidate.exists():
+            return candidate
+        n += 1
+
+
+def save_local_attachment(
+    root: str,
+    username: str,
+    source_path: str,
+    kind: str = "file",
+    platform: str = "onebot",
+    message_id: str = "",
+    source_id: str = "",
+    filename: str = "",
+) -> AttachmentRecord | None:
+    """保存本地/容器内文件到 users/<user>/history/file，返回 AttachmentRecord。
+
+    用于 OneBot/NapCat 返回容器内文件路径（如 /app/.config/QQ/NapCat/temp/xxx）的场景。
+    - 若 source_path 在宿主机可直接访问，直接 copy2
+    - 若为容器内路径，通过 docker inspect 映射到宿主机路径后 copy2
+    - 自动处理文件名冲突
+    """
+    # 1. 解析宿主机可读路径
+    resolved = _resolve_container_path(source_path)
+    if not resolved:
+        print(f"[attachments] 无法解析文件路径: {source_path}")
+        return None
+
+    # 2. 确定目标文件名（不加 UUID 前缀，冲突由 _unique_dest 用 _1, _2 后缀处理）
+    dest_dir = _user_file_dir(root, username)
+    if filename:
+        dest_name = _safe_filename(filename, add_uuid_prefix=False)
+    else:
+        dest_name = _safe_filename(os.path.basename(resolved), add_uuid_prefix=False)
+    dest = _unique_dest(dest_dir, dest_name)
+
+    # 3. 复制文件
+    try:
+        shutil.copy2(resolved, dest)
+    except Exception as e:
+        print(f"[attachments] 文件复制失败 {resolved} → {dest}: {e}")
+        return None
+
+    # 4. 构建记录
+    record = _make_record(root, username, dest, kind, platform, message_id, source_id, filename or os.path.basename(resolved))
     try:
         _log_attachment(record, root, username)
     except Exception as e:

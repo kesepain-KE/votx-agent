@@ -936,6 +936,30 @@
       50% { opacity: 0.3; transform: scale(1.8); }
     }
 
+    .top-status {
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 10px; border-radius: var(--r-full);
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.12);
+      font-size: 11px; color: var(--text-secondary);
+      max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      animation: rise 0.25s var(--ease-out) both;
+    }
+    .top-status.compress { border-color: rgba(56,189,248,0.3); color: var(--accent); }
+    .top-status.save, .top-status.new-chat { border-color: rgba(255,255,255,0.15); }
+    body[data-color-scheme="light"] .top-status {
+      background: rgba(0,0,0,0.03);
+      border-color: rgba(0,0,0,0.10);
+    }
+    .tiny-spinner {
+      width: 10px; height: 10px; border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.15);
+      border-top-color: var(--accent);
+      animation: spin 0.6s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
     .running-tag {
       font-size: 10px; font-weight: 600;
       color: var(--success);

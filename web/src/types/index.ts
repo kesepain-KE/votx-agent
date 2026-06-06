@@ -237,6 +237,8 @@ export interface AppStore {
   toastText: string
   toastVisible: boolean
   menu: ContextMenuState
+  topStatusText: string
+  topStatusKind: string
 }
 
 /** 描述后端返回的归档对话原始数据。 */
@@ -270,6 +272,8 @@ export type SSEEvent =
   | { type: 'plan_created'; plan_id: string; plan: Plan }
   | { type: 'plan_started' | 'plan_complete' | 'plan_pause' | 'plan_aborted'; plan_id: string }
   | { type: 'plan_step'; plan_id: string; step: PlanStep }
+  | { type: 'ui_status'; content: string }
+  | { type: 'ui_status_clear' }
 
 /** 描述后端返回的配置原始数据。 */
 export interface RawConfig {

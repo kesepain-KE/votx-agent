@@ -294,6 +294,7 @@ Telegram example:
     "telegram": {
       "enabled": true,
       "bot_token": "<telegram-bot-token>",
+      "proxy": "http://127.0.0.1:7890",
       "bound_users": {
         "tg:987654321": "kesepain"
       }
@@ -325,7 +326,7 @@ Supported inputs:
 | Path | Purpose |
 |---|---|
 | `users/<name>/history/file/` | Web uploads, external attachments, regular user files |
-| `users/<name>/download/` | Image/speech generation defaults, downloader output, legacy downloads |
+| `users/<name>/download/` | Generated media and download tool outputs (image/speech/video downloads) |
 | `users/<name>/knowledge/` | User private knowledge base |
 | `knowledge/` | Global shared knowledge base |
 | `tmp/` | Temporary files |
@@ -343,7 +344,7 @@ knowledge/data_structure.md
 | `plugins/` | Built-in framework skills, can be overwritten by updates |
 | `skills/` | User extension skills, never overwritten by updates |
 
-Current built-ins: 23 skills, including 19 tool skills and 4 instruction skills, registering 48 tools.
+Current built-ins: 23 skills, including 19 tool skills and 4 instruction skills, registering 49 tools.
 
 Core built-ins cannot be disabled:
 

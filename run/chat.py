@@ -29,6 +29,7 @@ class ChatManager:
         self.provider = None   # set_provider() 由引擎调用
         self.user_dir = user_dir
         self._prompt_valid = False  # system prompt 缓存有效性标记
+        self._compress_occurred = False  # 本轮是否发生过上下文压缩（供 SSE 通知前端）
 
         # 累计 Token 统计（跨轮会话累加）
         self.token_stats: dict[str, int] = {
@@ -154,6 +155,8 @@ class ChatManager:
         total = sum(self._msg_tokens(m) for m in messages)
         if total <= safe_budget:
             return messages
+
+        self._compress_occurred = True  # 真实压缩发生，通知 SSE 层
 
         sys_msg = messages[0] if messages and messages[0].get("role") == "system" else None
         body = messages[1:] if sys_msg else list(messages)
@@ -442,6 +445,7 @@ class ChatManager:
         if len(self.messages) < self.max_history:
             return
 
+        self._compress_occurred = True  # 通知 SSE 层发送 ui_status
         keep = self.max_history // 2
         cut = len(self.messages) - keep
 

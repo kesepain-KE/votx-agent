@@ -144,7 +144,7 @@ for arg in sys.argv:
         host = arg.split("=", 1)[1].strip() or host
 
 try:
-    from web.server import run_server
+    from web.server import run_server, PortBindError
 except ModuleNotFoundError as e:
     if e.name == "flask":
         print("ERROR: Web UI 依赖 Flask 未安装")
@@ -162,7 +162,6 @@ _print_windows_version_status()
 def _can_bind(host: str, port: int) -> tuple[bool, str]:
     probe_host = host if host not in ("", "*") else "0.0.0.0"
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     try:
         sock.bind((probe_host, port))
         return True, ""
@@ -183,8 +182,14 @@ for offset in range(max_tries):
         continue
     if offset > 0:
         print(f"已切换到端口 {try_port}")
-    run_server(port=try_port, host=host)
-    break
+    try:
+        run_server(port=try_port, host=host)
+        break
+    except PortBindError as e:
+        print(f"端口 {try_port} 绑定失败: {e}")
+        if offset == 0:
+            print("正在尝试下一个端口...")
+        continue
 else:
     print(f"ERROR: 端口 {port}~{port + max_tries - 1} 全部被占用，无法启动")
     sys.exit(1)

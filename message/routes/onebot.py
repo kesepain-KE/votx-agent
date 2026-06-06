@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import re
 import uuid
 from typing import Any
@@ -171,7 +172,7 @@ class OneBotRouter:
 
         NapCat 多字段容错: 依次取 file / file_id / name / url / file_unique / path
         """
-        from message.attachments import AttachmentRecord, save_url_attachment, save_base64_attachment
+        from message.attachments import AttachmentRecord, save_url_attachment, save_base64_attachment, save_local_attachment
 
         segments = msg.get("message", [])
         if not isinstance(segments, list):
@@ -238,6 +239,16 @@ class OneBotRouter:
                         self.root, username, b64, kind=kind,
                         platform="onebot", message_id=message_id, source_id=source_id,
                         filename=original_name,
+                    )
+                    if record:
+                        downloaded.append(record)
+                elif b64:
+                    # NapCat 返回容器内文件路径（如 /app/.config/QQ/NapCat/temp/xxx）
+                    # 通过 docker volume 映射转为宿主机路径后 copy2
+                    record = save_local_attachment(
+                        self.root, username, b64, kind=kind,
+                        platform="onebot", message_id=message_id, source_id=source_id,
+                        filename=original_name or os.path.basename(b64),
                     )
                     if record:
                         downloaded.append(record)

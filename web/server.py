@@ -72,11 +72,31 @@ from web.routes import chat, files, conversations, system, config, tasks, task_p
 
 # ---- Runner ----
 
-def run_server(port=13579, host="127.0.0.1"):
-    """处理 run_server 相关逻辑。"""
-    import atexit
+class PortBindError(OSError):
+    """端口绑定失败 —— 供 start_web.py 区分"需要换端口重试"和"真实启动错误"。"""
 
-    # 启动 cron 后台调度
+
+def run_server(port=13579, host="127.0.0.1"):
+    """启动 Web UI + 后台调度 + 消息路由。
+
+    先用 werkzeug make_server 真实绑定端口，成功后再启动 cron/message router，
+    最后 serve_forever()。端口占用时抛出 PortBindError，调用方可据此重试下一端口；
+    其他异常（配置缺失、导入失败等）直接透传，不会被误判为端口冲突。
+    """
+    import atexit
+    from werkzeug.serving import make_server
+
+    # 1. 先创建并绑定服务器 —— 端口占用在此处失败，无后台副作用
+    try:
+        server = make_server(host, port, app, threaded=True)
+    except (OSError, SystemExit) as e:
+        # Windows 上端口占用时 werkzeug 可能抛 SystemExit(1) 而非 OSError
+        code = getattr(e, "code", "")
+        msg = f"{host}:{port}" + (f" (code={code})" if code else "")
+        raise PortBindError(msg) from e
+    print(f"\n  votx-agent Web UI  →  http://localhost:{port}\n")
+
+    # 2. 端口确认可用后，再启动后台组件
     import json
     from paths import get_project_root
     _root = get_project_root()
@@ -90,8 +110,13 @@ def run_server(port=13579, host="127.0.0.1"):
     start_message_router(_root, _core_config)
     atexit.register(stop_message_router)
 
-    print(f"\n  votx-agent Web UI  →  http://localhost:{port}\n")
-    app.run(host=host, port=port, debug=False, threaded=True)
+    # 3. 开始服务（阻塞）
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.shutdown()
 
 
 if __name__ == "__main__":

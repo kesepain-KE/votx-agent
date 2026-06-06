@@ -397,16 +397,21 @@ export function useAppActions() {
 
   const saveChat = useCallback(async () => {
     if (!get().userActive) return
+    if (get().topStatusKind) return  // 有其他状态在跑，防重复
+    set({ topStatusText: '正在保存对话...', topStatusKind: 'save' })
     try {
       const d = await api<{ content?: string }>('/api/command', { method: 'POST', ...jsonBody({ command: '/archive' }) })
       toast(d.content || '已保存')
       await refreshOverview()
     } catch { toast('保存失败') }
-  }, [get])
+    finally { setTimeout(() => set({ topStatusText: '', topStatusKind: '' }), 500) }
+  }, [get, set])
 
   const newChat = useCallback(async () => {
     if (!get().userActive) return
+    if (get().topStatusKind) return  // 有其他状态在跑，防重复
     if (get().running) stopRun()
+    set({ topStatusText: '正在创建新对话...', topStatusKind: 'new-chat' })
     try {
       const d = await api<{ content?: string }>('/api/command', { method: 'POST', ...jsonBody({ command: '/new' }) })
       set({ messages: [], isPreview: false, previewConvId: null, activeConv: '__current__', chatTitle: `${get().profileName || ''} · 新对话` })
@@ -414,6 +419,7 @@ export function useAppActions() {
       await refreshOverview()
       toast('新对话已创建')
     } catch { toast('创建失败') }
+    finally { setTimeout(() => set({ topStatusText: '', topStatusKind: '' }), 500) }
   }, [get, set])
 
   const removeLastAIReply = useCallback(() => {
@@ -540,6 +546,12 @@ export function useAppActions() {
             break
           case 'plan_aborted':
             if (get().activePlan?.id === ev.plan_id) { set({ activePlan: null, planPhase: null }); void loadTaskPlans() }
+            break
+          case 'ui_status':
+            set({ topStatusText: ev.content || '处理中...', topStatusKind: 'compress' })
+            break
+          case 'ui_status_clear':
+            setTimeout(() => set({ topStatusText: '', topStatusKind: '' }), 500)
             break
         }
       }

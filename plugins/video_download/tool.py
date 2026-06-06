@@ -1,6 +1,7 @@
 """视频下载工具 — yt-dlp 封装"""
 import os
 import subprocess
+from pathlib import Path
 from run.tool import register_tool
 from plugins._common import err, truncate, safe_path, check_sandbox
 
@@ -10,14 +11,24 @@ def download_video(url: str, output_dir: str = "", filename: str = "", format_sp
     if not url.strip():
         return err("URL 为空")
 
-    # 校验输出目录（沙箱保护）
+    # 校验输出目录（沙箱保护，可选择性放开）
     out_dir = output_dir.strip()
     if out_dir:
         sp = safe_path(out_dir)
         if sp is None:
             return err(f"输出目录无效: {out_dir}")
-        if check_sandbox(sp) is None:
-            return err(f"输出目录越权（仅允许项目目录和用户目录）: {out_dir}")
+        sandboxed = check_sandbox(sp)
+        if sandboxed is None:
+            if os.environ.get("VOTX_VIDEO_DOWNLOAD_OUTSIDE_SANDBOX", "").strip() in ("1", "true", "yes"):
+                # 跳过沙箱：直接展开 ~ 并创建目录
+                sp = Path(out_dir).expanduser().resolve()
+            else:
+                return err(f"输出目录越权（仅允许项目目录和用户目录）。设置 VOTX_VIDEO_DOWNLOAD_OUTSIDE_SANDBOX=1 可解除限制。当前路径: {out_dir}")
+        else:
+            sp = sandboxed
+        sp.mkdir(parents=True, exist_ok=True)
+        if not sp.is_dir():
+            return err(f"输出路径不是目录: {sp}")
         out_dir = str(sp)
 
     # 组装 yt-dlp 参数
@@ -31,9 +42,9 @@ def download_video(url: str, output_dir: str = "", filename: str = "", format_sp
 
     # 输出路径
     if filename.strip():
-        out = filename.strip()
-        if out_dir:
-            out = os.path.join(out_dir, out)
+        # 强制只取 basename，防止 ../ 或绝对路径样式绕过沙箱
+        safe_name = os.path.basename(filename.strip())
+        out = os.path.join(out_dir, safe_name) if out_dir else safe_name
     elif out_dir:
         out = os.path.join(out_dir, "%(title)s.%(ext)s")
     else:
@@ -83,7 +94,7 @@ SCHEMA = {
         "name": "download_video",
         "description": (
             "使用 yt-dlp 下载视频。支持 B站/YouTube/抖音等平台。"
-            "output_dir: 输出目录（如 C:\\Users\\xxx\\Desktop）。"
+            "output_dir 默认受沙箱限制，设置 VOTX_VIDEO_DOWNLOAD_OUTSIDE_SANDBOX=1 后可输出到任意目录（如桌面/下载文件夹）。"
             "filename: 输出文件名（不含扩展名）。"
             "format_spec: 格式选择器（可选，默认最佳 mp4）。"
         ),

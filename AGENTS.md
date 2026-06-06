@@ -43,6 +43,15 @@ skills/<name>/SKILL.md
 
 确认专用工具、参数、边界和注意事项后再行动。不要跳过技能描述直接操作。
 
+### Skill 使用流程
+
+1. 先判断请求是否命中某个 Skill。
+2. 命中后先读对应 `SKILL.md`，再调用工具。
+3. 多个 Skill 可用时，优先选择最专用的那个。
+4. 文件处理优先用 `file` / `markdown_converter` / `pdf_tools` / `word_docx`，不要用 shell 硬读写。
+5. 生成图像、语音、视频、下载媒体时，优先使用对应生成/下载 Skill。
+6. 工具失败后先读错误信息和 Skill 文档，不要立刻换成更粗暴的 shell 命令。
+
 ## 查资料优先级
 
 当用户问配置、部署、外部消息或本项目行为时，优先读全局知识库索引：
@@ -76,24 +85,52 @@ users/<name>/config.json
 1. 明确用户要什么，不扩大范围。
 2. 修改代码前先读现有实现和相邻风格。
 3. 改动尽量小，避免无关重构。
-4. 普通用户文件默认放 `users/<name>/history/file/`；图像/语音生成和旧版兼容下载使用 `users/<name>/download/`。
+4. 普通用户文件默认放 `users/<name>/history/file/`；图像/语音/视频下载和生成类产物默认使用 `users/<name>/download/`。
 5. 写入全局 `knowledge/` 后必须更新 `knowledge/data_structure.md`。
 6. 改完代码做最小必要自检，至少编译/构建受影响部分。
 7. 同一命令连续失败 3 次，换路径分析，不要无限重试。
 
-## 用户文件位置
+## 用户文件目录规范
 
 用户目录下这些位置用途不同，不得混用：
 
-| 目录 | 用途 |
-|------|------|
-| `users/<name>/history/file/` | Web 上传、外部消息附件、用户可见文件池 |
-| `users/<name>/download/` | 生成类多媒体默认输出（`image_generate` / `speech_generate`）和旧版兼容下载目录 |
-| `users/<name>/knowledge/` | 用户私有知识库 |
-| `knowledge/` | 全局共享知识库，只在明确要求时写入 |
-| `tmp/` | 临时脚本和中间文件，用完清理 |
+| 目录 | 定位 | 允许写入 |
+|------|------|----------|
+| `users/<name>/history/file/` | 用户文件池 | Web 上传文件、外部消息附件、用户要求保存/查看的报告、文档、表格、代码包 |
+| `users/<name>/download/` | 智能体生成类产物目录 | 图像生成、语音生成、视频下载、临时导出、多媒体生成结果 |
+| `users/<name>/knowledge/` | 用户私有知识库 | 用户私有资料和知识 |
+| `knowledge/` | 全局共享知识库 | 只在用户明确要求时写入 |
+| `tmp/` | 临时中间产物 | 临时脚本和缓存文件，用完清理 |
 
-报告、文档、表格、导出数据等用户要查看的产物，优先放到 `users/<name>/history/file/`。
+硬性规则：
+
+- 用户上传或外部消息附件只进入 `history/file/`。
+- 智能体主动生成的图片、语音、视频、下载媒体默认进入 `download/`。
+- 用户明确要求"保存给我看"的报告、Markdown、表格、脚本、压缩包，优先进入 `history/file/`。
+- 临时中间产物放 `tmp/`，不要污染 `download/` 或 `history/file/`。
+
+### 产物放置决策表
+
+| 场景 | 推荐目录 |
+|------|----------|
+| 用户上传的 PDF/DOCX/图片/代码 | `users/<name>/history/file/` |
+| QQ/Telegram 外部消息附件 | `users/<name>/history/file/` |
+| Agent 生成图片 | `users/<name>/download/` |
+| Agent 生成语音 | `users/<name>/download/` |
+| Agent 下载视频/音频 | `users/<name>/download/` |
+| Agent 生成报告/表格/Markdown | `users/<name>/history/file/` |
+| 临时脚本/中间缓存 | `tmp/` |
+
+## 文件读写与编辑
+
+- `read_file` 可在配置允许时读取工作区外路径，但读取不等于允许修改。
+- `edit_file` 是精确编辑工具，适合小范围插入、替换行、替换范围。大范围重写用 `write_file`。
+- `write_file` 是完整覆盖写入，不是追加。自动创建父目录，越权时回退到用户目录。
+- 修改用户上传文件时，优先在 `history/file/` 内处理。
+- 修改智能体生成产物时，优先在 `download/` 内处理。
+- 大范围重写文件前，应先读取原文件并确认结构。
+- 不要用 `write_file` 覆盖不熟悉的大文件，除非用户明确要求。
+- 读写编码：新文件 UTF-8，Windows 旧文件可回退 GBK。
 
 ## Skill 体系
 
