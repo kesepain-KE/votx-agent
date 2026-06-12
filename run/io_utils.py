@@ -1,10 +1,62 @@
-"""原子写和 JSONL 工具"""
+"""原子写、JSONL 和跨平台文本/子进程 IO 工具。"""
 import json
+import locale
 import os
 import time
 import gzip
 import tempfile
 from pathlib import Path
+
+
+def text_encoding_candidates(encoding="utf-8"):
+    """返回文本读取编码候选；新文件 UTF-8，Windows 旧文件可回退 GBK/locale。"""
+    candidates = []
+    preferred = locale.getpreferredencoding(False) or ""
+    for enc in (encoding, "utf-8-sig", "utf-8", "gbk", preferred):
+        if enc and enc not in candidates:
+            candidates.append(enc)
+    return candidates
+
+
+def read_text_fallback(path, encoding="utf-8"):
+    """读取文本文件，优先 UTF-8，再回退 UTF-8 BOM/GBK/系统编码。"""
+    p = Path(path)
+    last_error = None
+    for enc in text_encoding_candidates(encoding):
+        try:
+            return p.read_text(encoding=enc), enc
+        except UnicodeDecodeError as e:
+            last_error = e
+    raise last_error or UnicodeDecodeError("utf-8", b"", 0, 1, "decode failed")
+
+
+def write_text_utf8(path, text):
+    """用 UTF-8 写文本文件，并自动创建父目录。"""
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(text, encoding="utf-8")
+
+
+def utf8_subprocess_env(env=None):
+    """返回偏向 UTF-8 的子进程环境，避免 Windows 控制台代码页影响输出。"""
+    merged = dict(os.environ if env is None else env)
+    merged.setdefault("PYTHONUTF8", "1")
+    merged["PYTHONIOENCODING"] = "utf-8"
+    return merged
+
+
+def decode_subprocess_output(data, encoding="utf-8"):
+    """解码子进程 bytes 输出；优先 UTF-8，再回退系统编码。"""
+    if data is None:
+        return ""
+    if isinstance(data, str):
+        return data
+    for enc in text_encoding_candidates(encoding):
+        try:
+            return data.decode(enc)
+        except UnicodeDecodeError:
+            continue
+    return data.decode(encoding or "utf-8", errors="replace")
 
 
 def atomic_write_text(path, text):

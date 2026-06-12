@@ -18,7 +18,16 @@
 
 - [Background](#background)
 - [Install](#install)
+- [Model Configuration](#model-configuration)
+- [Multimodal](#multimodal)
 - [Usage](#usage)
+- [External Message Router](#external-message-router)
+- [Files and Knowledge](#files-and-knowledge)
+- [Skills / Plugins](#skills--plugins)
+- [Project Structure](#project-structure)
+- [Updates](#updates)
+- [Windows Package Contents](#windows-package-contents)
+- [Development](#development)
 - [Related Efforts](#related-efforts)
 - [Maintainers](#maintainers)
 - [Contributing](#contributing)
@@ -35,6 +44,7 @@ VOTX Agent is a local multi-user AI Agent framework with Web UI, CLI, tool calli
 - **Multi-user isolation**: each user has independent `config.json`, `self_soul.md`, history, files, memory, and knowledge base.
 - **Shared Web/CLI engine**: `run/engine.py` handles system prompts, tool calls, and history persistence.
 - **Skills/Plugins architecture**: `plugins/` for built-in skills, `skills/` for user extensions.
+- **Tool-first workflow**: file, network, download, PDF, DOCX, and knowledge-base tasks should use dedicated skills/tools first; shell is a last-resort diagnostic/build tool.
 - **Task plans**: complex requests can be decomposed into plans, approved from Web UI, paused, resumed, or aborted.
 - **auto_improve**: temporary/permanent memory layers with active review and cleanup.
 - **External message routing**: QQ/NapCat/OneBot and Telegram with image, voice, and file attachments.
@@ -325,17 +335,17 @@ Supported inputs:
 
 | Path | Purpose |
 |---|---|
-| `users/<name>/history/file/` | Web uploads, external attachments, regular user files |
-| `users/<name>/download/` | Generated media and download tool outputs (image/speech/video downloads) |
+| `users/<name>/history/file/` | Web uploads, external attachments, original user-provided files |
+| `users/<name>/download/` | Default output for generated, exported, and downloaded artifacts: reports, documents, tables, images, speech, videos, archives |
 | `users/<name>/knowledge/` | User private knowledge base |
 | `knowledge/` | Global shared knowledge base |
-| `tmp/` | Temporary files |
+| `tmp/` | Temporary scripts, intermediate caches, and test samples; clean up after use |
 
-After writing to global `knowledge/`, update:
+Knowledge-base changes must update indexes:
 
-```text
-knowledge/data_structure.md
-```
+- After adding, modifying, deleting, renaming, or moving user knowledge files, update `users/<name>/knowledge/data_structure.md`.
+- After adding, modifying, deleting, renaming, or moving global knowledge files, update `knowledge/data_structure.md`.
+- Retrieval prefers user knowledge first, then falls back to global knowledge.
 
 ## Skills / Plugins
 
@@ -344,7 +354,18 @@ knowledge/data_structure.md
 | `plugins/` | Built-in framework skills, can be overwritten by updates |
 | `skills/` | User extension skills, never overwritten by updates |
 
-Current built-ins: 23 skills, including 19 tool skills and 4 instruction skills, registering 49 tools.
+Common built-in capabilities:
+
+| Skill | Main capabilities |
+|---|---|
+| `file` | File reading, range reading, writing, appending, precise editing, directory trees, search, copy, move, mkdir, file deletion |
+| `network` | `http_get`, `http_post`, `web_read`, with `network_scope` for public/local/private network access |
+| `download_anything` | URL inspection, direct-file downloads, video downloads, download listing |
+| `markdown_converter` | Convert PDF/Office/HTML and other documents to Markdown |
+| `pdf_tools` | PDF info, extraction, split, merge, rotate, stamp, watermark, preview, OCR, redaction, visual diff |
+| `word_docx` | DOCX creation and reading with formatting, tables, images, templates, page numbers, and TOC |
+| `tavily_search` | Tavily search, extraction, crawling, site maps, and deep research |
+| `time` | Current time and sleep up to 30 minutes |
 
 Core built-ins cannot be disabled:
 
@@ -353,6 +374,33 @@ file shell time network task_plan auto_improve skill_creator task_time kb_retrie
 ```
 
 User skills can override same-name built-ins with `override: true`.
+
+Merged legacy plugins:
+
+| Old plugin | Current home |
+|---|---|
+| `file_search` | Merged into `file.search_files` |
+| `video_download` | Merged into `download_anything.download_video` |
+| `web_content_fetcher` | Merged into `network.web_read` |
+
+### Tool Sandboxing and Network Scope
+
+Common environment variables:
+
+```env
+VOTX_FILE_OUTSIDE_SANDBOX=1
+VOTX_FILE_READ_OUTSIDE_SANDBOX=1
+VOTX_FILE_EDIT_OUTSIDE_SANDBOX=1
+VOTX_FILE_DELETE_OUTSIDE_SANDBOX=1
+VOTX_DOWNLOAD_ANYTHING_OUTSIDE_SANDBOX=1
+VOTX_NETWORK_SCOPE=public
+HTTP_NETWORK_SCOPE=public
+NETWORK_SCOPE=public
+HTTP_TIMEOUT=30
+HTTP_VERIFY_SSL=0
+```
+
+`network_scope` supports `public` / `local` / `private` / `all`. Cloud metadata addresses should always be blocked.
 
 ## Project Structure
 

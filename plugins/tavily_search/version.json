@@ -1,1 +1,1 @@
-{"name": "tavily_search", "version": "1.0.0"}
+{"name": "tavily_search", "version": "2.1.0", "tools": ["tavily_search", "tavily_extract", "tavily_crawl", "tavily_map", "tavily_research"]}

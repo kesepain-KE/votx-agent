@@ -28,6 +28,14 @@ def _normalize_skill_key(name: str) -> str:
     return str(name).lower().replace("-", "_")
 
 
+def _positive_int(value) -> int | None:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed > 0 else None
+
+
 def load_tool_schemas(disabled_skills: set | None = None) -> list[dict[str, Any]]:
     """返回排序后的 schema 列表，可选按 disabled_skills 过滤工具。
 
@@ -69,13 +77,11 @@ class ToolRunner:
         self.user_dir = user_dir
         self._disabled_skills = {_normalize_skill_key(d) for d in (disabled_skills or set())}
 
-        # 工具执行超时，优先级：user_config.tool.tool_timeout > core_config.tool.tool_timeout > provider.timeout > 120s
+        # 工具执行超时，优先级：user_config.tool.tool_timeout > core_config.tool.tool_timeout > 工具运行器默认值
         user_tool_cfg = (user_config or {}).get("tool", {})
-        provider_cfg = (user_config or {}).get("provider", {})
         self.tool_timeout = (
-            user_tool_cfg.get("tool_timeout")
-            or tool_cfg.get("tool_timeout")
-            or provider_cfg.get("timeout")
+            _positive_int(user_tool_cfg.get("tool_timeout"))
+            or _positive_int(tool_cfg.get("tool_timeout"))
             or 120
         )
 
@@ -158,12 +164,14 @@ class ToolRunner:
                     if name in TOOL_REGISTRY:
                         entry = TOOL_REGISTRY[name]
                         handler = entry[1]  # handler 始终是第二个元素
+                        meta = entry[2] if len(entry) > 2 else {}
+                        timeout = None if meta.get("skip_tool_timeout") else self.tool_timeout
                         call_context = contextvars.copy_context()
                         executor = ThreadPoolExecutor(max_workers=1)
                         try:
                             future = executor.submit(call_context.run, handler, **args)
                             try:
-                                result = future.result(timeout=self.tool_timeout)
+                                result = future.result(timeout=timeout)
                                 output = str(result)
                                 success = not output.startswith("ERROR:")
                             except FutureTimeoutError:

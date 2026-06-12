@@ -1,20 +1,33 @@
-openai>=1.0.0,<3.0.0
-yt-dlp>=2024.0
-tavily-python>=0.3.0
-python-docx>=1.0.0
-pyyaml>=6.0
-flask>=3.0
-websockets>=12.0
+# ═══════════════════════════════════════════════════════════════════════
+# votx-agent 依赖清单
+# 安装: pip install -r requirements.txt
+# 更新于: 2026-06-12 | 版本: 2.2.0
+# ═══════════════════════════════════════════════════════════════════════
 
-# 多 Provider 支持 (可选，按需安装)
-anthropic>=0.30.0,<2.0.0  # Anthropic Claude (Messages API)
+# ── 核心运行时 (必装) ────────────────────────────────────────────────
+openai>=1.0.0,<3.0.0       # provider/ — OpenAI 兼容协议 (Chat Completions + Responses API)
+flask>=3.0                  # web/ — Flask 后端 + SSE 流式传输
+pyyaml>=6.0                 # plugins/ + skills/ — SKILL.md YAML frontmatter 解析
+websockets>=12.0            # message/ — OneBot/NapCat 正向 WebSocket 连接
 
-# 文档处理
-markitdown>=0.0.1          # markdown_converter Skill（文档转 Markdown）
-pdf2image>=1.17.0          # kb_retriever Skill（PDF 转图片）
-pdfplumber>=0.11.0         # pdf-tools Skill (extract_text / pdf_info)
-PyPDF2>=3.0.0              # pdf-tools Skill (edit_text / merge / rotate / split)
-reportlab>=4.0             # pdf-tools Skill (PDF 生成)
+# ── 技能依赖 (可选，缺少时对应 Skill 不可用) ──────────────────────────
+yt-dlp>=2024.0              # plugins/download_anything — 视频/音频下载 (download_video)
+tavily-python>=0.7.0        # plugins/tavily_search — 网络搜索/提取/爬取/深度研究
+python-docx>=1.0.0          # plugins/word_docx — Word 文档创建和读取 (create_docx/read_docx)
 
-# 测试
-pytest>=7.0.0
+# ── 多 Provider 支持 (可选，按需安装) ─────────────────────────────────
+anthropic>=0.30.0,<2.0.0   # provider/anthropic_adapter — Anthropic Claude (Messages API)
+
+# ── 文档处理 ─────────────────────────────────────────────────────────
+markitdown>=0.0.1           # plugins/markdown_converter — 文档转 Markdown (PDF/Word/PPT/Excel/HTML 等)
+pdf2image>=1.17.0           # plugins/kb_retriever + plugins/pdf_tools — PDF 页面渲染为图片
+pdfplumber>=0.11.0          # plugins/pdf_tools — PDF 文本提取与信息查看
+pypdf>=4.0.0                # plugins/pdf_tools — PDF 编辑/合并/旋转/拆分
+PyMuPDF>=1.24.0             # plugins/pdf_tools — PDF 真实脱敏 redaction
+reportlab>=4.0              # plugins/pdf_tools — PDF 生成
+Pillow>=10.0                # plugins/pdf_tools — PDF 预览/图片处理
+pytesseract>=0.3.10         # plugins/pdf_tools — OCR Python 绑定（仍需系统 tesseract）
+numpy>=1.24                 # plugins/pdf_tools — PDF 视觉对比
+
+# ── 测试 ─────────────────────────────────────────────────────────────
+pytest>=7.0.0               # tests/ — 单元测试与集成测试框架

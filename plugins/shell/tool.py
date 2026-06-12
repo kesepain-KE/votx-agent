@@ -3,7 +3,16 @@ import os
 import shlex
 import subprocess
 from run.tool import register_tool
-from plugins._common import err, truncate, check_dangerous_command, safe_working_dir, sanitize_env, get_current_user_dir
+from run.io_utils import decode_subprocess_output, utf8_subprocess_env
+from plugins._common import (
+    err,
+    truncate,
+    check_dangerous_command,
+    safe_working_dir,
+    sanitize_env,
+    get_current_user_dir,
+    get_effective_tool_timeout,
+)
 
 
 def run_command(command: str, working_dir: str = "") -> str:
@@ -41,25 +50,25 @@ def run_command(command: str, working_dir: str = "") -> str:
         return err(f"命令解析失败: {e}")
 
     cwd = working_dir.strip() or get_current_user_dir() or None
+    timeout = get_effective_tool_timeout(120)
 
     try:
         r = subprocess.run(
             args,
             shell=False,
             capture_output=True,
-            timeout=120,
-            encoding="utf-8",
-            errors="replace",
-            text=True,
+            timeout=timeout,
             cwd=cwd,
-            env=sanitize_env(),
+            env=utf8_subprocess_env(sanitize_env()),
         )
-        output = r.stdout.strip() or r.stderr.strip() or f"(exit={r.returncode})"
+        stdout = decode_subprocess_output(r.stdout).strip()
+        stderr = decode_subprocess_output(r.stderr).strip()
+        output = stdout or stderr or f"(exit={r.returncode})"
         return truncate(output, max_len=100000)
     except FileNotFoundError:
         return err(f"命令未找到: {args[0]}")
     except subprocess.TimeoutExpired:
-        return err("命令超时 (120s)")
+        return err(f"命令超时 ({timeout}s)")
     except Exception as e:
         return err(f"执行失败: {e}")
 
@@ -69,7 +78,7 @@ SCHEMA = {
     "function": {
         "name": "run_command",
         "description": (
-            "执行系统命令。shell=False 安全模式。支持任意命令，超时 120 秒。Windows 下自动处理编码。"
+            "执行系统命令。shell=False 安全模式。超时遵循 tool.tool_timeout（用户配置 > 全局配置 > 内置默认）。Windows 下自动处理编码。"
         ),
         "parameters": {
             "type": "object",

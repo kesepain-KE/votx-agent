@@ -6,8 +6,98 @@ Quick validation script for skills - minimal version
 import sys
 import os
 import re
-import yaml
 from pathlib import Path
+
+try:
+    import yaml
+except ImportError:
+    yaml = None
+
+
+class FrontmatterParseError(Exception):
+    """Raised when SKILL.md frontmatter cannot be parsed."""
+
+
+def _strip_yaml_scalar(value):
+    """Strip common one-line YAML scalar quoting."""
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
+        return value[1:-1]
+    if value in ("{}", "null", "~"):
+        return {} if value == "{}" else None
+    if value.lower() in ("true", "false"):
+        return value.lower() == "true"
+    return value
+
+
+def _parse_frontmatter_simple(frontmatter_text):
+    """Parse the simple YAML subset normally used by SKILL.md frontmatter.
+
+    This fallback keeps quick_validate usable when PyYAML is not installed. It
+    supports top-level key/value pairs, one-level nested maps, and literal or
+    folded block scalars.
+    """
+    result = {}
+    lines = frontmatter_text.splitlines()
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        i += 1
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        if line[:1].isspace():
+            raise FrontmatterParseError(f"Unexpected indented line: {line}")
+        if ":" not in line:
+            raise FrontmatterParseError(f"Invalid YAML line: {line}")
+
+        key, value = line.split(":", 1)
+        key = key.strip()
+        value = value.strip()
+        if not key:
+            raise FrontmatterParseError("Empty YAML key")
+
+        if value in ("|", ">"):
+            block_lines = []
+            while i < len(lines) and (lines[i][:1].isspace() or not lines[i].strip()):
+                block_lines.append(lines[i].strip())
+                i += 1
+            text = "\n".join(block_lines).strip()
+            result[key] = " ".join(text.split()) if value == ">" else text
+            continue
+
+        if not value:
+            nested = {}
+            while i < len(lines) and (lines[i][:1].isspace() or not lines[i].strip()):
+                nested_line = lines[i]
+                i += 1
+                if not nested_line.strip() or nested_line.lstrip().startswith("#"):
+                    continue
+                if ":" not in nested_line:
+                    raise FrontmatterParseError(f"Invalid nested YAML line: {nested_line}")
+                nested_key, nested_value = nested_line.split(":", 1)
+                nested[nested_key.strip()] = _strip_yaml_scalar(nested_value)
+            result[key] = nested
+            continue
+
+        result[key] = _strip_yaml_scalar(value)
+
+    return result
+
+
+def parse_frontmatter(frontmatter_text):
+    """Parse SKILL.md frontmatter with PyYAML when available, fallback otherwise."""
+    if yaml is not None:
+        try:
+            frontmatter = yaml.safe_load(frontmatter_text)
+        except yaml.YAMLError as e:
+            raise FrontmatterParseError(f"Invalid YAML in frontmatter: {e}") from e
+    else:
+        frontmatter = _parse_frontmatter_simple(frontmatter_text)
+
+    if not isinstance(frontmatter, dict):
+        raise FrontmatterParseError("Frontmatter must be a YAML dictionary")
+    return frontmatter
+
 
 def validate_skill(skill_path):
     """Basic validation of a skill"""
@@ -30,13 +120,10 @@ def validate_skill(skill_path):
 
     frontmatter_text = match.group(1)
 
-    # Parse YAML frontmatter
     try:
-        frontmatter = yaml.safe_load(frontmatter_text)
-        if not isinstance(frontmatter, dict):
-            return False, "Frontmatter must be a YAML dictionary"
-    except yaml.YAMLError as e:
-        return False, f"Invalid YAML in frontmatter: {e}"
+        frontmatter = parse_frontmatter(frontmatter_text)
+    except FrontmatterParseError as e:
+        return False, str(e)
 
     # Define allowed properties
     ALLOWED_PROPERTIES = {'name', 'description', 'license', 'allowed-tools', 'metadata', 'version', 'category', 'enabled', 'override', 'compatibility', 'source', 'author', 'homepage', 'tags', 'slug'}

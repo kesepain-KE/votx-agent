@@ -1,1 +1,1 @@
-{"name": "word_docx", "version": "1.0.0"}
+{"name": "word_docx", "version": "2.2.0", "tools": ["create_docx", "read_docx"]}

@@ -1,6 +1,6 @@
 ---
 name: shell
-version: "1.0.0"
+version: "1.0.1"
 description: "VOTX Agent run_command tool usage guide — execute shell commands safely via the agent sandbox, with patterns for file ops, text processing, system info, and error handling."
 author: "BytesAgain"
 homepage: "https://bytesagain.com"
@@ -23,7 +23,9 @@ category: "devtools"
 run_command(command: "<shell 命令>")
 ```
 
-工具返回执行结果，包括 stdout、stderr 和退出码。命令在隔离的工作目录中运行，agent 无需手动管理 shell 会话状态。
+当前实现使用 `shell=False` 并按参数解析执行命令；管道、`&&`、重定向等 shell 语法需要显式调用 `cmd.exe /c` 或 `powershell -Command`。
+
+工具返回 stdout 优先的文本结果；stdout 为空时返回 stderr，二者都为空时返回 `(exit=<code>)`。每次调用都是独立子进程，agent 无需手动管理 shell 会话状态。
 
 ## 安全性
 
@@ -51,26 +53,29 @@ run_command(command: "<shell 命令>")
 
 ### 工作目录
 
-每次 `run_command` 调用在统一的工作目录（project workspace）下执行。使用绝对路径引用文件是最可靠的方式。相对路径相对于项目根目录解析。
+不传 `working_dir` 时默认使用当前用户目录；传入 `working_dir` 时建议使用绝对路径。使用绝对路径引用文件是最可靠的方式。
 
 ### 环境变量
 
-沙箱环境继承一组受限的环境变量。可通过工具参数或在命令中内联设置：
+沙箱环境继承一组受限的环境变量。由于当前实现不经过 shell，临时环境变量需要显式调用系统 shell：
 
 ```
 # 在命令中设置环境变量
-run_command(command: "MY_VAR=value some-command")
+run_command(command: "powershell -NoProfile -Command \"$env:MY_VAR='value'; some-command\"")
 ```
 
 可用的常见环境变量：`HOME`、`PATH`、`USER`、`PWD`。需要特定环境变量时应显式设置。
 
 ### 跨命令状态
 
-每次 `run_command` 调用是独立的子进程，shell 状态（如 `cd` 后的目录、export 的环境变量）不会在调用之间保持。需要多步操作时，在一次调用中完成：
+每次 `run_command` 调用是独立的子进程，shell 状态（如 `cd` 后的目录、export 的环境变量）不会在调用之间保持。需要多步操作时，优先使用 `working_dir` 参数；确实需要 shell 语法时显式调用系统 shell：
 
 ```
-# 正确：在一次调用中完成多步操作
-run_command(command: "cd /path/to/dir && ./script.sh && cat result.txt")
+# 使用 working_dir 执行单个命令
+run_command(command: "python script.py", working_dir: "E:\\path\\to\\dir")
+
+# 使用 shell 语法完成多步操作
+run_command(command: "cmd.exe /c \"cd /d E:\\path\\to\\dir && script.bat && type result.txt\"")
 ```
 
 ## 常用模式
@@ -120,60 +125,52 @@ run_command(command: "df -h")
 run_command(command: "free -m")
 
 # 进程列表
-run_command(command: "ps aux | head -20")
+run_command(command: "powershell -NoProfile -Command \"Get-Process | Select-Object -First 20\"")
 
 # 当前用户和主机
-run_command(command: "whoami && hostname")
+run_command(command: "powershell -NoProfile -Command \"whoami; hostname\"")
 ```
 
 ### 管道与组合
 
-`run_command` 支持完整的 shell 管道语法：
+`run_command` 本身不解析管道语法；需要管道、条件执行或重定向时，显式调用系统 shell：
 
 ```
 # 多步过滤
-run_command(command: "cat log.txt | grep ERROR | sort | uniq -c | sort -rn")
+run_command(command: "powershell -NoProfile -Command \"Get-Content log.txt | Select-String ERROR | Sort-Object | Group-Object\"")
 
 # 结合多种工具
-run_command(command: "find . -name '*.go' | xargs grep -l 'TODO'")
+run_command(command: "cmd.exe /c \"dir /s /b *.go | findstr TODO\"")
 ```
 
 ## 错误处理与输出解读
 
 ### 退出码
 
-`run_command` 返回命令的退出码：
-- `0` 表示成功。
-- 非零值表示错误，具体含义取决于命令。例如 `grep` 返回 `1` 表示未找到匹配（不算错误但非成功），`2` 表示真正的错误。
+`run_command` 默认返回 stdout 文本；stdout 为空时返回 stderr；二者都为空时返回 `(exit=<code>)`。如果需要稳定获取退出码，可显式调用 shell 并打印 `$LASTEXITCODE` 或 `%ERRORLEVEL%`。
 
 ### 解读输出
 
-工具返回结构化的结果，包含：
-
-| 字段 | 说明 |
-|------|------|
-| `stdout` | 命令的标准输出 |
-| `stderr` | 命令的标准错误输出 |
-| `exit_code` | 进程退出码 |
+工具返回纯文本，不是结构化对象。需要解析结果时，优先让命令输出 JSON、CSV 或明确分隔符。
 
 ### 错误处理模式
 
 ```
 # 条件执行：前一步失败则跳过后续
-run_command(command: "test -f config.yaml && cat config.yaml")
+run_command(command: "cmd.exe /c \"if exist config.yaml type config.yaml\"")
 
 # 错误时执行回退
-run_command(command: "primary-command || fallback-command")
+run_command(command: "cmd.exe /c \"primary-command || fallback-command\"")
 
 # 静默错误（stderr 重定向）
-run_command(command: "command 2>/dev/null")
+run_command(command: "cmd.exe /c \"command 2>nul\"")
 ```
 
 ### 常见问题排查
 
 - **命令未找到：** 检查命令是否在沙箱的受限 `PATH` 中可用。
 - **权限拒绝：** 检查文件路径是否在白名单内，操作是否被安全策略拦截。
-- **超时：** 长时间运行的命令可能被超时机制终止，考虑分批处理或增加超时参数。
+- **超时：** 长时间运行的命令可能被超时机制终止；超时值遵循 `tool.tool_timeout` 配置优先级（用户配置 > 全局配置 > 工具内默认值）。
 - **输出截断：** `run_command` 对输出大小有上限，超长输出应使用 `head`/`tail` 限制或输出到文件后分段读取。
 
 ## 配置
@@ -181,6 +178,7 @@ run_command(command: "command 2>/dev/null")
 | 变量 | 说明 |
 |------|------|
 | `SHELL_DIR` | 数据目录（默认：~/.shell/） |
+| `tool.tool_timeout` | 命令超时，读取优先级为用户配置 > 全局配置 > 工具内默认值 |
 
 ---
 

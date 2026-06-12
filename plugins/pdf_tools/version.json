@@ -1,1 +1,1 @@
-{"name": "pdf_tools", "version": "1.0.0"}
+{"name": "pdf_tools", "version": "2.2.0", "tools": ["pdf_info", "pdf_extract_text", "pdf_split", "pdf_merge", "pdf_rotate", "pdf_stamp_text", "pdf_select_pages", "pdf_delete_pages", "pdf_compress", "pdf_watermark", "pdf_render_preview", "pdf_ocr", "pdf_redact", "pdf_compare", "check_pdf_dependencies"]}

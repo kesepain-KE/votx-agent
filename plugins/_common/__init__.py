@@ -59,6 +59,52 @@ def get_current_user_dir() -> str:
     return _CURRENT_USER_DIR.get() or os.environ.get("VOTX_USER_DIR", "")
 
 
+def _positive_int(value) -> int | None:
+    """将配置值解析为正整数；无效值返回 None。"""
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed > 0 else None
+
+
+def _read_tool_timeout_config(path: Path) -> int | None:
+    """从配置文件读取 tool.tool_timeout。"""
+    try:
+        if not path.exists():
+            return None
+        config = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(config, dict):
+            return None
+        tool_cfg = config.get("tool", {})
+        if not isinstance(tool_cfg, dict):
+            return None
+        return _positive_int(tool_cfg.get("tool_timeout"))
+    except Exception:
+        return None
+
+
+def get_effective_tool_timeout(default: int = 120) -> int:
+    """获取工具内部超时。
+
+    优先级：当前用户配置 users/<name>/config.json 的 tool.tool_timeout >
+    全局配置 config/config_core.json 的 tool.tool_timeout > 工具传入的内置默认值。
+    """
+    fallback = _positive_int(default) or 120
+
+    user_dir = get_current_user_dir()
+    if user_dir:
+        timeout = _read_tool_timeout_config(Path(user_dir) / "config.json")
+        if timeout is not None:
+            return timeout
+
+    timeout = _read_tool_timeout_config(_PROJECT_ROOT / "config" / "config_core.json")
+    if timeout is not None:
+        return timeout
+
+    return fallback
+
+
 # ---- 路径安全 ----
 
 def safe_path(raw_path: str) -> Path | None:
@@ -100,69 +146,143 @@ def check_sandbox(p: Path, allowed_roots: list | None = None) -> Path | None:
 
 # ---- SSRF 防护 ----
 
-_SSRF_BLOCKED_NETWORKS = [
+_LOCAL_NETWORKS = [
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("0.0.0.0/32"),
+    ipaddress.ip_network("::/128"),
+]
+
+_PRIVATE_NETWORKS = [
     ipaddress.ip_network("10.0.0.0/8"),
     ipaddress.ip_network("172.16.0.0/12"),
     ipaddress.ip_network("192.168.0.0/16"),
-    ipaddress.ip_network("127.0.0.0/8"),
     ipaddress.ip_network("169.254.0.0/16"),
-    ipaddress.ip_network("::1/128"),
     ipaddress.ip_network("fc00::/7"),
     ipaddress.ip_network("fe80::/10"),
 ]
 
-_CLOUD_METADATA_IPS = {"169.254.169.254"}
+_CLOUD_METADATA_IPS = {
+    "169.254.169.254",
+    "fd00:ec2::254",
+}
+
+_NETWORK_SCOPES = {"public", "local", "private", "all"}
 
 MAX_RESPONSE_BYTES = 10 * 1024 * 1024  # 10 MB
 
 
-def _is_ip_blocked(host: str) -> bool:
-    """执行 is_ip_blocked 内部辅助逻辑。"""
+def _normalize_network_scope(network_scope: str | None) -> str:
+    """标准化网络访问范围。未知值按 public 处理。"""
+    scope = (network_scope or "public").strip().lower()
+    if scope not in _NETWORK_SCOPES:
+        return "public"
+    return scope
+
+
+def classify_ip_scope(addr_str: str) -> str:
+    """返回 IP 所属网络范围: public/local/private/metadata。"""
+    addr_str = str(addr_str).split("%", 1)[0]
     try:
-        addr = ipaddress.ip_address(host)
+        addr = ipaddress.ip_address(addr_str)
     except ValueError:
-        return False
-    for net in _SSRF_BLOCKED_NETWORKS:
+        return "public"
+
+    if str(addr) in _CLOUD_METADATA_IPS:
+        return "metadata"
+    for net in _LOCAL_NETWORKS:
         if addr in net:
-            return True
-    return False
+            return "local"
+    for net in _PRIVATE_NETWORKS:
+        if addr in net:
+            return "private"
+    return "public"
 
 
-def validate_url(url: str) -> str | None:
-    """SSRF 防护：校验 URL 安全性。返回错误字符串或 None（通过）。"""
+def _scope_allows(address_scope: str, network_scope: str) -> bool:
+    """判断 network_scope 是否允许访问某类地址。"""
+    if address_scope == "metadata":
+        return False
+    if network_scope == "all":
+        return address_scope in {"public", "local", "private"}
+    return address_scope == network_scope
+
+
+def inspect_url(url: str, network_scope: str | None = "public") -> dict:
+    """解析并校验 URL，返回错误、地址范围和解析出的 IP 信息。"""
+    effective_scope = _normalize_network_scope(network_scope)
+    result = {
+        "error": None,
+        "url": url,
+        "host": "",
+        "network_scope": effective_scope,
+        "address_scope": "",
+        "resolved_ips": [],
+    }
     try:
         parsed = _urlparse(url)
     except Exception:
-        return "无效的 URL 格式"
+        result["error"] = "无效的 URL 格式"
+        return result
 
     if parsed.scheme not in ("http", "https"):
-        return f"不支持的协议: {parsed.scheme}，仅允许 http/https"
+        result["error"] = f"不支持的协议: {parsed.scheme}，仅允许 http/https"
+        return result
 
     host = parsed.hostname
     if not host:
-        return "URL 缺少主机名"
+        result["error"] = "URL 缺少主机名"
+        return result
+    result["host"] = host
 
-    if host.lower() in ("localhost", "0.0.0.0", "0", "[::]", "::", "127.0.0.1"):
-        return f"禁止访问本地地址: {host}"
+    host_lower = host.lower().rstrip(".")
+    if host_lower == "localhost":
+        result["resolved_ips"] = ["127.0.0.1", "::1"]
+        result["address_scope"] = "local"
+        if not _scope_allows("local", effective_scope):
+            result["error"] = f"当前 network_scope={effective_scope} 不允许访问本地地址: {host}"
+        return result
 
-    if host in _CLOUD_METADATA_IPS:
-        return f"禁止访问云元数据端点: {host}"
-
-    if _is_ip_blocked(host):
-        return f"禁止访问内网/回环地址: {host}"
-
-    # DNS 解析检查：域名可能解析到内网/回环地址
+    resolved_ips: list[str] = []
     try:
         for info in socket.getaddrinfo(host, None, 0, socket.SOCK_STREAM):
             addr_str = info[4][0]
-            if addr_str in _CLOUD_METADATA_IPS:
-                return f"禁止访问云元数据端点: {addr_str} (由 {host} 解析)"
-            if _is_ip_blocked(addr_str):
-                return f"禁止访问内网/回环地址: {addr_str} (由 {host} 解析)"
+            if addr_str not in resolved_ips:
+                resolved_ips.append(addr_str)
     except socket.gaierror:
-        return f"无法解析域名: {host}"
+        result["error"] = f"无法解析域名: {host}"
+        return result
 
-    return None
+    result["resolved_ips"] = resolved_ips
+    scopes = [classify_ip_scope(addr) for addr in resolved_ips]
+
+    if "metadata" in scopes:
+        result["address_scope"] = "metadata"
+        result["error"] = f"禁止访问云元数据端点: {host}"
+        return result
+
+    if "local" in scopes:
+        address_scope = "local"
+    elif "private" in scopes:
+        address_scope = "private"
+    else:
+        address_scope = "public"
+    result["address_scope"] = address_scope
+
+    blocked_scopes = sorted({s for s in scopes if not _scope_allows(s, effective_scope)})
+    if blocked_scopes:
+        resolved = ", ".join(resolved_ips)
+        result["error"] = (
+            f"当前 network_scope={effective_scope} 不允许访问 "
+            f"{'/'.join(blocked_scopes)} 地址: {host} ({resolved})")
+        return result
+
+    return result
+
+
+def validate_url(url: str, network_scope: str | None = "public") -> str | None:
+    """SSRF 防护：按 network_scope 校验 URL。返回错误字符串或 None。"""
+    return inspect_url(url, network_scope).get("error")
 
 
 # ---- 命令安全 ----

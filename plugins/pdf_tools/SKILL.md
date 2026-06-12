@@ -1,124 +1,111 @@
 ---
 name: pdf_tools
-description: View, extract, edit, and manipulate PDF files. Supports text extraction, text editing (overlay and replacement), merging, splitting, rotating pages, and getting PDF metadata. Use when working with PDF documents for reading content, adding/editing text, reorganizing pages, combining files, or extracting information.
+description: PDF 工具集 — 13 个工具覆盖信息/提取/拆分/合并/旋转/盖字/水印/预览/压缩/OCR/选页/删页/涂黑。当 Agent 需要查看、编辑、操作 PDF 文件时使用。
+compatibility: pypdf + reportlab（必装）；pdf2image + pytesseract（OCR/预览可选）；ghostscript（压缩优化可选）
 ---
 
-# PDF Tools
+# PDF 工具集
 
-Tools for viewing, extracting, and editing PDF files using Python libraries (pypdf and reportlab).
+**14 个工具**，覆盖 PDF 全生命周期操作。版本 v2.1.0。
 
-## Function Tools (AI Agent)
+## 工具速查
 
-The following operations are available as function tools that the AI agent can call directly:
+| # | 工具 | 类型 | 用途 | 依赖 |
+|---|------|------|------|------|
+| 1 | `pdf_info` | 查看 | 页数/尺寸/加密/文本层/图片/书签/表单/元数据 | pypdf |
+| 2 | `pdf_render_preview` | 查看 | 渲染页面为图片（PNG/JPG） | pypdf+pdf2image+Pillow |
+| 3 | `pdf_compare` | 查看 | 视觉 diff，差异区域红色高亮 | pypdf+pdf2image+Pillow+numpy |
+| 4 | `pdf_extract_text` | 提取 | 提取文本（layout 模式 + OCR fallback） | pypdf(+pytesseract) |
+| 5 | `pdf_ocr` | 提取 | OCR 扫描件→含文本层 PDF，支持 force/skip/deskew | pypdf+pdf2image+pytesseract |
+| 6 | `pdf_split` | 页面 | 拆分（固定页数 / 范围 `1-3,5,8-10`） | pypdf |
+| 7 | `pdf_select_pages` | 页面 | 抽取指定页面 | pypdf |
+| 8 | `pdf_delete_pages` | 页面 | 删除指定页面 | pypdf |
+| 9 | `pdf_merge` | 页面 | 合并多 PDF（去空白页+跳过无效） | pypdf |
+| 10 | `pdf_rotate` | 页面 | 旋转（90/180/270/-90，选页） | pypdf |
+| 11 | `pdf_compress` | 编辑 | 压缩（screen/ebook/printer/prepress 等级） | pypdf(+ghostscript) |
+| 12 | `pdf_stamp_text` | 编辑 | 盖字/标注（颜色/透明度/旋转） | pypdf+reportlab |
+| 13 | `pdf_watermark` | 编辑 | 斜铺水印（草稿/机密） | pypdf+reportlab |
+| 14 | `pdf_redact` | 编辑 | 涂黑脱敏（关键词/正则/坐标） | pypdf |
 
-| Tool | Description |
-|------|-------------|
-| `pdf_info(file_path)` | Get PDF metadata: pages, sizes, author, title |
-| `pdf_extract_text(file_path, start_page, end_page)` | Extract text from PDF pages (1-indexed) |
-| `pdf_split(file_path, output_dir, pages_per_chunk)` | Split PDF into multiple files |
-| `pdf_merge(file_paths, output_path)` | Merge multiple PDFs into one |
-| `pdf_rotate(file_path, rotation, pages)` | Rotate all or specific pages |
-| `pdf_edit_text(file_path, page, x, y, text, output_path)` | Overlay text on a PDF page |
+## 通用参数
 
-All function tools enforce sandbox path validation (project directory and user directory only).
+所有会写文件的工具统一支持：
 
-## Scripts (Advanced / Manual)
+| 参数 | 类型 | 默认 | 说明 |
+|------|------|------|------|
+| `output_path` | string | 自动生成 | 输出文件路径 |
+| `overwrite` | bool | false | 是否覆盖已有文件 |
+| `auto_rename` | bool | true | 重名时自动追加序号 |
+| `pages` | string | `all` | 页码范围：`all` / `1,3,5` / `1-3,5-7` |
+| `dry_run` | bool | false | 只预览参数和预估结果，不写文件 |
 
-The `scripts/` directory provides CLI tools for advanced batch usage and manual workflows. See sections below for script usage.
+## 推荐工作流
 
-## Quick Start
+```
+# 安全编辑流程
+pdf_info → pdf_render_preview → pdf_stamp_text/watermark/redact → pdf_compare
 
-All scripts require dependencies:
-```bash
-pip3 install pdfplumber PyPDF2
+# OCR 流程
+pdf_info(检查文本层) → pdf_ocr(force_ocr=false,skip_text=true) → pdf_extract_text
+
+# 拆合流程
+pdf_info → pdf_split(page_ranges) → pdf_merge → pdf_compress
 ```
 
-## Core Operations
+## 输出结构
 
-### Extract Text
-
-Extract text from PDF (all pages or specific pages):
-```bash
-scripts/extract_text.py document.pdf
-scripts/extract_text.py document.pdf -p 1 3 5
-scripts/extract_text.py document.pdf -o output.txt
+**成功：**
+```
+[SUCCESS]
+  output: /path/to/file.pdf
+  pages: 10
+  rotated: 3/10 pages by 90°
 ```
 
-### Get PDF Info
-
-View metadata and structure:
-```bash
-scripts/pdf_info.py document.pdf
-scripts/pdf_info.py document.pdf -f json
+**失败：**
+```
+ERROR: [FILE_NOT_FOUND] 文件不存在: /path/bad.pdf
+ERROR: [PAGE_OUT_OF_RANGE] 页码 99 超出范围（共 10 页）
+ERROR: [DEPENDENCY] pdf2image 未安装: pip install pdf2image
 ```
 
-### Merge PDFs
+## 错误码
 
-Combine multiple PDFs into one:
+| 错误码 | 含义 |
+|--------|------|
+| `INVALID_PATH` | 路径无效或越权 |
+| `FILE_NOT_FOUND` | 文件不存在 |
+| `NOT_PDF` | 不是 PDF 文件 |
+| `PAGE_OUT_OF_RANGE` | 页码超出范围 |
+| `PDF_ENCRYPTED` | PDF 已加密 |
+| `NO_TEXT_LAYER` | 无文本层（扫描件） |
+| `OCR_FAILED` | OCR 处理失败 |
+| `DEPENDENCY` | 依赖库未安装 |
+| `SAVE_FAILED` | 保存/写入失败 |
+
+## 安装
+
 ```bash
-scripts/merge_pdfs.py file1.pdf file2.pdf file3.pdf -o merged.pdf
+# 必装
+pip install pypdf reportlab
+
+# 可选：预览 + OCR
+pip install pdf2image pytesseract Pillow
+# 系统依赖: poppler-utils (pdf2image) + tesseract (OCR)
+apt install poppler-utils tesseract-ocr tesseract-ocr-chi-sim
+
+# 可选：更好的压缩
+apt install ghostscript
 ```
 
-### Split PDF
+## 安全边界
 
-Split into individual pages:
-```bash
-scripts/split_pdf.py document.pdf -o output_dir/
-```
+1. 所有 `file_path` / `output_path` 均经 `safe_path + check_sandbox` 校验
+2. 限制在用户目录和项目目录内，禁止路径穿越
+3. 默认 `auto_rename=true`，不覆盖原文件
+4. 不读取远程 URL
 
-Split by page ranges:
-```bash
-scripts/split_pdf.py document.pdf -o output_dir/ -m ranges -r "1-3,5-7,10-12"
-```
+## 参考
 
-### Rotate Pages
-
-Rotate all pages or specific pages:
-```bash
-scripts/rotate_pdf.py document.pdf -o rotated.pdf -r 90
-scripts/rotate_pdf.py document.pdf -o rotated.pdf -r 180 -p 1 3 5
-```
-
-### Edit Text
-
-Add text overlay on a page:
-```bash
-scripts/edit_text.py document.pdf -o edited.pdf --overlay "New Text" --page 1 --x 100 --y 700
-scripts/edit_text.py document.pdf -o edited.pdf --overlay "Watermark" --page 1 --x 200 --y 400 --font-size 20
-```
-
-Replace text (limited, works best for simple cases):
-```bash
-scripts/edit_text.py document.pdf -o edited.pdf --replace "Old Text" "New Text"
-```
-
-**Note:** PDF text editing is complex due to the format. The overlay method is more reliable than replacement.
-
-## Workflow Patterns
-
-### Viewing PDF Content
-
-1. Get basic info: `scripts/pdf_info.py file.pdf`
-2. Extract text to preview: `scripts/extract_text.py file.pdf -p 1`
-3. Extract full text if needed: `scripts/extract_text.py file.pdf -o content.txt`
-
-### Reorganizing PDFs
-
-1. Split into pages: `scripts/split_pdf.py input.pdf -o pages/`
-2. Merge selected pages: `scripts/merge_pdfs.py pages/page_1.pdf pages/page_3.pdf -o reordered.pdf`
-
-### Extracting Sections
-
-1. Get page count: `scripts/pdf_info.py document.pdf`
-2. Split by ranges: `scripts/split_pdf.py document.pdf -o sections/ -m ranges -r "1-5,10-15"`
-
-## Advanced Usage
-
-For detailed library documentation and advanced patterns, see [references/libraries.md](references/libraries.md).
-
-## Notes
-
-- Page numbers are **1-indexed** in all scripts (page 1 = first page)
-- Text extraction works best with text-based PDFs (not scanned images)
-- Rotation angles: 90, 180, 270, or -90 (counterclockwise)
-- All scripts validate file existence before processing
+- pypdf: https://pypdf.readthedocs.io/
+- reportlab: https://www.reportlab.com/docs/

@@ -31,3 +31,4 @@ markitdown input.docx > output.md       # 管道方式
 - 首次运行会缓存依赖，后续更快
 - 输出保留文档结构（标题、表格、列表、链接）
 - 复杂 PDF 可用 `-d` 配合 Azure Document Intelligence
+- `markitdown` 子进程超时遵循 `tool.tool_timeout` 配置优先级：用户配置 > 全局配置 > 工具内默认值（120 秒）

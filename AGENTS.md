@@ -30,7 +30,30 @@
 └── start.py / start_web.py
 ```
 
-## 第零条：行动前先查技能描述
+## 当前实例默认路径
+
+当前主要用户是 `kesepain`。没有更明确的用户上下文时，默认使用以下位置：
+
+```text
+项目根目录: E:\code\votx-agent
+临时文件:   E:\code\votx-agent\tmp
+输出文件:   E:\code\votx-agent\users\kesepain\download
+上传文件:   E:\code\votx-agent\users\kesepain\history\file
+用户知识库: E:\code\votx-agent\users\kesepain\knowledge
+全局知识库: E:\code\votx-agent\knowledge
+```
+
+泛化规则仍是：
+
+```text
+tmp/                         # 临时中间产物
+users/<name>/download/       # 智能体生成、导出、下载的默认产物
+users/<name>/history/file/   # 用户上传文件、外部消息附件
+users/<name>/knowledge/      # 用户私有知识库
+knowledge/                   # 全局共享知识库
+```
+
+## 第零条：能用技能就不用 shell
 
 收到任何请求，第一步不是动手，而是判断：**这件事有没有对应的 Skill？**
 
@@ -43,6 +66,14 @@ skills/<name>/SKILL.md
 
 确认专用工具、参数、边界和注意事项后再行动。不要跳过技能描述直接操作。
 
+硬性优先级：
+
+```text
+专用 Skill/工具 > 文件/知识库/文档类 Skill > 受控基础工具 > shell
+```
+
+能用 Skill 或工具完成的，不使用 shell。shell 只用于没有等价 Skill 的诊断、测试、构建、git 状态查看、进程/环境检查，或在专用工具失败后做最小范围排查。使用 shell 时命令必须短、可解释、范围明确，不用它替代已有文件、网络、下载、文档、知识库工具。
+
 ### Skill 使用流程
 
 1. 先判断请求是否命中某个 Skill。
@@ -51,6 +82,7 @@ skills/<name>/SKILL.md
 4. 文件处理优先用 `file` / `markdown_converter` / `pdf_tools` / `word_docx`，不要用 shell 硬读写。
 5. 生成图像、语音、视频、下载媒体时，优先使用对应生成/下载 Skill。
 6. 工具失败后先读错误信息和 Skill 文档，不要立刻换成更粗暴的 shell 命令。
+7. 知识库检索和维护优先用 `kb_retriever` 的流程，不直接用 shell 全库乱扫。
 
 ## 查资料优先级
 
@@ -85,10 +117,12 @@ users/<name>/config.json
 1. 明确用户要什么，不扩大范围。
 2. 修改代码前先读现有实现和相邻风格。
 3. 改动尽量小，避免无关重构。
-4. 普通用户文件默认放 `users/<name>/history/file/`；图像/语音/视频下载和生成类产物默认使用 `users/<name>/download/`。
-5. 写入全局 `knowledge/` 后必须更新 `knowledge/data_structure.md`。
-6. 改完代码做最小必要自检，至少编译/构建受影响部分。
-7. 同一命令连续失败 3 次，换路径分析，不要无限重试。
+4. 临时中间产物放 `tmp/`，当前实例对应 `E:\code\votx-agent\tmp`。
+5. 智能体主动生成、导出、下载的文件默认放 `users/<name>/download/`，当前实例对应 `E:\code\votx-agent\users\kesepain\download`。
+6. 用户上传文件、外部消息附件默认在 `users/<name>/history/file/`，当前实例对应 `E:\code\votx-agent\users\kesepain\history\file`。
+7. 用户知识库或全局知识库发生新增、修改、删除、重命名后，必须同步更新对应 `data_structure.md` 索引。
+8. 改完代码做最小必要自检，至少编译/构建受影响部分。
+9. 同一命令连续失败 3 次，换路径分析，不要无限重试。
 
 ## 用户文件目录规范
 
@@ -96,18 +130,28 @@ users/<name>/config.json
 
 | 目录 | 定位 | 允许写入 |
 |------|------|----------|
-| `users/<name>/history/file/` | 用户文件池 | Web 上传文件、外部消息附件、用户要求保存/查看的报告、文档、表格、代码包 |
-| `users/<name>/download/` | 智能体生成类产物目录 | 图像生成、语音生成、视频下载、临时导出、多媒体生成结果 |
+| `users/<name>/download/` | 智能体输出目录 | 智能体生成、导出、下载的文件，包括报告、文档、表格、图片、语音、视频、压缩包 |
+| `users/<name>/history/file/` | 用户输入文件池 | Web 上传文件、外部消息附件、用户原始材料 |
 | `users/<name>/knowledge/` | 用户私有知识库 | 用户私有资料和知识 |
 | `knowledge/` | 全局共享知识库 | 只在用户明确要求时写入 |
 | `tmp/` | 临时中间产物 | 临时脚本和缓存文件，用完清理 |
 
+当前实例固定路径：
+
+```text
+tmp/                         -> E:\code\votx-agent\tmp
+users/<name>/download/       -> E:\code\votx-agent\users\kesepain\download
+users/<name>/history/file/   -> E:\code\votx-agent\users\kesepain\history\file
+```
+
 硬性规则：
 
 - 用户上传或外部消息附件只进入 `history/file/`。
-- 智能体主动生成的图片、语音、视频、下载媒体默认进入 `download/`。
-- 用户明确要求"保存给我看"的报告、Markdown、表格、脚本、压缩包，优先进入 `history/file/`。
+- 智能体主动生成、导出、下载的任何可交付文件默认进入 `download/`。
+- 用户明确要求“修改我上传的这个文件”时，可以在 `history/file/` 内原地处理或生成同目录副本；否则新产物仍放 `download/`。
+- 用户明确要求“写入知识库”时，目标是 `users/<name>/knowledge/`；只有明确说全局时才写 `knowledge/`。
 - 临时中间产物放 `tmp/`，不要污染 `download/` 或 `history/file/`。
+- 临时文件如果只是验证、转换缓存、测试样本，用完应清理；如果用户需要查看结果，转存到 `download/`。
 
 ### 产物放置决策表
 
@@ -118,7 +162,9 @@ users/<name>/config.json
 | Agent 生成图片 | `users/<name>/download/` |
 | Agent 生成语音 | `users/<name>/download/` |
 | Agent 下载视频/音频 | `users/<name>/download/` |
-| Agent 生成报告/表格/Markdown | `users/<name>/history/file/` |
+| Agent 生成报告/表格/Markdown/DOCX/PDF | `users/<name>/download/` |
+| Agent 生成代码包/压缩包/导出文件 | `users/<name>/download/` |
+| 用户要求加工上传原件 | `users/<name>/history/file/` 内生成副本，或按要求输出到 `download/` |
 | 临时脚本/中间缓存 | `tmp/` |
 
 ## 文件读写与编辑
@@ -301,7 +347,17 @@ knowledge/                # 全局共享
 - 查询时用户知识优先，全局知识兜底。
 - 写入时默认写用户知识库。
 - 只有用户明确说“全局知识库”或给出 `knowledge/` 路径，才写全局。
-- 写全局后必须更新 `knowledge/data_structure.md`。
+- 任何知识库变动都必须更新索引，不区分用户库或全局库。
+
+索引维护硬性规则：
+
+- 用户知识库 `users/<name>/knowledge/` 发生新增、修改、删除、重命名、移动后，必须更新 `users/<name>/knowledge/data_structure.md`。
+- 全局知识库 `knowledge/` 发生新增、修改、删除、重命名、移动后，必须更新 `knowledge/data_structure.md`。
+- 如果变动发生在有子索引的子目录，也要同步更新该目录最近的 `data_structure.md`，再更新根索引。
+- 索引记录目录结构、文件用途、格式、来源、更新时间和检索关键词；不要把大段正文复制进索引。
+- 删除或移动知识文件时，索引中旧路径必须同步移除或改名，不能留下失效入口。
+- 二进制知识文件（PDF、Office、图片等）加入知识库时，索引至少写明文件类型、主题、来源、建议读取工具和是否已有 Markdown 转换稿。
+- 更新索引优先使用文件/知识库相关 Skill；没有合适工具时才做最小范围手动编辑。
 
 处理 PDF/Office/二进制文档时，先使用 `markdown_converter` 或对应文档工具转换/提取，不要直接用纯文本读取。
 
@@ -334,7 +390,7 @@ knowledge/deployment.md
 |------|------|
 | 路径沙箱 | 解析真实路径，只允许用户目录和项目根允许范围 |
 | 工具权限 | deny 优先于 enabled |
-| Shell | 避免危险命令，使用已有 shell 工具的安全检查 |
+| Shell | 能用 Skill/工具就不用 shell；必须用时避免危险命令并保持最小范围 |
 | SSRF | 网络工具必须校验 URL，拦截内网/回环/云元数据地址 |
 | 日志脱敏 | API Key、token、password 必须脱敏 |
 | 错误处理 | 工具异常返回 `ERROR:` 文本，不泄露内部堆栈 |
@@ -352,7 +408,8 @@ skills/_common/__init__.py
 - 写中文文件使用 UTF-8。
 - Windows 中文环境下读取旧文件可回退 GBK，但新文件优先 UTF-8。
 - 不用 `.env` 内容做示例，不打印真实密钥。
-- 生成脚本放 `tmp/`；普通用户产物放 `users/<name>/history/file/`；图像/语音生成工具默认输出到 `users/<name>/download/`。
+- 临时脚本和中间缓存放 `tmp/`；智能体输出文件默认放 `users/<name>/download/`；用户上传文件默认来自 `users/<name>/history/file/`。
+- 当前实例默认路径是 `E:\code\votx-agent\tmp`、`E:\code\votx-agent\users\kesepain\download`、`E:\code\votx-agent\users\kesepain\history\file`。
 - 不用 `rm -rf` 等危险命令清理项目，使用安全工具或 Python 文件 API。
 
 ## 常见坑
@@ -364,6 +421,9 @@ skills/_common/__init__.py
 | 群聊不响应 | 检查 `bound_users`、`group_mode`、是否需要 at 机器人 |
 | 多模态不可用 | 检查 provider 能力和专用模型配置 |
 | PDF/Office 读取失败 | 先转 Markdown 或调用专用文档工具 |
+| 能用 Skill 却用了 shell | 先读对应 `SKILL.md`，用专用工具；shell 只做无等价工具的诊断/测试 |
+| 智能体产物找不到 | 默认检查 `users/<name>/download/`，当前是 `E:\code\votx-agent\users\kesepain\download` |
+| 知识库检索漏文件 | 检查对应 `data_structure.md` 是否随知识文件变动同步更新 |
 | Windows GBK 乱码 | 新写文件用 UTF-8，命令输出必要时用 `python -X utf8` |
 | 上下文超限 | 框架有自动压缩，不要手动删历史 |
 
@@ -398,10 +458,15 @@ npm run build
 AGENTS.md
 knowledge/data_structure.md
 knowledge/*.md
+users/<name>/knowledge/data_structure.md
+users/<name>/knowledge/*.md
 ```
 
 更新顺序建议：
 
 1. 先修用户可见手册。
-2. 再同步全局知识库。
-3. 最后更新本 `AGENTS.md`，让项目内智能体学到新规则。
+2. 若变动进入用户知识库，同步 `users/<name>/knowledge/data_structure.md`。
+3. 若变动进入全局知识库，同步 `knowledge/data_structure.md`。
+4. 最后更新本 `AGENTS.md`，让项目内智能体学到新规则。
+
+只修改 `AGENTS.md`、代码或配置，不等于知识库变动；不需要为了形式额外改知识库索引。

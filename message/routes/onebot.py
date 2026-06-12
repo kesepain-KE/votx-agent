@@ -35,14 +35,34 @@ class OneBotRouter:
 
     async def start(self):
         self.running = True
+        retries = 0
+        max_backoff = 300  # 最大重连间隔 5 分钟
         while self.running:
             try:
                 await self._connect_once()
+                if not self.running:
+                    break
+                retries += 1
+                delay = min(self.reconnect_interval * (2 ** (retries - 1)), max_backoff)
+                print(f"[message:onebot] 连接已关闭，{delay}s 后重连 (第 {retries} 次)")
+                await self._sleep_before_reconnect(delay)
             except asyncio.CancelledError:
                 raise
             except Exception as e:
-                print(f"[message:onebot] 连接断开: {e}，{self.reconnect_interval}s 后重连")
-                await asyncio.sleep(self.reconnect_interval)
+                retries += 1
+                delay = min(self.reconnect_interval * (2 ** (retries - 1)), max_backoff)
+                print(f"[message:onebot] 连接断开: {e}，{delay}s 后重连 (第 {retries} 次)")
+                await self._sleep_before_reconnect(delay)
+
+    async def _sleep_before_reconnect(self, delay: int):
+        """分片 sleep，允许 stop() 尽快打断长退避。"""
+        loop = asyncio.get_running_loop()
+        end_at = loop.time() + max(0, delay)
+        while self.running:
+            remaining = end_at - loop.time()
+            if remaining <= 0:
+                break
+            await asyncio.sleep(min(1.0, remaining))
 
     def stop(self):
         self.running = False

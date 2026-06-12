@@ -1,8 +1,24 @@
 """Markdown 转换工具 — 将各类文件转为 Markdown"""
+import os
+import tempfile
 import subprocess
 from pathlib import Path
+
 from run.tool import register_tool
-from plugins._common import err, safe_path, check_sandbox, check_dangerous_command
+from run.io_utils import decode_subprocess_output, read_text_fallback, utf8_subprocess_env
+from plugins._common import (
+    err,
+    safe_path,
+    check_sandbox,
+    check_dangerous_command,
+    get_effective_tool_timeout,
+)
+
+
+def _read_markdown_file(path: str) -> str:
+    """读取 markitdown 输出文件，兼容 UTF-8 BOM。"""
+    text, _ = read_text_fallback(Path(path), "utf-8")
+    return text
 
 
 def convert_to_markdown(
@@ -39,6 +55,7 @@ def convert_to_markdown(
         return err(f"路径越权: {input_path}")
 
     cmd = ["markitdown", str(resolved)]
+    temp_output = ""
 
     if output_path:
         out = safe_path(output_path)
@@ -48,6 +65,17 @@ def convert_to_markdown(
         if not out_resolved:
             return err(f"输出路径越权: {output_path}")
         cmd.extend(["-o", str(out_resolved)])
+    else:
+        tmp = tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            suffix=".md",
+            prefix="markitdown_",
+            delete=False,
+        )
+        temp_output = tmp.name
+        tmp.close()
+        cmd.extend(["-o", temp_output])
 
     if extension:
         cmd.extend(["-x", extension])
@@ -66,31 +94,41 @@ def convert_to_markdown(
     if danger:
         return err(danger)
 
+    timeout = get_effective_tool_timeout(120)
     try:
         result = subprocess.run(
             cmd,
             capture_output=True,
-            text=True,
-            timeout=120,
-            encoding="utf-8",
-            errors="replace",
+            timeout=timeout,
+            env=utf8_subprocess_env(),
         )
+        stderr = decode_subprocess_output(result.stderr).strip()
+        stdout = decode_subprocess_output(result.stdout).strip()
         if result.returncode != 0:
-            return err(f"markitdown 失败 (code={result.returncode}): {result.stderr.strip()}")
+            detail = stderr or stdout
+            return err(f"markitdown 失败 (code={result.returncode}): {detail}")
 
         if output_path:
             return f"OK: 已转换并保存到 {output_path}"
-        else:
-            output = result.stdout.strip()
-            if not output:
-                return "OK: 转换完成，但无内容输出"
-            return output
+
+        output = _read_markdown_file(temp_output).strip()
+        if not output:
+            output = stdout
+        if not output:
+            return "OK: 转换完成，但无内容输出"
+        return output
     except subprocess.TimeoutExpired:
-        return err("markitdown 执行超时（120秒）")
+        return err(f"markitdown 执行超时（{timeout}秒）")
     except FileNotFoundError:
         return err("未找到 markitdown 命令，请先 pip install markitdown")
     except Exception as e:
         return err(f"转换失败: {e}")
+    finally:
+        if temp_output:
+            try:
+                os.unlink(temp_output)
+            except OSError:
+                pass
 
 
 SCHEMAS = [
