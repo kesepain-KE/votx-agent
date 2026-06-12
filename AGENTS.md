@@ -30,20 +30,20 @@
 └── start.py / start_web.py
 ```
 
-## 当前实例默认路径
+## 默认路径规则
 
-当前主要用户是 `kesepain`。没有更明确的用户上下文时，默认使用以下位置：
+本文面向开源仓库，不写死个人部署路径。真实路径以运行时项目根目录、当前用户和配置文件为准。
 
 ```text
-项目根目录: E:\code\votx-agent
-临时文件:   E:\code\votx-agent\tmp
-输出文件:   E:\code\votx-agent\users\kesepain\download
-上传文件:   E:\code\votx-agent\users\kesepain\history\file
-用户知识库: E:\code\votx-agent\users\kesepain\knowledge
-全局知识库: E:\code\votx-agent\knowledge
+项目根目录: <project-root>
+临时文件:   <project-root>/tmp
+输出文件:   <project-root>/users/<name>/download
+上传文件:   <project-root>/users/<name>/history/file
+用户知识库: <project-root>/users/<name>/knowledge
+全局知识库: <project-root>/knowledge
 ```
 
-泛化规则仍是：
+目录用途：
 
 ```text
 tmp/                         # 临时中间产物
@@ -117,9 +117,9 @@ users/<name>/config.json
 1. 明确用户要什么，不扩大范围。
 2. 修改代码前先读现有实现和相邻风格。
 3. 改动尽量小，避免无关重构。
-4. 临时中间产物放 `tmp/`，当前实例对应 `E:\code\votx-agent\tmp`。
-5. 智能体主动生成、导出、下载的文件默认放 `users/<name>/download/`，当前实例对应 `E:\code\votx-agent\users\kesepain\download`。
-6. 用户上传文件、外部消息附件默认在 `users/<name>/history/file/`，当前实例对应 `E:\code\votx-agent\users\kesepain\history\file`。
+4. 临时中间产物放 `<project-root>/tmp/`。
+5. 智能体主动生成、导出、下载的文件默认放 `<project-root>/users/<name>/download/`。
+6. 用户上传文件、外部消息附件默认在 `<project-root>/users/<name>/history/file/`。
 7. 用户知识库或全局知识库发生新增、修改、删除、重命名后，必须同步更新对应 `data_structure.md` 索引。
 8. 改完代码做最小必要自检，至少编译/构建受影响部分。
 9. 同一命令连续失败 3 次，换路径分析，不要无限重试。
@@ -136,12 +136,12 @@ users/<name>/config.json
 | `knowledge/` | 全局共享知识库 | 只在用户明确要求时写入 |
 | `tmp/` | 临时中间产物 | 临时脚本和缓存文件，用完清理 |
 
-当前实例固定路径：
+路径展开示例：
 
 ```text
-tmp/                         -> E:\code\votx-agent\tmp
-users/<name>/download/       -> E:\code\votx-agent\users\kesepain\download
-users/<name>/history/file/   -> E:\code\votx-agent\users\kesepain\history\file
+tmp/                         -> <project-root>/tmp
+users/<name>/download/       -> <project-root>/users/<name>/download
+users/<name>/history/file/   -> <project-root>/users/<name>/history/file
 ```
 
 硬性规则：
@@ -409,7 +409,7 @@ skills/_common/__init__.py
 - Windows 中文环境下读取旧文件可回退 GBK，但新文件优先 UTF-8。
 - 不用 `.env` 内容做示例，不打印真实密钥。
 - 临时脚本和中间缓存放 `tmp/`；智能体输出文件默认放 `users/<name>/download/`；用户上传文件默认来自 `users/<name>/history/file/`。
-- 当前实例默认路径是 `E:\code\votx-agent\tmp`、`E:\code\votx-agent\users\kesepain\download`、`E:\code\votx-agent\users\kesepain\history\file`。
+- 默认路径按项目根展开：`<project-root>/tmp`、`<project-root>/users/<name>/download`、`<project-root>/users/<name>/history/file`。
 - 不用 `rm -rf` 等危险命令清理项目，使用安全工具或 Python 文件 API。
 
 ## 常见坑
@@ -422,7 +422,7 @@ skills/_common/__init__.py
 | 多模态不可用 | 检查 provider 能力和专用模型配置 |
 | PDF/Office 读取失败 | 先转 Markdown 或调用专用文档工具 |
 | 能用 Skill 却用了 shell | 先读对应 `SKILL.md`，用专用工具；shell 只做无等价工具的诊断/测试 |
-| 智能体产物找不到 | 默认检查 `users/<name>/download/`，当前是 `E:\code\votx-agent\users\kesepain\download` |
+| 智能体产物找不到 | 默认检查 `<project-root>/users/<name>/download/` |
 | 知识库检索漏文件 | 检查对应 `data_structure.md` 是否随知识文件变动同步更新 |
 | Windows GBK 乱码 | 新写文件用 UTF-8，命令输出必要时用 `python -X utf8` |
 | 上下文超限 | 框架有自动压缩，不要手动删历史 |

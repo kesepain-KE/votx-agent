@@ -288,7 +288,7 @@ OneBot/NapCat example:
       "ws_url": "ws://127.0.0.1:3001",
       "access_token": "",
       "bound_users": {
-        "qq:123456789": "kesepain"
+        "qq:123456789": "alice"
       }
     }
   }
@@ -306,7 +306,7 @@ Telegram example:
       "bot_token": "<telegram-bot-token>",
       "proxy": "http://127.0.0.1:7890",
       "bound_users": {
-        "tg:987654321": "kesepain"
+        "tg:987654321": "alice"
       }
     }
   }

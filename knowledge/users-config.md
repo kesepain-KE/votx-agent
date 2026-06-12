@@ -256,8 +256,8 @@ speech_generation
 
 含义：
 
-- `data`: 是否保存聊天历史。可以是布尔值，也可以是自定义文件名（如 `"kesepain_chat_data.json"`）。
-- `log`: 是否保存工具调用和运行日志。可以是布尔值，也可以是自定义文件名（如 `"kesepain_chat_log.json"`）。
+- `data`: 是否保存聊天历史。可以是布尔值，也可以是自定义文件名（如 `"alice_chat_data.json"`）。
+- `log`: 是否保存工具调用和运行日志。可以是布尔值，也可以是自定义文件名（如 `"alice_chat_log.json"`）。
 
 设置为 `true` 时使用默认文件路径，设置为 `false` 不保存，设置为字符串则使用自定义文件名。
 

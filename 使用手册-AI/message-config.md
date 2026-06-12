@@ -43,7 +43,7 @@ VOTX_MESSAGE_CONFIG=/app/message-runtime/config.json
       "reconnect_interval": 5,
       "api_timeout": 15,
       "bound_users": {
-        "qq:123456789": "kesepain"
+        "qq:123456789": "alice"
       }
     },
     "telegram": {
@@ -52,7 +52,7 @@ VOTX_MESSAGE_CONFIG=/app/message-runtime/config.json
       "poll_interval": 2,
       "api_timeout": 20,
       "bound_users": {
-        "tg:987654321": "kesepain"
+        "tg:987654321": "alice"
       }
     }
   }
@@ -83,7 +83,7 @@ Docker 访问宿主机 NapCat: ws://host.docker.internal:3001
   "reconnect_interval": 5,
   "api_timeout": 15,
   "bound_users": {
-    "qq:123456789": "kesepain"
+    "qq:123456789": "alice"
   }
 }
 ```
@@ -91,7 +91,7 @@ Docker 访问宿主机 NapCat: ws://host.docker.internal:3001
 `bound_users` 把外部账号绑定到内部用户目录。上例表示 QQ 号 `123456789` 的消息会进入：
 
 ```text
-users/kesepain/
+users/alice/
 ```
 
 NapCat 如果开启了 access token，这里的 `access_token` 必须一致。
@@ -112,7 +112,7 @@ Telegram 使用长轮询，不需要公网 webhook。
   "api_timeout": 20,
   "proxy": "http://127.0.0.1:7890",
   "bound_users": {
-    "tg:987654321": "kesepain"
+    "tg:987654321": "alice"
   }
 }
 ```
@@ -175,8 +175,8 @@ Telegram: photo, document, voice, audio, video
 
 ```text
 [外部消息附件]
-- image: E:\code\votx-agent\users\kesepain\history\file\xxx.jpg （如需识别图片内容，请调用 vision_analyze）
-- voice: E:\code\votx-agent\users\kesepain\history\file\yyy.ogg （如需转写语音内容，请调用 audio_transcribe）
+- image: <project-root>/users/<name>/history/file/xxx.jpg （如需识别图片内容，请调用 vision_analyze）
+- voice: <project-root>/users/<name>/history/file/yyy.ogg （如需转写语音内容，请调用 audio_transcribe）
 
 用户消息:
 帮我看看这张图

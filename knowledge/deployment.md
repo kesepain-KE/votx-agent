@@ -7,13 +7,8 @@
 项目根目录示例：
 
 ```text
-E:\code\votx-agent
-```
-
-Linux/Docker 示例：
-
-```text
-/opt/votx-agent
+Windows: C:\path\to\votx-agent
+Linux:   /opt/votx-agent
 ```
 
 重要目录：
