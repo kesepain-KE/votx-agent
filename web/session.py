@@ -24,6 +24,41 @@ def get_session(user_name: str = None) -> dict | None:
         return _sessions.get(user_name)
 
 
+def restore_user_session(user_name: str | None) -> dict | None:
+    """根据 Flask cookie 中的用户名，从磁盘重新初始化进程内 session。"""
+    if not user_name:
+        return None
+    user_name = user_name.strip()
+    if not user_name or "/" in user_name or "\\" in user_name or ".." in user_name:
+        return None
+
+    users_root = os.path.realpath(os.path.join(_root, "users"))
+    user_dir = os.path.realpath(os.path.join(users_root, user_name))
+    if not user_dir.startswith(users_root + os.sep) and user_dir != users_root:
+        return None
+    if not os.path.isdir(user_dir):
+        return None
+
+    try:
+        with open(os.path.join(_root, "config", "config_core.json"), encoding="utf-8") as f:
+            core_config = json.load(f)
+        with open(os.path.join(user_dir, "config.json"), encoding="utf-8") as f:
+            user_config = json.load(f)
+        return init_user_session(_root, user_dir, user_name, user_config, core_config)
+    except Exception:
+        return None
+
+
+def get_or_restore_session(user_name: str | None) -> dict | None:
+    """优先读取内存 session；服务重启后可按 cookie 用户名懒恢复。"""
+    if not user_name:
+        return None
+    session_data = get_session(user_name)
+    if session_data and session_data.get("chat"):
+        return session_data
+    return restore_user_session(user_name)
+
+
 def require_session():
     """从 Flask session 获取当前用户并校验登录状态。
 
@@ -34,7 +69,7 @@ def require_session():
     user_name = flask_session.get("user_name")
     if not user_name:
         return None, jsonify({"error": "未登录，请先选择用户"}), 401
-    session_data = get_session(user_name)
+    session_data = get_or_restore_session(user_name)
     if not session_data or not session_data.get("chat"):
         return None, jsonify({"error": "用户会话无效，请重新选择用户"}), 401
     return session_data, None, None
@@ -66,9 +101,13 @@ def clear_session(user_name: str = None):
 
 def init_user_session(root: str, user_dir: str, user_name: str, user_config: dict, core_config: dict):
     """初始化或重建用户的会话数据"""
-    # 确保用户知识库目录存在（兼容旧用户迁移）
-    kb_dir = os.path.join(user_dir, "knowledge")
-    os.makedirs(kb_dir, exist_ok=True)
+    # 兼容旧用户迁移：只补目录和缺省模板，不覆盖已有用户文件。
+    try:
+        from pathlib import Path
+        from set_user import ensure_user_skeleton
+        ensure_user_skeleton(Path(user_dir))
+    except Exception:
+        os.makedirs(os.path.join(user_dir, "knowledge"), exist_ok=True)
 
     provider = create_provider(user_config, core_config)
     chat = ChatManager(user_dir, core_config, user_config)

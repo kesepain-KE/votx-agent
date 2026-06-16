@@ -194,16 +194,28 @@ def api_conversations_select():
     if kind is None:
         return jsonify({"error": path_or_err}), 400
 
-    session_data["_preview_conv_id"] = conv_id
-    session_data["_preview_conv_kind"] = kind
-
     try:
         msgs = _read_conv_messages(kind, path_or_err)
+        if kind == "current":
+            session_data.pop("_preview_conv_id", None)
+            session_data.pop("_preview_conv_kind", None)
+            return jsonify({
+                "ok": True,
+                "id": conv_id,
+                "kind": kind,
+                "preview": False,
+                "messages": msgs,
+                "msg_count": len(msgs),
+            })
+
+        session_data["_preview_conv_id"] = conv_id
+        session_data["_preview_conv_kind"] = kind
         return jsonify({
             "ok": True,
             "id": conv_id,
             "kind": kind,
             "preview": True,
+            "messages": msgs,
             "msg_count": len(msgs),
         })
     except Exception as e:

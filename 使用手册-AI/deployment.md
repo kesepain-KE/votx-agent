@@ -107,6 +107,91 @@ docker compose up -d
 
 当前项目不依赖远程 Docker 镜像仓库。
 
+## 外部访问指引（局域网访问）
+
+默认通过 `python start_web.py` 启动时，Web UI 只监听本机地址 `127.0.0.1`，只能在运行 votx-agent 的机器上访问：
+
+```text
+http://localhost:1478
+```
+
+如果需要同一局域网内其他设备访问，请把监听地址改为 `0.0.0.0`。
+
+### 临时开放一次
+
+Windows PowerShell：
+
+```powershell
+$env:VOTX_HOST="0.0.0.0"
+$env:PORT="1478"
+python start_web.py
+```
+
+Linux/macOS：
+
+```bash
+VOTX_HOST=0.0.0.0 PORT=1478 python start_web.py
+```
+
+也可以直接通过启动参数指定：
+
+```bash
+python start_web.py --host=0.0.0.0 --port=1478
+```
+
+局域网内其他设备访问：
+
+```text
+http://<运行 votx-agent 的机器局域网 IP>:1478
+```
+
+查看本机局域网 IP：
+
+```powershell
+ipconfig
+```
+
+```bash
+hostname -I
+```
+
+### 写入 .env 持久生效
+
+复制 `.env.example` 为 `.env` 后加入或取消注释：
+
+```env
+PORT=1478
+VOTX_HOST=0.0.0.0
+```
+
+然后重启 Web UI。`start_web.py` 和 `start.py --web` 都会在启动时读取项目根目录 `.env`。
+
+### Docker 局域网访问
+
+Docker 部署通常已经通过端口映射开放到宿主机：
+
+```yaml
+ports:
+  - "1478:1478"
+environment:
+  - PORT=1478
+  - VOTX_HOST=0.0.0.0
+```
+
+局域网设备访问宿主机地址：
+
+```text
+http://<Docker 宿主机局域网 IP>:1478
+```
+
+### 访问失败排查
+
+- 确认启动参数或 `.env` 中 `VOTX_HOST=0.0.0.0` 已生效。
+- 确认局域网设备访问的是运行机器的局域网 IP，不是 `localhost`。
+- Windows 需要允许 Python 或对应程序通过防火墙，或放行 TCP `1478` 入站。
+- Linux 需要确认 `ufw`、`firewalld`、云主机安全组等没有拦截端口。
+- 不建议直接暴露到公网；公网访问请使用 VPN、反向代理、HTTPS 和访问控制。
+
 ## 环境变量文件
 
 项目根目录可以放置：
@@ -130,6 +215,10 @@ ANTHROPIC_BASE_URL=
 
 TAVILY_API_KEY=tvly-xxx
 
+PORT=1478
+VOTX_HOST=127.0.0.1
+VOTX_SESSION_COOKIE_NAME=votx_agent_session
+
 VOTX_MESSAGE_CONFIG=message/config.local.json
 VOTX_SKIP_VERSION_CHECK=0
 ```
@@ -141,8 +230,9 @@ VOTX_SKIP_VERSION_CHECK=0
 ### 服务启动
 
 ```text
-PORT                  Web 端口
-VOTX_HOST             Web 监听地址
+PORT                  Web 端口，默认 1478
+VOTX_HOST             Web 监听地址；127.0.0.1 仅本机，0.0.0.0 开放局域网
+VOTX_SESSION_COOKIE_NAME  Web 登录态 Cookie 名；同一 IP 多个 Web 服务时应保持唯一
 VOTX_USER_DIR         用户目录根路径，默认 users/
 VOTX_PROVIDER         临时指定 provider 类型
 ```
@@ -229,6 +319,8 @@ services:
       - ./knowledge:/app/knowledge
       - ./message-runtime:/app/message-runtime
     environment:
+      - PORT=1478
+      - VOTX_HOST=0.0.0.0
       - VOTX_MESSAGE_CONFIG=/app/message-runtime/config.json
 ```
 

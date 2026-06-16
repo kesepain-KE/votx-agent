@@ -2,10 +2,16 @@
 """votx-agent 入口命令 — 用法: votx [web|cli|help]"""
 
 import os
-import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
+
+
+def exec_python(script: str, args: list[str]):
+    """用目标入口替换当前进程，避免 Linux Ctrl+C 时父子进程同时抛 KeyboardInterrupt。"""
+    script_path = os.path.join(ROOT, script)
+    argv = [sys.executable, script_path, *args]
+    os.execv(sys.executable, argv)
 
 
 def show_help():
@@ -36,12 +42,12 @@ def main():
         return
 
     if cmd == "cli":
-        subprocess.run([sys.executable, os.path.join(ROOT, "start.py")] + argv[1:])
+        exec_python("start.py", argv[1:])
     elif cmd in ("web", ""):
         if not cmd:
-            subprocess.run([sys.executable, os.path.join(ROOT, "start_web.py")] + argv)
+            exec_python("start_web.py", argv)
         else:
-            subprocess.run([sys.executable, os.path.join(ROOT, "start_web.py")] + argv[1:])
+            exec_python("start_web.py", argv[1:])
     else:
         print(f"未知子命令: {cmd}")
         print("请使用 'votx help' 查看帮助")

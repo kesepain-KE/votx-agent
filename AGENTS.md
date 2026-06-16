@@ -26,6 +26,7 @@
 ├── users/<name>/      # 用户数据、配置、历史、文件、记忆、用户知识库
 ├── message-runtime/   # Docker 外部消息运行配置
 ├── tmp/               # 运行时临时产物
+├── votx.py            # Linux votx 命令入口
 ├── update.py          # Linux/Docker 更新脚本，Windows 不执行自动更新
 └── start.py / start_web.py
 ```
@@ -40,6 +41,10 @@
 输出文件:   <project-root>/users/<name>/download
 上传文件:   <project-root>/users/<name>/history/file
 用户知识库: <project-root>/users/<name>/knowledge
+用户头像:   <project-root>/users/<name>/avatar
+任务计划:   <project-root>/users/<name>/task-plan
+定时任务:   <project-root>/users/<name>/tasks
+自改进记忆: <project-root>/users/<name>/improve
 全局知识库: <project-root>/knowledge
 ```
 
@@ -50,6 +55,10 @@ tmp/                         # 临时中间产物
 users/<name>/download/       # 智能体生成、导出、下载的默认产物
 users/<name>/history/file/   # 用户上传文件、外部消息附件
 users/<name>/knowledge/      # 用户私有知识库
+users/<name>/avatar/         # 用户头像
+users/<name>/task-plan/      # 任务计划
+users/<name>/tasks/          # 定时任务
+users/<name>/improve/        # 自改进三层记忆
 knowledge/                   # 全局共享知识库
 ```
 
@@ -133,6 +142,8 @@ users/<name>/config.json
 | `users/<name>/download/` | 智能体输出目录 | 智能体生成、导出、下载的文件，包括报告、文档、表格、图片、语音、视频、压缩包 |
 | `users/<name>/history/file/` | 用户输入文件池 | Web 上传文件、外部消息附件、用户原始材料 |
 | `users/<name>/knowledge/` | 用户私有知识库 | 用户私有资料和知识 |
+| `users/<name>/task-plan/` | 任务计划存储 | task_plan 工具生成和执行状态 |
+| `users/<name>/tasks/` | 定时任务存储 | task_time / cron 任务 |
 | `knowledge/` | 全局共享知识库 | 只在用户明确要求时写入 |
 | `tmp/` | 临时中间产物 | 临时脚本和缓存文件，用完清理 |
 
@@ -223,6 +234,17 @@ tool                      工具超时、白名单、黑名单
 task_plan.accept_task     任务计划是否自动接受
 skills.disabled_builtin   禁用非核心内置技能
 ```
+
+`set_user.py add` 的模型菜单只内置：
+
+```text
+1. deepseek-v4-flash
+2. deepseek-v4-pro
+3. 其他厂商：OpenAI 兼容接口
+4. 其他厂商：Anthropic 兼容接口
+```
+
+用户选择其他厂商后，需要填写 `base_url` 和 `api_key`；脚本会尝试获取厂商模型列表，并允许用户手动额外添加模型名。
 
 模型配置优先级通常是：
 
@@ -377,6 +399,17 @@ update.py
 - 更新会覆盖框架代码、`plugins/`、`web/`、`provider/`、`run/` 等。
 - 更新不会覆盖 `users/`、`skills/`、`.env`、`message-runtime/`、消息私有配置和推送队列。
 - `knowledge/` 更新时应询问合并、跳过或全量覆盖。
+- 更新和启动路径会无损补齐老用户目录骨架，不覆盖已有 `config.json`、`self_soul.md` 或用户文件。
+
+Web 局域网访问：
+
+```text
+python start_web.py --host=0.0.0.0 --port=1478
+VOTX_HOST=0.0.0.0
+PORT=1478
+```
+
+同一 IP 多端口部署多个 Web 项目时，应为每个项目配置不同的 `VOTX_SESSION_COOKIE_NAME`，避免浏览器 Cookie 名冲突导致登录态互相覆盖。
 
 更多细节读：
 

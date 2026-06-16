@@ -3,6 +3,7 @@
 用法:
     python start_web.py              # 默认端口 1478，冲突自动轮询
     python start_web.py --port=8080  # 自定义端口
+    python start_web.py --host=0.0.0.0 --port=1478  # 开放局域网访问
 
 启动时自动检测用户，无用户则交互式创建后再启动。
 """
@@ -14,10 +15,37 @@ import socket
 import sys
 import threading
 import urllib.request
+from pathlib import Path
 
 from paths import get_project_root
 _root = get_project_root()
 sys.path.insert(0, _root)
+
+
+def _load_dotenv():
+    """加载项目 .env，让 Web 监听地址、端口等启动变量在入口处生效。"""
+    for env_path in (
+        os.path.join(_root, ".env"),
+        os.path.join(os.getcwd(), ".env"),
+    ):
+        try:
+            if not os.path.isfile(env_path):
+                continue
+            with open(env_path, encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    key, value = line.split("=", 1)
+                    key = key.strip()
+                    value = value.strip().strip('"').strip("'")
+                    if key and key not in os.environ:
+                        os.environ[key] = value
+        except Exception:
+            pass
+
+
+_load_dotenv()
 
 
 def _check_users() -> bool:
@@ -32,6 +60,12 @@ def _check_users() -> bool:
         and os.path.exists(os.path.join(users_dir, d, "config.json"))
     ]
     if existing:
+        try:
+            from set_user import ensure_user_skeleton
+            for name in existing:
+                ensure_user_skeleton(Path(users_dir) / name)
+        except Exception as exc:
+            print(f"警告: 补齐用户目录骨架失败: {exc}")
         return True
 
     print("\n" + "=" * 50)

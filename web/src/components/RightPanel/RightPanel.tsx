@@ -1,5 +1,5 @@
 /** 描述 Props 数据结构。 */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAppStore } from '@/store/useAppStore'
 import type { AppStore, FileItem } from '@/types'
 import { planStatusColor, planStatusLabel, planStepIcon, PROMPT_TABS } from '@/hooks/useAppActions'
@@ -51,6 +51,7 @@ export function RightPanel(props: Props) {
   const config = useAppStore((s) => s.config)
   const showToolCalls = useAppStore((s) => s.showToolCalls)
   const showThinking = useAppStore((s) => s.showThinking)
+  const userActive = useAppStore((s) => s.userActive)
   const selectedUser = useAppStore((s) => s.selectedUser)
   const logs = useAppStore((s) => s.logs)
   const tasks = useAppStore((s) => s.tasks)
@@ -59,6 +60,10 @@ export function RightPanel(props: Props) {
   const [logResults, setLogResults] = useState<Record<string, { result?: string; loading?: boolean }>>({})
   const set = useAppStore.setState
   const get = useAppStore.getState
+
+  useEffect(() => {
+    setLogResults({})
+  }, [selectedUser])
 
   const hasCompletedPlans = taskPlans.some((p) => p.status === 'completed' || p.status === 'aborted')
   const fileGroups = [
@@ -177,9 +182,10 @@ export function RightPanel(props: Props) {
                     <input type="password" placeholder="输入密钥，回车或点保存生效" value={config.keyDraft}
                       onChange={(e) => set((s: AppStore) => ({ config: { ...s.config, keyDraft: e.target.value } }))}
                       onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void props.saveConfigField('api_key', get().config.keyDraft); set((s: AppStore) => ({ config: { ...s.config, keyDraft: '' } })); props.toast('密钥已保存') } }}
+                      onBlur={() => { const keyDraft = get().config.keyDraft.trim(); if (!keyDraft) return; void props.saveConfigField('api_key', keyDraft); set((s: AppStore) => ({ config: { ...s.config, keyDraft: '' } })); props.toast('密钥已保存') }}
                     />
                   </div>
-                  <div className="key-hint">密钥不显示明文，回车或点"保存"生效</div>
+                  <div className="key-hint">密钥不显示明文，回车或点"保存"生效。请勿在密钥处为空时点击保存，鼠标脱离输入框后会自动保存</div>
                 </div>
               </div>
             </div>
@@ -204,7 +210,7 @@ export function RightPanel(props: Props) {
 
           {statusSubTab === 'logs' && (
             <div className="list">
-              {!logs.length && <div style={{ color: 'var(--text-secondary)', fontSize: 12, padding: 4 }}>选择用户后加载日志...</div>}
+              {!logs.length && <div style={{ color: 'var(--text-secondary)', fontSize: 12, padding: 4 }}>{userActive ? '用户暂时没有工具调用日志...' : '选择用户后加载日志...'}</div>}
               {logs.map((log) => {
                 const lr = logResults[String(log._key)]
                 const handleClick = async () => {

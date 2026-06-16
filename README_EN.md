@@ -143,6 +143,17 @@ Recommended location:
 users/<username>/config.json
 ```
 
+The setup model menu:
+
+```text
+1. deepseek-v4-flash   — fast and inexpensive
+2. deepseek-v4-pro     — stronger reasoning
+3. Other provider      — OpenAI-compatible API
+4. Other provider      — Anthropic-compatible API
+```
+
+When choosing another provider, the script asks for `base_url` and `api_key`, then tries to fetch the provider's available model list. If the provider does not return a model list, you can manually add extra model names.
+
 OpenAI-compatible example:
 
 ```json
@@ -150,7 +161,7 @@ OpenAI-compatible example:
   "provider": {
     "type": "openai",
     "api_style": "chat",
-    "model": "deepseek-chat",
+    "model": "deepseek-v4-flash",
     "api_key": "<your-api-key>",
     "base_url": "https://api.deepseek.com",
     "stream": true,
@@ -237,6 +248,7 @@ Common tools:
 ```bash
 python start_web.py
 python start_web.py --port=8080
+python start_web.py --host=0.0.0.0 --port=1478
 python start.py
 python start.py --user <username> --prompt "<message>" --once
 ```
@@ -247,7 +259,18 @@ After Linux installation:
 votx
 votx cli
 votx web --port=8080
+votx web --host=0.0.0.0 --port=1478
 ```
+
+LAN access:
+
+```env
+VOTX_HOST=0.0.0.0
+PORT=1478
+VOTX_SESSION_COOKIE_NAME=votx_agent_session
+```
+
+After startup, devices on the same LAN can open `http://<server-lan-ip>:1478`. If multiple Web projects run on the same IP with different ports, give each project a different `VOTX_SESSION_COOKIE_NAME` to avoid browser cookie-name conflicts that can kick users out of other projects.
 
 Slash commands:
 
@@ -335,9 +358,15 @@ Supported inputs:
 
 | Path | Purpose |
 |---|---|
+| `users/<name>/config.json` | User model, key, timeout, tool, and skill configuration |
+| `users/<name>/self_soul.md` | User persona file, layered into the system prompt |
+| `users/<name>/avatar/` | User avatar |
 | `users/<name>/history/file/` | Web uploads, external attachments, original user-provided files |
 | `users/<name>/download/` | Default output for generated, exported, and downloaded artifacts: reports, documents, tables, images, speech, videos, archives |
 | `users/<name>/knowledge/` | User private knowledge base |
+| `users/<name>/task-plan/` | Task-plan storage |
+| `users/<name>/tasks/` | Scheduled-task storage |
+| `users/<name>/improve/` | Self-improvement memory layers: memory / self-improving / ontology |
 | `knowledge/` | Global shared knowledge base |
 | `tmp/` | Temporary scripts, intermediate caches, and test samples; clean up after use |
 
@@ -419,6 +448,9 @@ votx-agent/
 ├── users/              # User data
 ├── web/                # Flask + React + TypeScript + Vite
 ├── AGENTS.md           # Agent operation manual
+├── votx.py             # Linux votx command entry
+├── start.py            # CLI/Web entry
+├── start_web.py        # Web-only entry
 ├── update.py           # Linux/Docker updater
 ├── version.json        # Current version
 └── build_windows.bat   # Windows package script
@@ -441,6 +473,8 @@ python update.py --docker
 ```
 
 The updater overwrites framework code and `plugins/`, while preserving `users/`, `skills/`, `.env`, `message-runtime/`, and message queues. `knowledge/` update is interactive: merge, skip, or full overwrite.
+
+After an update, existing user directories are repaired non-destructively. Missing directories such as `avatar/`, `task-plan/`, `tasks/`, `improve/*/permanent`, and `improve/*/temporary` are created, while existing `config.json`, `self_soul.md`, and user files are left untouched.
 
 ## Windows Package Contents
 

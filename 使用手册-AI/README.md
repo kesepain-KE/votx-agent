@@ -15,7 +15,7 @@ VOTX Agent AI 助手专用使用手册，包含系统内部架构和执行原理
 | `07-消息路由编号原理.md` | 四层编号体系、身份映射、OneBot/Telegram 路由、推送队列 |
 | `08-任务计划实际执行原理.md` | 无专用引擎设计、子代理生成、审批流程、system prompt 驱动执行 |
 | `09-智能体工作规范.md` | Skill 优先、默认输出目录、临时文件、上传文件、知识库索引维护、插件收口状态 |
-| `deployment.md` | 部署、环境变量与更新说明（同 knowledge/deployment.md） |
+| `deployment.md` | 部署、环境变量、外部访问/局域网访问与更新说明（同 knowledge/deployment.md） |
 | `message-config.md` | 外部消息路由配置说明（同 knowledge/message-config.md） |
 | `users-config.md` | 用户配置文件说明：目录结构、默认输出/上传目录、工具超时、技能禁用、用户知识库索引维护 |
 

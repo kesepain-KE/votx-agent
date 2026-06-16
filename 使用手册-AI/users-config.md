@@ -27,6 +27,15 @@ users/<用户名>/
 ├── task-plan/
 ├── tasks/
 └── improve/
+    ├── memory/
+    │   ├── permanent/
+    │   └── temporary/
+    ├── self-improving/
+    │   ├── permanent/
+    │   └── temporary/
+    └── ontology/
+        ├── permanent/
+        └── temporary/
 ```
 
 说明：
@@ -56,6 +65,16 @@ python set_user.py add
 ```text
 users/<用户名>/config.json
 users/<用户名>/self_soul.md
+users/<用户名>/avatar/
+users/<用户名>/download/
+users/<用户名>/knowledge/
+users/<用户名>/history/chat/
+users/<用户名>/history/log/
+users/<用户名>/history/archive/
+users/<用户名>/history/file/
+users/<用户名>/task-plan/
+users/<用户名>/tasks/
+users/<用户名>/improve/
 ```
 
 ## config.json 基本结构
@@ -66,7 +85,7 @@ users/<用户名>/self_soul.md
 {
   "provider": {
     "type": "openai",
-    "model": "deepseek-chat",
+    "model": "deepseek-v4-flash",
     "api_key": "",
     "base_url": "https://api.deepseek.com",
     "stream": true,
@@ -99,13 +118,24 @@ openai     OpenAI 兼容接口，例如 OpenAI、DeepSeek、硅基流动、OpenR
 anthropic  Anthropic Claude 接口
 ```
 
+`python set_user.py add` 创建用户时只显示：
+
+```text
+1. deepseek-v4-flash   — 快速便宜
+2. deepseek-v4-pro     — 更强推理
+3. 其他厂商            — OpenAI 兼容接口
+4. 其他厂商            — Anthropic 兼容接口
+```
+
+选择其他厂商后，需要填写 `base_url` 和 `api_key`。脚本会尝试读取厂商拥有的模型列表并展示；如果接口不可用或模型不完整，用户可以手动额外添加模型名。
+
 OpenAI 兼容示例：
 
 ```json
 {
   "provider": {
     "type": "openai",
-    "model": "deepseek-chat",
+    "model": "deepseek-v4-flash",
     "api_key": "<你的 API Key>",
     "base_url": "https://api.deepseek.com",
     "stream": true,

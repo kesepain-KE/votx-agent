@@ -26,6 +26,7 @@ app = Flask(
     static_url_path="",
     template_folder=os.path.join(_root, "web", "dist"),
 )
+app.config["SESSION_COOKIE_NAME"] = os.environ.get("VOTX_SESSION_COOKIE_NAME", "votx_agent_session")
 
 # Flask session cookie secret key — 优先读环境变量，否则用项目根路径 hash 生成
 _secret = os.environ.get("VOTX_SECRET_KEY")
@@ -94,7 +95,12 @@ def run_server(port=13579, host="127.0.0.1"):
         code = getattr(e, "code", "")
         msg = f"{host}:{port}" + (f" (code={code})" if code else "")
         raise PortBindError(msg) from e
-    print(f"\n  votx-agent Web UI  →  http://localhost:{port}\n")
+    if host in ("0.0.0.0", "::", "*", ""):
+        print(f"\n  votx-agent Web UI  →  http://localhost:{port}")
+        print(f"  局域网访问地址       →  http://<本机局域网IP>:{port}\n")
+    else:
+        display_host = "localhost" if host in ("127.0.0.1", "localhost") else host
+        print(f"\n  votx-agent Web UI  →  http://{display_host}:{port}\n")
 
     # 2. 端口确认可用后，再启动后台组件
     import json

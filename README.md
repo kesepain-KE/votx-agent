@@ -143,6 +143,17 @@ python start_web.py
 users/<用户名>/config.json
 ```
 
+创建用户时的模型菜单：
+
+```text
+1. deepseek-v4-flash   — 快速便宜
+2. deepseek-v4-pro     — 更强推理
+3. 其他厂商            — OpenAI 兼容接口
+4. 其他厂商            — Anthropic 兼容接口
+```
+
+选择其他厂商时，脚本会要求填写 `base_url` 和 `api_key`，随后尝试从厂商接口读取可用模型列表；如果接口不返回模型，也可以手动额外添加模型名。
+
 OpenAI 兼容示例：
 
 ```json
@@ -150,7 +161,7 @@ OpenAI 兼容示例：
   "provider": {
     "type": "openai",
     "api_style": "chat",
-    "model": "deepseek-chat",
+    "model": "deepseek-v4-flash",
     "api_key": "<your-api-key>",
     "base_url": "https://api.deepseek.com",
     "stream": true,
@@ -237,6 +248,7 @@ speech_generation
 ```bash
 python start_web.py
 python start_web.py --port=8080
+python start_web.py --host=0.0.0.0 --port=1478
 python start.py
 python start.py --user <用户名> --prompt "<内容>" --once
 ```
@@ -247,7 +259,18 @@ Ubuntu 安装后：
 votx
 votx cli
 votx web --port=8080
+votx web --host=0.0.0.0 --port=1478
 ```
+
+局域网访问：
+
+```env
+VOTX_HOST=0.0.0.0
+PORT=1478
+VOTX_SESSION_COOKIE_NAME=votx_agent_session
+```
+
+启动后同一局域网设备访问 `http://<服务器局域网IP>:1478`。如果同一 IP 下部署多个不同 Web 项目，建议为每个项目配置不同的 `VOTX_SESSION_COOKIE_NAME`，避免浏览器 Cookie 名冲突导致登录态互相挤掉。
 
 常用斜杠命令：
 
@@ -335,9 +358,15 @@ users/<用户名>/history/log/external_attachments.jsonl
 
 | 路径 | 用途 |
 |---|---|
+| `users/<name>/config.json` | 用户模型、Key、超时、工具和技能配置 |
+| `users/<name>/self_soul.md` | 用户人设文件，作为 system prompt 叠加层 |
+| `users/<name>/avatar/` | 用户头像 |
 | `users/<name>/history/file/` | Web 上传文件、外部消息附件、用户原始材料 |
 | `users/<name>/download/` | 智能体生成、导出、下载的默认输出（报告、文档、表格、图片、语音、视频、压缩包等） |
 | `users/<name>/knowledge/` | 用户私有知识库 |
+| `users/<name>/task-plan/` | 任务计划存储 |
+| `users/<name>/tasks/` | 定时任务存储 |
+| `users/<name>/improve/` | 自改进三层记忆：memory / self-improving / ontology |
 | `knowledge/` | 全局共享知识库 |
 | `tmp/` | 临时脚本、中间缓存、测试样本，用完清理 |
 
@@ -419,6 +448,9 @@ votx-agent/
 ├── users/              # 用户数据
 ├── web/                # Flask + React + TypeScript + Vite
 ├── AGENTS.md           # 智能体操作手册
+├── votx.py             # Linux votx 命令入口
+├── start.py            # CLI/Web 入口
+├── start_web.py        # Web 专用入口
 ├── update.py           # Linux/Docker 更新脚本
 ├── version.json        # 当前版本
 └── build_windows.bat   # Windows 打包脚本
@@ -441,6 +473,8 @@ python update.py --docker
 ```
 
 更新会覆盖框架代码和 `plugins/`，保留 `users/`、`skills/`、`.env`、`message-runtime/` 和消息运行队列。`knowledge/` 更新时会询问合并、跳过或全量覆盖。
+
+更新后会无损补齐已有用户目录骨架，例如 `avatar/`、`task-plan/`、`tasks/`、`improve/*/permanent` 和 `improve/*/temporary`；不会覆盖已有 `config.json`、`self_soul.md` 或用户文件。
 
 ## Windows 打包内容
 

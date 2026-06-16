@@ -5,7 +5,7 @@
 import { type ChangeEvent, type DragEvent, type KeyboardEvent, type MouseEvent, useCallback, useEffect, useMemo, useRef } from 'react'
 import { api, jsonBody } from '@/api/client'
 import { defaultPromptData, THEMES, useAppStore } from '@/store/useAppStore'
-import type { AttachChip, Conversation, FileItem, Message, Plan, PlanStep, RawConfig, RawConversation, RawMessage, RawToolLog, SSEEvent, Task, ThemeId, ToolCard, UsageInfo, UserInfo } from '@/types'
+import type { AppStore, AttachChip, Conversation, FileItem, Message, Plan, PlanStep, RawConfig, RawConversation, RawMessage, RawToolLog, SSEEvent, Task, ThemeId, ToolCard, UsageInfo, UserInfo } from '@/types'
 import { fmtMs, fmtSize, fmtTime, formatContent, formatNumber, isImageFile } from '@/utils/format'
 
 /* ── 纯函数 ── */
@@ -78,6 +78,57 @@ export const PROMPT_TABS = [
   { id: 'other', label: '其他' },
 ] as const
 
+const UI_STATE_KEY = 'votx-webui-ui-state-v1'
+const DRAFT_KEY = 'votx-webui-draft-v1'
+const ACTIVE_TABS: AppStore['activeTab'][] = ['overview', 'debug', 'status', 'files']
+const PROMPT_TAB_IDS: AppStore['promptTab'][] = ['system', 'soul', 'agent', 'other']
+const STATUS_TAB_IDS: AppStore['statusSubTab'][] = ['logs', 'tasks', 'task-plans']
+
+type PersistedUIState = Pick<AppStore,
+  'selectedUser' | 'activeTab' | 'promptTab' | 'statusSubTab' | 'showToolCalls' | 'showThinking'
+>
+
+function readPersistedUIState(): Partial<PersistedUIState> {
+  try {
+    const raw = JSON.parse(localStorage.getItem(UI_STATE_KEY) || '{}') as Partial<PersistedUIState>
+    const next: Partial<PersistedUIState> = {}
+    if (typeof raw.selectedUser === 'string') next.selectedUser = raw.selectedUser
+    if (raw.activeTab && ACTIVE_TABS.includes(raw.activeTab)) next.activeTab = raw.activeTab
+    if (raw.promptTab && PROMPT_TAB_IDS.includes(raw.promptTab)) next.promptTab = raw.promptTab
+    if (raw.statusSubTab && STATUS_TAB_IDS.includes(raw.statusSubTab)) next.statusSubTab = raw.statusSubTab
+    if (typeof raw.showToolCalls === 'boolean') next.showToolCalls = raw.showToolCalls
+    if (typeof raw.showThinking === 'boolean') next.showThinking = raw.showThinking
+    return next
+  } catch {
+    return {}
+  }
+}
+
+function writePersistedUIState(state: PersistedUIState) {
+  try {
+    localStorage.setItem(UI_STATE_KEY, JSON.stringify(state))
+  } catch {
+    // ignore private mode
+  }
+}
+
+function readDraftInput() {
+  try {
+    return sessionStorage.getItem(DRAFT_KEY) || ''
+  } catch {
+    return ''
+  }
+}
+
+function writeDraftInput(value: string) {
+  try {
+    if (value) sessionStorage.setItem(DRAFT_KEY, value)
+    else sessionStorage.removeItem(DRAFT_KEY)
+  } catch {
+    // ignore private mode
+  }
+}
+
 /* ── Hook ── */
 
 export function useAppActions() {
@@ -87,6 +138,7 @@ export function useAppActions() {
   const chatRef = useRef<HTMLDivElement>(null)
   const textRef = useRef<HTMLTextAreaElement>(null)
   const uploadRef = useRef<HTMLInputElement>(null)
+  const stateHydratedRef = useRef(false)
 
   /** 获取下一条本地消息 ID 并同步回 store。 */
   function nextId() {
@@ -306,6 +358,7 @@ export function useAppActions() {
       if (c.id === '__current__') {
         set({ isPreview: false, previewConvId: null, messages: [] })
         try {
+          await api('/api/conversations/select', { method: 'POST', ...jsonBody({ id: '__current__' }) }).catch(() => undefined)
           const msgs = await api<RawMessage[]>('/api/messages')
           if (Array.isArray(msgs)) renderMessages(msgs)
           const profileName = get().profileName || ''
@@ -316,7 +369,7 @@ export function useAppActions() {
       }
 
       try {
-        const data = await api<{ error?: string; messages?: RawMessage[]; id?: string }>('/api/conversations/load', { method: 'POST', ...jsonBody({ id: c.id }) })
+        const data = await api<{ error?: string; messages?: RawMessage[]; id?: string }>('/api/conversations/select', { method: 'POST', ...jsonBody({ id: c.id }) })
         if (data.error) { toast(`加载失败: ${data.error}`); return }
         set({ isPreview: true, messages: [] })
         renderMessages((data.messages || []).map((m) => { if (m.role === 'assistant') { const { tool_calls: _tc, reasoning_content: _r, ...rest } = m; return rest }; return m }))
@@ -471,6 +524,21 @@ export function useAppActions() {
       signal: get().abortCtrl!.signal,
     })
     const ct = res.headers.get('Content-Type') || ''
+    if (!res.ok) {
+      let message = `请求失败 (${res.status})`
+      let data: unknown = null
+      try {
+        data = ct.includes('application/json') ? await res.json() : await res.text()
+        if (typeof data === 'object' && data !== null && 'error' in data) message = String((data as { error?: unknown }).error || message)
+        else if (typeof data === 'string' && data.trim()) message = data.trim()
+      } catch {
+        // keep default message
+      }
+      if (res.status === 401) {
+        window.dispatchEvent(new CustomEvent('votx-session-expired', { detail: { error: message } }))
+      }
+      throw new Error(message)
+    }
     if (ct.includes('application/json')) {
       const data = await res.json()
       updateLastAssistant((msg) => { msg.streaming = false; msg.content = data.content || data.error || '' })
@@ -698,7 +766,7 @@ export function useAppActions() {
         logs: logs.slice(-30).reverse().map((l, i) => {
           let ts = ''
           if (l.ts) { try { const d = new Date(l.ts); ts = Number.isNaN(d.getTime()) ? String(l.ts).replace('T', ' ').slice(0, 19) : d.toLocaleString('zh-CN') } catch { ts = String(l.ts).replace('T', ' ').slice(0, 19) } }
-          return { _key: i, id: l.id, text: `${ts} ${l.success ? '✓' : '×'} ${l.tool} ${JSON.stringify(l.args || {}).slice(0, 80)}`, success: !!l.success }
+          return { _key: l.id || `${l.ts || ''}-${l.tool || 'tool'}-${i}`, id: l.id, text: `${ts} ${l.success ? '✓' : '×'} ${l.tool} ${JSON.stringify(l.args || {}).slice(0, 80)}`, success: !!l.success }
         }),
       })
     } catch { /* ignore */ }
@@ -824,7 +892,9 @@ export function useAppActions() {
   const saveAllConfig = useCallback(async () => {
     if (!get().userActive) { toast('请先选择用户'); return }
     const { config } = get()
-    try { await api('/api/config', { method: 'POST', ...jsonBody({ type: config.type, api_style: config.apiStyle, model: config.model, base_url: config.baseUrl, api_key: config.keyDraft }) }); snapshotConfig(); set((s) => ({ config: { ...s.config, keyDraft: '' } })); toast('配置已保存') } catch { toast('保存失败') }
+    const payload: Record<string, unknown> = { type: config.type, api_style: config.apiStyle, model: config.model, base_url: config.baseUrl }
+    if (config.keyDraft.trim()) payload.api_key = config.keyDraft.trim()
+    try { await api('/api/config', { method: 'POST', ...jsonBody(payload) }); snapshotConfig(); set((s) => ({ config: { ...s.config, keyDraft: '' } })); toast('配置已保存') } catch { toast('保存失败') }
   }, [get, set])
 
   const applyConfig = useCallback(async () => {
@@ -889,11 +959,36 @@ export function useAppActions() {
   const restoreSession = useCallback(async () => {
     try {
       const session = await api<{ active?: boolean; user?: string }>('/api/session'); if (!session.active) return
-      set({ userActive: true, selectedUser: session.user || get().selectedUser, profileName: session.user || '已连接用户', profileInfo: '已连接', avatarUrl: `/api/avatar?t=${Date.now()}`, chatTitle: `${session.user || ''} · 对话`, mainSub: '输入消息开始对话' })
-      try { const msgs = await api<RawMessage[]>('/api/messages'); if (Array.isArray(msgs) && msgs.length) { set({ messages: [] }); renderMessages(msgs); scrollBottom() } } catch { /* ignore */ }
-      await Promise.all([refreshConversations(), loadToolLogs(), loadFileList(), loadSystemPrompt(), loadDebugConfig(), updateStats(), loadVersion()])
+      set({ userActive: true, selectedUser: session.user || get().selectedUser, profileName: session.user || '已连接用户', profileInfo: '已连接', avatarUrl: `/api/avatar?t=${Date.now()}`, chatTitle: `${session.user || ''} · 对话`, mainSub: '输入消息开始对话', activeConv: '__current__', isPreview: false, previewConvId: null })
+      await Promise.all([refreshConversations(), loadToolLogs(), loadTasks(), loadTaskPlans(), loadFileList(), loadSystemPrompt(), loadDebugConfig(), updateStats(), loadVersion()])
+
+      const activePlan = get().taskPlans.find((p) => p.status === 'in_progress' || p.status === 'paused')
+        || get().taskPlans.find((p) => p.status === 'pending')
+        || null
+      if (activePlan) {
+        const phase: AppStore['planPhase'] = activePlan.status === 'paused' ? 'paused' : activePlan.status === 'pending' ? 'review' : 'executing'
+        set({ activePlan, planPhase: phase })
+      }
+
+      let restoredPreview = false
+      try {
+        const preview = await api<{ preview?: boolean; id?: string }>('/api/conversations/preview-state')
+        if (preview.preview && preview.id && preview.id !== '__current__') {
+          const conv = get().conversations.find((c) => c.id === preview.id)
+            || { id: preview.id, label: preview.id, summary: preview.id, meta: '', msg_count: 0 }
+          await loadConversation(conv)
+          restoredPreview = true
+        }
+      } catch { /* ignore */ }
+
+      if (!restoredPreview) {
+        try {
+          const msgs = await api<RawMessage[]>('/api/messages')
+          if (Array.isArray(msgs) && msgs.length) { set({ messages: [] }); renderMessages(msgs); scrollBottom() }
+        } catch { /* ignore */ }
+      }
     } catch { /* ignore */ }
-  }, [set, get, renderMessages, refreshConversations, loadToolLogs, loadFileList, loadSystemPrompt, loadDebugConfig, updateStats, loadVersion])
+  }, [set, get, renderMessages, refreshConversations, loadToolLogs, loadTasks, loadTaskPlans, loadFileList, loadSystemPrompt, loadDebugConfig, updateStats, loadVersion, loadConversation])
 
   const toggleThemeMenu = useCallback((event: MouseEvent<HTMLButtonElement>) => {
     const rect = event.currentTarget.getBoundingClientRect(); const menuW = 162; const menuH = 330; const gap = 8
@@ -910,16 +1005,62 @@ export function useAppActions() {
   /* ── Effects ── */
 
   useEffect(() => {
+    const persistedUI = readPersistedUIState()
+    const draftInput = readDraftInput()
+    set((s) => ({ ...s, ...persistedUI, input: draftInput || s.input }))
     try { const saved = localStorage.getItem('votx-webui-theme') as ThemeId | null; if (saved && THEMES.some((t) => t.id === saved)) set({ theme: saved }); else applyTheme('dark') } catch { applyTheme('dark') }
     void loadUsers(); void restoreSession()
+    window.setTimeout(() => { stateHydratedRef.current = true }, 0)
     const closeMenus = () => set((s) => ({ menu: { ...s.menu, show: false }, themeMenu: false }))
+    const onSessionExpired = (event: Event) => {
+      const detail = (event as CustomEvent<{ error?: string }>).detail
+      get().abortCtrl?.abort()
+      set({
+        userActive: false,
+        profileName: '未连接',
+        profileInfo: '会话已失效，请重新选择用户',
+        chatTitle: '对话闭环与工具调用',
+        mainSub: '选择用户后开始对话',
+        modelName: '-',
+        running: false,
+        abortCtrl: null,
+        messages: [],
+        conversations: [],
+        logs: [],
+        tasks: [],
+        taskPlans: [],
+        files: [],
+        activePlan: null,
+        planPhase: null,
+      })
+      toast(detail?.error || '会话已失效，请重新选择用户')
+    }
     document.addEventListener('click', closeMenus)
-    return () => document.removeEventListener('click', closeMenus)
+    window.addEventListener('votx-session-expired', onSessionExpired)
+    return () => {
+      document.removeEventListener('click', closeMenus)
+      window.removeEventListener('votx-session-expired', onSessionExpired)
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => { const applied = applyTheme(state.theme); if (applied !== state.theme) set({ theme: applied }) }, [set, state.theme])
   useEffect(() => { autoResize() }, [state.input])
+  useEffect(() => {
+    if (!stateHydratedRef.current) return
+    writePersistedUIState({
+      selectedUser: state.selectedUser,
+      activeTab: state.activeTab,
+      promptTab: state.promptTab,
+      statusSubTab: state.statusSubTab,
+      showToolCalls: state.showToolCalls,
+      showThinking: state.showThinking,
+    })
+  }, [state.selectedUser, state.activeTab, state.promptTab, state.statusSubTab, state.showToolCalls, state.showThinking])
+  useEffect(() => {
+    if (!stateHydratedRef.current) return
+    writeDraftInput(state.input)
+  }, [state.input])
 
   return {
     /* state */ ...state,

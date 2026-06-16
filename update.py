@@ -404,6 +404,29 @@ def handle_message_runtime(source: Path, *, assume_yes: bool, dry_run: bool) -> 
     print(green("message-runtime/config.json replaced"))
 
 
+def migrate_user_skeletons(*, dry_run: bool) -> None:
+    """补齐老用户目录骨架，不覆盖已有用户文件。"""
+    users_dir = ROOT / "users"
+    if not users_dir.is_dir():
+        return
+    candidates = [
+        path for path in sorted(users_dir.iterdir())
+        if path.is_dir() and (path / "config.json").is_file()
+    ]
+    if not candidates:
+        return
+    if dry_run:
+        print(f"[dry-run] Would ensure user skeletons for {len(candidates)} user(s)")
+        return
+    try:
+        from set_user import ensure_user_skeleton
+        for user_dir in candidates:
+            ensure_user_skeleton(user_dir)
+        print(green(f"User directory skeletons ensured: {len(candidates)} user(s)"))
+    except Exception as exc:
+        print(yellow(f"Skipped user skeleton migration: {exc}"))
+
+
 def detect_mode(args: argparse.Namespace) -> str:
     if args.docker:
         return "docker"
@@ -545,6 +568,7 @@ def main(argv: list[str] | None = None) -> int:
             handle_config(source, assume_yes=args.yes, dry_run=args.dry_run)
             handle_knowledge(source, assume_yes=args.yes, dry_run=args.dry_run)
             handle_message_runtime(source, assume_yes=args.yes, dry_run=args.dry_run)
+            migrate_user_skeletons(dry_run=args.dry_run)
 
         post_update(mode, dry_run=args.dry_run, skip_post_update=args.skip_post_update)
         print(green("Update complete"))

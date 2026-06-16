@@ -1,23 +1,58 @@
 """votx-agent 启动入口
 
 用法:
-    python start.py           # CLI 模式（选择用户 → subprocess main.py）
-    python start.py --web     # Web UI 模式（端口 13579）
+    python start.py           # CLI 模式（选择用户 → 进入 main.py）
+    python start.py --web     # Web UI 模式（端口 1478）
     python start.py --web --port=8080   # Web UI 自定义端口
     python start.py --user <name> --prompt "<text>" --once  # 非交互单轮执行（cron 用）
 """
 import os
-import subprocess
 import sys
+from pathlib import Path
 
 from paths import get_project_root
 root = get_project_root()
 
 
+def _load_dotenv():
+    """加载项目 .env，让 Web 监听地址、端口等启动变量在入口处生效。"""
+    for env_path in (
+        os.path.join(root, ".env"),
+        os.path.join(os.getcwd(), ".env"),
+    ):
+        try:
+            if not os.path.isfile(env_path):
+                continue
+            with open(env_path, encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    key, value = line.split("=", 1)
+                    key = key.strip()
+                    value = value.strip().strip('"').strip("'")
+                    if key and key not in os.environ:
+                        os.environ[key] = value
+        except Exception:
+            pass
+
+
+_load_dotenv()
+
+
 def main_cli():
     """CLI 模式：列出用户 → 选择 → 子进程 main.py"""
     users_dir = os.path.join(root, "users")
-    user_list = sorted(os.listdir(users_dir))
+    from set_user import ensure_user_skeleton
+    user_list = []
+    for name in sorted(os.listdir(users_dir)):
+        user_dir_path = Path(users_dir) / name
+        if user_dir_path.is_dir() and (user_dir_path / "config.json").exists():
+            ensure_user_skeleton(user_dir_path)
+            user_list.append(name)
+    if not user_list:
+        print("未找到用户，请先运行: python set_user.py add")
+        sys.exit(1)
     print("请选择当前用户:")
     for i, name in enumerate(user_list, 1):
         print(f"{i}: {name}")
@@ -32,9 +67,10 @@ def main_cli():
     user_dir = os.path.join(users_dir, selected)
     print(f"已加载用户: {selected}")
 
-    subprocess.run(
+    os.execvpe(
+        sys.executable,
         [sys.executable, os.path.join(root, "main.py")],
-        env={**os.environ, "VOTX_USER_DIR": user_dir},
+        {**os.environ, "VOTX_USER_DIR": user_dir},
     )
 
 
@@ -70,6 +106,8 @@ def main_once(user_name: str, prompt: str):
     if not os.path.isdir(user_dir):
         print(f"错误: 用户不存在: {user_name}")
         sys.exit(1)
+    from set_user import ensure_user_skeleton
+    ensure_user_skeleton(Path(user_dir))
 
     os.environ["VOTX_USER_DIR"] = user_dir
 

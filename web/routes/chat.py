@@ -3,11 +3,12 @@ import json
 import os
 import threading
 import traceback
+from pathlib import Path
 
 from flask import Response, jsonify, render_template, request, send_file, stream_with_context, session as flask_session
 
 from web.server import app
-from web.session import _root, get_session, require_session, clear_session, init_user_session
+from web.session import _root, get_session, get_or_restore_session, require_session, clear_session, init_user_session
 from web.commands import _dispatch
 from run.user_locks import get_user_lock
 
@@ -230,6 +231,8 @@ def api_users():
         try:
             cfg_path = os.path.join(user_dir, "config.json")
             if os.path.isfile(cfg_path):
+                from set_user import ensure_user_skeleton
+                ensure_user_skeleton(Path(user_dir))
                 with open(cfg_path, encoding="utf-8") as f:
                     cfg = json.load(f)
                 p = cfg.get("provider", {})
@@ -292,6 +295,8 @@ def api_select_user():
         return jsonify({"error": f"用户目录不存在: {user_name}"}), 400
 
     try:
+        from set_user import ensure_user_skeleton
+        ensure_user_skeleton(Path(user_dir))
         with open(os.path.join(_root, "config", "config_core.json"), encoding="utf-8") as f:
             core_config = json.load(f)
         with open(os.path.join(user_dir, "config.json"), encoding="utf-8") as f:
@@ -312,7 +317,7 @@ def api_select_user():
 def api_session():
     """处理 api_session 相关逻辑。"""
     user_name = flask_session.get("user_name")
-    session_data = get_session(user_name) if user_name else None
+    session_data = get_or_restore_session(user_name) if user_name else None
     if not session_data or not session_data.get("chat"):
         return jsonify({"active": False})
     chat = session_data["chat"]
