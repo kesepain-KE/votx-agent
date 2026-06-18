@@ -25,6 +25,12 @@
       "reconnect_interval": 5,
       "_reconnect_interval": "断线重连间隔（秒）",
 
+      "ping_interval": 60,
+      "_ping_interval": "WebSocket 心跳间隔（秒）。本地 NapCat 建议 60，避免短暂阻塞时误断线",
+
+      "ping_timeout": 30,
+      "_ping_timeout": "WebSocket 心跳超时（秒）。本地 NapCat 建议 30",
+
       "api_timeout": 15,
       "_api_timeout": "API 调用超时（秒）",
 

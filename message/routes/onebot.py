@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import json
 import os
 import re
@@ -82,13 +83,19 @@ class OneBotRouter:
         if self.access_token:
             headers["Authorization"] = f"Bearer {self.access_token}"
 
-        kwargs = {"ping_interval": 20, "ping_timeout": 20, "max_size": 16 * 1024 * 1024}
-        try:
-            async with websockets.connect(self.ws_url, extra_headers=headers, **kwargs) as ws:
-                await self._serve(ws)
-        except TypeError:
-            async with websockets.connect(self.ws_url, additional_headers=headers, **kwargs) as ws:
-                await self._serve(ws)
+        ping_interval = int(self.config.get("ping_interval", 60))
+        ping_timeout = int(self.config.get("ping_timeout", 30))
+        kwargs = {"ping_interval": ping_interval, "ping_timeout": ping_timeout, "max_size": 16 * 1024 * 1024}
+
+        # Avoid HTTP_PROXY/HTTPS_PROXY hijacking local NapCat forward WS links.
+        local_ws = self.ws_url.startswith(("ws://127.", "wss://127.", "ws://localhost", "wss://localhost"))
+        sig = inspect.signature(websockets.connect)
+        if local_ws and "proxy" in sig.parameters:
+            kwargs["proxy"] = None
+
+        headers_key = "extra_headers" if "extra_headers" in sig.parameters else "additional_headers"
+        async with websockets.connect(self.ws_url, **{headers_key: headers}, **kwargs) as ws:
+            await self._serve(ws)
 
     async def _serve(self, ws):
         self.ws = ws

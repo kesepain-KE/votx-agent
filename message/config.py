@@ -18,6 +18,8 @@ def default_config() -> dict[str, Any]:
                 "ws_url": "ws://127.0.0.1:3001",
                 "access_token": "",
                 "reconnect_interval": 5,
+                "ping_interval": 60,
+                "ping_timeout": 30,
                 "api_timeout": 15,
                 "bound_users": {},
             },

@@ -106,7 +106,7 @@ class MessageRuntime:
             for item in queue.pending():
                 platform = item.get("platform")
                 router = self.routers.get(platform)
-                if not router or (hasattr(router, "is_ready") and not router.is_ready()):
+                if not router:
                     router = self.routers.get(f"{platform}-server")
                 if not router:
                     queue.fail(item["id"], f"平台未启用: {platform}", retry_times)
