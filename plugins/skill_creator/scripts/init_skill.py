@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Skill Initializer - Creates a new skill from template
 
@@ -67,7 +66,7 @@ Delete this entire "Structuring This Skill" section when done - it's just guidan
 This skill includes example resource directories that demonstrate how to organize different types of bundled resources:
 
 ### scripts/
-Executable code (Python/Bash/etc.) that can be run directly to perform specific operations.
+Executable code (Python/etc.) that can be run directly to perform specific operations.
 
 **Examples from other skills:**
 - PDF skill: `fill_fillable_fields.py`, `extract_form_field_info.py` - utilities for PDF manipulation
@@ -102,8 +101,7 @@ Files not intended to be loaded into context, but rather used within the output 
 **Any unneeded directories can be deleted.** Not every skill requires all three types of resources.
 """
 
-EXAMPLE_SCRIPT = '''#!/usr/bin/env python3
-"""
+EXAMPLE_SCRIPT = '''"""
 Example helper script for {skill_name}
 
 This is a placeholder script that can be executed directly.
@@ -240,7 +238,6 @@ def init_skill(skill_name, path):
         scripts_dir.mkdir(exist_ok=True)
         example_script = scripts_dir / 'example.py'
         example_script.write_text(EXAMPLE_SCRIPT.format(skill_name=skill_name), encoding="utf-8")
-        example_script.chmod(0o755)
         print("[OK] Created scripts/example.py")
 
         # Create references/ directory with example reference doc

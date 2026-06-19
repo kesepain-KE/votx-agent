@@ -40,7 +40,6 @@ if not _secret:
         _secret = secrets.token_hex(32)
         with open(_secret_path, "w", encoding="utf-8") as f:
             f.write(_secret)
-        os.chmod(_secret_path, 0o600)
 app.secret_key = _secret
 
 

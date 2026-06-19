@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Extract text from PDF files with page-by-page or full extraction."""
 
 import sys

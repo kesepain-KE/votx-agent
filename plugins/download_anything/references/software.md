@@ -14,9 +14,6 @@
 - winget (Windows): `winget install <package>`
 - choco (Windows): `choco install <package>`
 - scoop (Windows): `scoop install <package>`
-- apt (Debian/Ubuntu): `apt install <package>`
-- brew (macOS/Linux): `brew install <package>`
-- Flatpak (Linux): `flatpak install <package>`
 
 ## Official Mirrors
 - TUNA (mirrors.tuna.tsinghua.edu.cn)
@@ -25,5 +22,3 @@
 
 ## App Stores
 - Microsoft Store
-- Flathub (flathub.org)
-- Snap Store (snapcraft.io)

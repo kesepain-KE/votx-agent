@@ -225,10 +225,9 @@ ERROR: [STRICT_MODE_ERROR] page_size 不支持: A6，可选: a4, a3, a5, letter,
 
 ## 前置条件
 
-```bash
+```text
 pip install python-docx
-# PDF 导出:
-apt install libreoffice-core
+# PDF 导出需要安装可被系统 PATH 找到的 Office 转换工具。
 ```
 
 ## 参考

@@ -97,7 +97,7 @@ export interface CapabilitiesInfo {
 
 /** 描述 UserConfig 数据结构。 */
 export interface UserConfig {
-  type: 'openai' | 'anthropic'
+  type: 'openai' | 'anthropic' | 'kemo'
   apiStyle: string
   model: string
   baseUrl: string
@@ -109,7 +109,12 @@ export interface UserConfig {
   visionModel: string
   audioTranscriptionModel: string
   imageGenerationModel: string
+  imageEditModel: string
   speechGenerationModel: string
+  speechToSpeechModel: string
+  videoGenerationModel: string
+  embeddingModel: string
+  rerankModel: string
 }
 
 /** 描述 LogEntry 数据结构。 */
@@ -289,7 +294,12 @@ export interface RawConfig {
     vision_model?: string
     audio_transcription_model?: string
     image_generation_model?: string
+    image_edit_model?: string
     speech_generation_model?: string
+    speech_to_speech_model?: string
+    video_generation_model?: string
+    embedding_model?: string
+    rerank_model?: string
   }
   task_plan?: { accept_task: boolean }
 }

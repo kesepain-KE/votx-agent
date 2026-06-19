@@ -83,7 +83,7 @@ class PushQueue:
         tmp = self.queue_dir / f".{task_id}.{uuid.uuid4().hex}.tmp"
         tmp.write_text(json.dumps(item, ensure_ascii=False, indent=2), encoding="utf-8")
         # Atomic replace keeps the queue readable if the process exits while a
-        # push is being written on Windows, Linux, or a bind-mounted Docker dir.
+        # push is being written.
         os.replace(tmp, final)
 
 

@@ -117,7 +117,9 @@ def api_update_config():
         allowed = {"type", "api_style", "model", "api_key", "base_url", "think", "stream",
                    "timeout", "max_tokens", "thinking",
                    "vision_model", "audio_transcription_model",
-                   "image_generation_model", "speech_generation_model"}
+                   "image_generation_model", "image_edit_model",
+                   "speech_generation_model", "speech_to_speech_model",
+                   "video_generation_model", "embedding_model", "rerank_model"}
         for key in allowed & data.keys():
             provider[key] = data[key]
 
@@ -127,7 +129,8 @@ def api_update_config():
             if val is None or val == "auto":
                 provider.pop("capabilities_override", None)
             elif isinstance(val, list):
-                valid = {"vision", "audio_transcription", "image_generation", "speech_generation"}
+                from provider.base import VALID_CAPABILITIES
+                valid = VALID_CAPABILITIES
                 provider["capabilities_override"] = [c for c in val if c in valid]
             else:
                 return jsonify({"error": "capabilities_override 必须为 null 或数组"}), 400
@@ -138,7 +141,9 @@ def api_update_config():
         # 关键字段变更 → 重建 Provider
         critical = {"type", "api_style", "api_key", "base_url", "capabilities_override",
                     "vision_model", "audio_transcription_model",
-                    "image_generation_model", "speech_generation_model"}
+                    "image_generation_model", "image_edit_model",
+                    "speech_generation_model", "speech_to_speech_model",
+                    "video_generation_model", "embedding_model", "rerank_model"}
         if critical & data.keys():
             from provider.factory import create_provider
             try:

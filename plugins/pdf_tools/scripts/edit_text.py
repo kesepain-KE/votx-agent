@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Edit text in PDF files by replacing content."""
 
 import sys

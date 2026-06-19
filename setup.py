@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """votx-agent 环境安装 — 全新安装 / 迁移后一键就绪
 
 使用:

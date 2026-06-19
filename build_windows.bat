@@ -133,8 +133,6 @@ del /q dist\votx-agent\message\config.json 2>nul
 del /q dist\votx-agent\message\config.local.json 2>nul
 rmdir /s /q dist\votx-agent\message\push_queue 2>nul
 del /q dist\votx-agent\message\identity\identity_map.json 2>nul
-mkdir dist\votx-agent\message-runtime 2>nul
-copy /Y message\config.example.json dist\votx-agent\message-runtime\config.example.json >nul
 xcopy /E /I /Y plugins dist\votx-agent\plugins\ >nul
 xcopy /E /I /Y provider dist\votx-agent\provider\ >nul
 xcopy /E /I /Y run dist\votx-agent\run\ >nul

@@ -38,7 +38,7 @@ convert_to_markdown(input_path="path/to/file.pdf")
 
 > ⚠️ **重要**：必须将输出保存到文件，不要直接输出到终端（stdout），否则会占用大量 token！
 
-```bash
+```text
 # ✅ 正确：提取文本到文件（最快最简单）
 pdftotext input.pdf output.txt
 
@@ -146,7 +146,7 @@ if all_tables:
 
 > ⚠️ **性能优化**：始终输出到文件，避免占用 token
 
-```bash
+```text
 # ✅ 提取文本到文件
 pdftotext input.pdf output.txt
 

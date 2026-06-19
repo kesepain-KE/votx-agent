@@ -24,10 +24,7 @@
 ├── config/            # 全局配置与基座人格
 ├── knowledge/         # 全局共享知识库
 ├── users/<name>/      # 用户数据、配置、历史、文件、记忆、用户知识库
-├── message-runtime/   # Docker 外部消息运行配置
 ├── tmp/               # 运行时临时产物
-├── votx.py            # Linux votx 命令入口
-├── update.py          # Linux/Docker 更新脚本，Windows 不执行自动更新
 └── start.py / start_web.py
 ```
 
@@ -106,7 +103,7 @@ knowledge/data_structure.md
 ```text
 knowledge/message-config.md   # OneBot/NapCat/Telegram、外部附件、推送队列
 knowledge/users-config.md     # users/<name>/config.json、模型、多模态、技能开关
-knowledge/deployment.md       # Windows/Linux/Docker、环境变量、update.py
+knowledge/deployment.md       # 普通 Python 启动、环境变量、Windows 打包
 ```
 
 内部架构和执行原理文件位于 `knowledge/01~08-*.md`，包括 system prompt 拼接、历史压缩、工具调用、memory 生命周期、定时任务、消息路由编号和任务计划执行原理。遇到“为什么这样运行 / 数据流怎么走 / 内部机制是什么”这类问题时，先读 `knowledge/data_structure.md`，再按索引读取对应原理文档。
@@ -228,7 +225,12 @@ provider                  模型服务商、模型名、api_key、base_url
 provider.capabilities_override
 provider.audio_transcription_model
 provider.image_generation_model
+provider.image_edit_model
 provider.speech_generation_model
+provider.speech_to_speech_model
+provider.video_generation_model
+provider.embedding_model
+provider.rerank_model
 history                   聊天和日志保存
 tool                      工具超时、白名单、黑名单
 task_plan.accept_task     任务计划是否自动接受
@@ -242,6 +244,7 @@ skills.disabled_builtin   禁用非核心内置技能
 2. deepseek-v4-pro
 3. 其他厂商：OpenAI 兼容接口
 4. 其他厂商：Anthropic 兼容接口
+5. Kemo LLM Adapter：本地多模态网关
 ```
 
 用户选择其他厂商后，需要填写 `base_url` 和 `api_key`；脚本会尝试获取厂商模型列表，并允许用户手动额外添加模型名。
@@ -262,7 +265,12 @@ Provider 通过能力声明控制多模态：
 vision
 audio_transcription
 image_generation
+image_edit
 speech_generation
+speech_to_speech
+video_generation
+embedding
+rerank
 ```
 
 调用优先级：
@@ -277,7 +285,14 @@ speech_generation
 vision_analyze       图片识别，支持多图
 audio_transcribe     语音转文字
 image_generate       文生图，默认保存到 users/<name>/download/
+image_edit           图像编辑，默认保存到 users/<name>/download/
 speech_generate      文生语音，默认保存到 users/<name>/download/
+speech_to_speech     语音生语音，默认保存到 users/<name>/download/
+video_generate       创建文生/图生/视频生视频任务
+video_status         查询视频任务状态
+video_download       下载视频任务结果
+embedding_create     文本向量
+rerank_documents     文档重排
 ```
 
 如果当前 provider 不支持某项能力，明确告诉用户需要配置能力或专用模型，不要私自切换 provider。
@@ -290,7 +305,6 @@ speech_generate      文生语音，默认保存到 users/<name>/download/
 knowledge/message-config.md
 message/config.local.json
 message/config.json
-message-runtime/config.json
 ```
 
 关键规则：
@@ -383,23 +397,11 @@ knowledge/                # 全局共享
 
 处理 PDF/Office/二进制文档时，先使用 `markdown_converter` 或对应文档工具转换/提取，不要直接用纯文本读取。
 
-## 更新与部署
+## 部署与版本
 
-更新脚本：
+当前项目不包含自动更新脚本。更新源码时必须先备份 `users/`、`skills/`、`.env`、`message/config.local.json`、消息私有配置和推送队列，再手动拉取或覆盖代码。
 
-```text
-update.py
-```
-
-规则：
-
-- Linux 原生可用 `python update.py --native`。
-- Docker 可用 `python update.py --docker`。
-- Windows 特供版不执行自动更新，只在启动 Web 时提示本地/远程版本。
-- 更新会覆盖框架代码、`plugins/`、`web/`、`provider/`、`run/` 等。
-- 更新不会覆盖 `users/`、`skills/`、`.env`、`message-runtime/`、消息私有配置和推送队列。
-- `knowledge/` 更新时应询问合并、跳过或全量覆盖。
-- 更新和启动路径会无损补齐老用户目录骨架，不覆盖已有 `config.json`、`self_soul.md` 或用户文件。
+启动路径会无损补齐老用户目录骨架，不覆盖已有 `config.json`、`self_soul.md` 或用户文件。
 
 Web 局域网访问：
 
@@ -443,7 +445,7 @@ skills/_common/__init__.py
 - 不用 `.env` 内容做示例，不打印真实密钥。
 - 临时脚本和中间缓存放 `tmp/`；智能体输出文件默认放 `users/<name>/download/`；用户上传文件默认来自 `users/<name>/history/file/`。
 - 默认路径按项目根展开：`<project-root>/tmp`、`<project-root>/users/<name>/download`、`<project-root>/users/<name>/history/file`。
-- 不用 `rm -rf` 等危险命令清理项目，使用安全工具或 Python 文件 API。
+- 不用危险递归删除命令清理项目，使用安全工具或 Python 文件 API。
 
 ## 常见坑
 
@@ -464,19 +466,19 @@ skills/_common/__init__.py
 
 最小语法检查：
 
-```bash
+```text
 python -m py_compile <changed_file.py>
 ```
 
 较大范围 Python 检查：
 
-```bash
+```text
 python -m compileall -q .
 ```
 
 前端检查：
 
-```bash
+```text
 cd web
 npm run build
 ```

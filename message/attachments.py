@@ -286,65 +286,10 @@ def save_base64_attachment(
     return record
 
 
-def _resolve_container_path(container_path: str, container_name: str = "napcat") -> str | None:
-    """将容器内路径映射为宿主机路径（通过 docker inspect 获取 volume 挂载）。
-
-    如果宿主机上文件存在，返回宿主机路径；否则返回 None。
-    """
-    import subprocess
-
-    # 1. 如果宿主机上直接存在，不转换
-    if os.path.exists(container_path):
-        return container_path
-
-    # 2. 尝试 docker inspect 获取 volume 映射
-    try:
-        result = subprocess.run(
-            ["docker", "inspect", container_name],
-            capture_output=True, text=True, timeout=5,
-        )
-        if result.returncode == 0:
-            import json
-            data = json.loads(result.stdout)
-            mounts = data[0].get("Mounts", []) if data else []
-            # 按挂载点路径长度降序排列，优先匹配最长路径（最精确）
-            mounts.sort(key=lambda m: len(m.get("Destination", "")), reverse=True)
-            for mount in mounts:
-                dest = mount.get("Destination", "")
-                src = mount.get("Source", "")
-                if dest and src and container_path.startswith(dest):
-                    host_path = container_path.replace(dest, src, 1)
-                    if os.path.exists(host_path):
-                        return host_path
-                    # 如果直接替换不命中，尝试拼接方式
-                    # 某些情况下 container_path 可能以 dest + "/" 开头
-                    if not container_path.startswith(dest + "/"):
-                        continue
-                    rel = container_path[len(dest):]
-                    host_path = os.path.join(src, rel.lstrip("/"))
-                    if os.path.exists(host_path):
-                        return host_path
-    except Exception as e:
-        print(f"[attachments] docker inspect {container_name} 失败: {e}")
-
-    # 3. 兜底：尝试常见挂载路径（NapCat 默认 data 目录）
-    fallbacks = [
-        "/mnt/sata2-4/docker/volumes/napcat/_data",
-        "/var/lib/docker/volumes/napcat/_data",
-    ]
-    for fb in fallbacks:
-        # 取容器路径中 /app/.config/QQ/NapCat/ 之后的部分
-        marker = "/NapCat/"
-        if marker in container_path:
-            rel = container_path.split(marker, 1)[-1]
-            candidate = os.path.join(fb, rel)
-            if os.path.exists(candidate):
-                return candidate
-        # 也尝试直接拼接全路径
-        candidate = os.path.join(fb, os.path.basename(container_path))
-        if os.path.exists(candidate):
-            return candidate
-
+def _resolve_local_path(source_path: str) -> str | None:
+    """返回可直接读取的本地文件路径。"""
+    if os.path.exists(source_path):
+        return source_path
     return None
 
 
@@ -373,20 +318,12 @@ def save_local_attachment(
     source_id: str = "",
     filename: str = "",
 ) -> AttachmentRecord | None:
-    """保存本地/容器内文件到 users/<user>/history/file，返回 AttachmentRecord。
-
-    用于 OneBot/NapCat 返回容器内文件路径（如 /app/.config/QQ/NapCat/temp/xxx）的场景。
-    - 若 source_path 在宿主机可直接访问，直接 copy2
-    - 若为容器内路径，通过 docker inspect 映射到宿主机路径后 copy2
-    - 自动处理文件名冲突
-    """
-    # 1. 解析宿主机可读路径
-    resolved = _resolve_container_path(source_path)
+    """保存本地文件到 users/<user>/history/file，返回 AttachmentRecord。"""
+    resolved = _resolve_local_path(source_path)
     if not resolved:
         print(f"[attachments] 无法解析文件路径: {source_path}")
         return None
 
-    # 2. 确定目标文件名（不加 UUID 前缀，冲突由 _unique_dest 用 _1, _2 后缀处理）
     dest_dir = _user_file_dir(root, username)
     if filename:
         dest_name = _safe_filename(filename, add_uuid_prefix=False)
@@ -394,14 +331,12 @@ def save_local_attachment(
         dest_name = _safe_filename(os.path.basename(resolved), add_uuid_prefix=False)
     dest = _unique_dest(dest_dir, dest_name)
 
-    # 3. 复制文件
     try:
         shutil.copy2(resolved, dest)
     except Exception as e:
         print(f"[attachments] 文件复制失败 {resolved} → {dest}: {e}")
         return None
 
-    # 4. 构建记录
     record = _make_record(root, username, dest, kind, platform, message_id, source_id, filename or os.path.basename(resolved))
     try:
         _log_attachment(record, root, username)

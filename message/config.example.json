@@ -17,7 +17,7 @@
       "_enabled": "是否启用 OneBot",
 
       "ws_url": "ws://127.0.0.1:3001",
-      "_ws_url": "NapCat 正向 WS 地址。本机: ws://127.0.0.1:3001，WSL/Docker: 填实际 IP。注意正向模式下 votx-agent 连 NapCat",
+      "_ws_url": "NapCat 正向 WS 地址。本机: ws://127.0.0.1:3001。注意正向模式下 votx-agent 连 NapCat",
 
       "access_token": "",
       "_access_token": "NapCat 的 access_token（对应 NapCat 配置中 onebot 的 token），不设则留空",

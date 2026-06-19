@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Merge multiple PDF files into one."""
 
 import sys

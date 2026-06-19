@@ -85,17 +85,14 @@ ERROR: [DEPENDENCY] pdf2image 未安装: pip install pdf2image
 
 ## 安装
 
-```bash
+```text
 # 必装
 pip install pypdf reportlab
 
 # 可选：预览 + OCR
 pip install pdf2image pytesseract Pillow
-# 系统依赖: poppler-utils (pdf2image) + tesseract (OCR)
-apt install poppler-utils tesseract-ocr tesseract-ocr-chi-sim
 
-# 可选：更好的压缩
-apt install ghostscript
+# 可选：预览、OCR、压缩功能需要把对应可执行程序加入 PATH。
 ```
 
 ## 安全边界

@@ -133,7 +133,7 @@ tavily_research(input="2025 年 AI Agent 框架对比分析", model="pro", citat
 
 ## 前置条件
 
-```bash
+```text
 pip install tavily-python
 ```
 

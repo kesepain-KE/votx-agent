@@ -1,5 +1,4 @@
-#!/usr/bin/env python3
-"""votx-agent 入口命令 — 用法: votx [web|cli|help]"""
+"""votx-agent Python 入口命令 — 用法: python votx.py [web|cli|help]"""
 
 import os
 import sys
@@ -8,7 +7,7 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 
 
 def exec_python(script: str, args: list[str]):
-    """用目标入口替换当前进程，避免 Linux Ctrl+C 时父子进程同时抛 KeyboardInterrupt。"""
+    """用当前 Python 解释器启动目标入口。"""
     script_path = os.path.join(ROOT, script)
     argv = [sys.executable, script_path, *args]
     os.execv(sys.executable, argv)
@@ -18,7 +17,7 @@ def show_help():
     """处理 show_help 相关逻辑。"""
     print("votx-agent 命令")
     print()
-    print("用法: votx [子命令]")
+    print("用法: python votx.py [子命令]")
     print()
     print("子命令:")
     print("  (无参数)    默认启动 Web UI")
@@ -27,7 +26,7 @@ def show_help():
     print("  help       显示此帮助")
     print()
     print("自定义端口:")
-    print("  votx web --port=8080")
+    print("  python votx.py web --port=8080")
     print()
     print("更多信息: https://github.com/kesepain-KE/votx-agent")
 

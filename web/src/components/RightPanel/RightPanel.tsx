@@ -141,10 +141,40 @@ export function RightPanel(props: Props) {
                     onBlur={() => props.saveConfigField('image_generation_model', get().config.imageGenerationModel)} />
                 </div>
                 <div className="form-row">
+                  <label>图像编辑模型</label>
+                  <input value={config.imageEditModel || ''} placeholder="stepfun-step-image-edit-2"
+                    onChange={(e) => set((s: AppStore) => ({ config: { ...s.config, imageEditModel: e.target.value } }))}
+                    onBlur={() => props.saveConfigField('image_edit_model', get().config.imageEditModel)} />
+                </div>
+                <div className="form-row">
                   <label>语音生成模型</label>
                   <input value={config.speechGenerationModel || ''} placeholder="tts-1"
                     onChange={(e) => set((s: AppStore) => ({ config: { ...s.config, speechGenerationModel: e.target.value } }))}
                     onBlur={() => props.saveConfigField('speech_generation_model', get().config.speechGenerationModel)} />
+                </div>
+                <div className="form-row">
+                  <label>语音生语音模型</label>
+                  <input value={config.speechToSpeechModel || ''} placeholder="留空则不启用"
+                    onChange={(e) => set((s: AppStore) => ({ config: { ...s.config, speechToSpeechModel: e.target.value } }))}
+                    onBlur={() => props.saveConfigField('speech_to_speech_model', get().config.speechToSpeechModel)} />
+                </div>
+                <div className="form-row">
+                  <label>视频生成模型</label>
+                  <input value={config.videoGenerationModel || ''} placeholder="留空则不启用"
+                    onChange={(e) => set((s: AppStore) => ({ config: { ...s.config, videoGenerationModel: e.target.value } }))}
+                    onBlur={() => props.saveConfigField('video_generation_model', get().config.videoGenerationModel)} />
+                </div>
+                <div className="form-row">
+                  <label>向量模型</label>
+                  <input value={config.embeddingModel || ''} placeholder="留空则不启用"
+                    onChange={(e) => set((s: AppStore) => ({ config: { ...s.config, embeddingModel: e.target.value } }))}
+                    onBlur={() => props.saveConfigField('embedding_model', get().config.embeddingModel)} />
+                </div>
+                <div className="form-row">
+                  <label>重排序模型</label>
+                  <input value={config.rerankModel || ''} placeholder="留空则不启用"
+                    onChange={(e) => set((s: AppStore) => ({ config: { ...s.config, rerankModel: e.target.value } }))}
+                    onBlur={() => props.saveConfigField('rerank_model', get().config.rerankModel)} />
                 </div>
               </div>
             </details>
@@ -154,9 +184,10 @@ export function RightPanel(props: Props) {
               <div className="debug-grid" style={{ marginTop: 10 }}>
                 <div className="form-row">
                   <label>接口协议</label>
-                  <select value={config.type} onChange={(e) => { const v = e.target.value as 'openai' | 'anthropic'; set((s: AppStore) => ({ config: { ...s.config, type: v } })); void props.saveConfigField('type', v) }}>
+                  <select value={config.type} onChange={(e) => { const v = e.target.value as 'openai' | 'anthropic' | 'kemo'; set((s: AppStore) => ({ config: { ...s.config, type: v } })); void props.saveConfigField('type', v) }}>
                     <option value="openai">OpenAI 协议 (Chat Completions)</option>
                     <option value="anthropic">Anthropic 协议 (Messages)</option>
+                    <option value="kemo">Kemo LLM Adapter</option>
                   </select>
                 </div>
                 <div className="form-row">

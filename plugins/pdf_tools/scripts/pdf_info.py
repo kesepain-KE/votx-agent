@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Get metadata and structure information from PDF files."""
 
 import sys

@@ -1291,8 +1291,8 @@ def check_pdf_dependencies() -> str:
         ("PyMuPDF", _HAS_FITZ, "pip install PyMuPDF"),
         ("reportlab", HAS_REPORTLAB, "pip install reportlab"),
         ("Pillow", HAS_PIL, "pip install Pillow"),
-        ("pdf2image", _HAS_PDF2IMAGE, "pip install pdf2image && apt install poppler-utils"),
-        ("pytesseract", _HAS_TESSERACT, "pip install pytesseract && apt install tesseract-ocr"),
+        ("pdf2image", _HAS_PDF2IMAGE, "pip install pdf2image and add Poppler to PATH"),
+        ("pytesseract", _HAS_TESSERACT, "pip install pytesseract and add Tesseract to PATH"),
         ("numpy", _HAS_NUMPY, "pip install numpy"),
     ]
 

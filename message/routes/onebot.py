@@ -270,8 +270,6 @@ class OneBotRouter:
                     if record:
                         downloaded.append(record)
                 elif b64:
-                    # NapCat 返回容器内文件路径（如 /app/.config/QQ/NapCat/temp/xxx）
-                    # 通过 docker volume 映射转为宿主机路径后 copy2
                     record = save_local_attachment(
                         self.root, username, b64, kind=kind,
                         platform="onebot", message_id=message_id, source_id=source_id,
@@ -433,7 +431,7 @@ class OneBotRouter:
 
     @staticmethod
     def _to_onebot_file(file_path: str) -> str:
-        """读取文件编码为 base64:// URI，避免跨系统路径问题（Win/WSL/Docker 通用）"""
+        """读取文件编码为 base64:// URI，避免外部平台读取本地路径失败。"""
         import base64
         with open(file_path, "rb") as f:
             data = base64.b64encode(f.read()).decode("ascii")

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Rotate pages in a PDF file."""
 
 import sys

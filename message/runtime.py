@@ -113,7 +113,7 @@ class MessageRuntime:
                     continue
                 if hasattr(router, "is_ready") and not router.is_ready():
                     # Keep the task pending while a router reconnects instead of
-                    # burning retry attempts during Docker/boot ordering races.
+                    # burning retry attempts during startup ordering races.
                     continue
                 try:
                     result = await router.dispatch_push(item)

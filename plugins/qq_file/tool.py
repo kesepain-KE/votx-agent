@@ -11,8 +11,8 @@ def _load_push_queue_dir() -> str:
         from message.config import load_config
 
         root = get_project_root()
-        # Match the router's config resolution so Docker's VOTX_MESSAGE_CONFIG
-        # and local config.local.json both affect outbound file pushes.
+        # Match the router's config resolution so explicit and local message
+        # config files both affect outbound file pushes.
         cfg = load_config(root)
         return cfg.get("push", {}).get("queue_dir", "message/push_queue")
     except Exception:

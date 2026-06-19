@@ -1,6 +1,6 @@
 # knowledge/ 目录结构
 
-VOTX Agent 全局知识库，存放所有用户共享的参考资料和系统说明。更新程序会对 `knowledge/` 做特殊处理：默认合并更新内置知识文件，保留用户额外新增文件。
+VOTX Agent 全局知识库，存放所有用户共享的参考资料和系统说明。源码更新前应备份本目录中的本地改动。
 
 ## 文件列表
 
@@ -9,7 +9,7 @@ VOTX Agent 全局知识库，存放所有用户共享的参考资料和系统说
 | 文件 | 说明 |
 |------|------|
 | `data_structure.md` | 全局知识库索引（本文件） |
-| `deployment.md` | 部署、环境变量与更新说明，覆盖 Windows/Linux/Docker、外部访问/局域网访问、`.env`、`update.py`、`message-runtime/`、`knowledge/` 更新策略 |
+| `deployment.md` | 普通 Python 启动、环境变量、局域网访问、外部消息配置、Windows 打包和手动源码更新说明 |
 | `message-config.md` | 外部消息路由配置说明，覆盖 OneBot/NapCat、Telegram、群聊控制、账号绑定、附件接收、主动推送 |
 | `users-config.md` | 用户配置文件说明，覆盖目录结构、默认输出/上传目录、用户头像、`config.json` 完整字段（含 `provider.timeout`/`api_style`/`vision_model`/`max_tokens`/`thinking`）、工具超时、技能禁用、用户知识库索引维护 |
 
@@ -31,7 +31,7 @@ VOTX Agent 全局知识库，存放所有用户共享的参考资料和系统说
 
 - 用户询问外部消息路由、QQ/NapCat、Telegram、附件接收时，优先阅读 `message-config.md`。
 - 用户询问模型配置、API Key、用户目录、技能开关、多模态能力、头像配置时，优先阅读 `users-config.md`。
-- 用户询问部署、Docker、环境变量、局域网访问、外部访问、版本更新时，优先阅读 `deployment.md`。
+- 用户询问部署、环境变量、局域网访问、外部访问、版本更新时，优先阅读 `deployment.md`。
 - 用户询问智能体产物保存位置、临时文件、上传文件、Skill 与 shell 的使用边界、知识库索引维护时，优先阅读 `09-智能体工作规范.md`。
 - 用户询问内部架构、执行原理、数据流时，阅读对应的 `01~08` 系列文件。
 - 用户个人资料、聊天记录和私有知识不应写入这里，应放在 `users/<用户名>/` 下。

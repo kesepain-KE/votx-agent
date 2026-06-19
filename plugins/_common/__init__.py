@@ -288,23 +288,12 @@ def validate_url(url: str, network_scope: str | None = "public") -> str | None:
 # ---- 命令安全 ----
 
 _DANGEROUS_COMMANDS: set[str] = {
-    "rm", "rmdir", "del", "deltree",
-    "shutdown", "reboot", "halt", "poweroff", "init", "systemctl",
-    "sudo", "su", "pkexec", "doas",
-    "chmod", "chown", "chgrp", "chattr", "cacls", "icacls",
-    "mkfs", "mkfs.ext4", "mkfs.ntfs", "mkfs.vfat",
-    "dd", "fdisk", "parted", "format",
-    "iptables", "nftables", "ufw", "firewall-cmd", "netsh",
-    "killall", "pkill",
+    "rmdir", "del", "deltree",
+    "shutdown", "format",
+    "cacls", "icacls", "netsh",
 }
 
 _DANGEROUS_PATTERNS: list[tuple[_re.Pattern, str]] = [
-    (_re.compile(r'\brm\s+.*-rf\b'), "禁止 rm -rf (递归强制删除)"),
-    (_re.compile(r'\brm\s+.*-r\s+/'), "禁止递归删除根目录"),
-    (_re.compile(r'\bdd\s+if='), "禁止 dd 磁盘操作"),
-    (_re.compile(r'>\s*/dev/sd'), "禁止重定向写入块设备"),
-    (_re.compile(r'mkfs\.'), "禁止格式化文件系统"),
-    (_re.compile(r':\(\)\s*\{'), "禁止 fork 炸弹模式"),
     (_re.compile(r'\bformat\s+[a-zA-Z]:'), "禁止 Windows 格式化磁盘"),
     (_re.compile(r'\bdel\s+/[fq].*[A-Z]:\\'), "禁止 Windows 强制删除系统文件"),
 ]
@@ -312,9 +301,6 @@ _DANGEROUS_PATTERNS: list[tuple[_re.Pattern, str]] = [
 _ENV_ALLOWLIST: set[str] = {
     "PATH", "HOME", "USER", "USERNAME", "USERPROFILE",
     "TEMP", "TMP", "TMPDIR",
-    "LANG", "LC_ALL", "LC_CTYPE", "LANGUAGE",
-    "TERM", "COLORTERM", "DISPLAY", "WAYLAND_DISPLAY",
-    "SHELL", "PWD", "OLDPWD",
     "SYSTEMROOT", "SystemRoot", "WINDIR", "windir",
     "ProgramFiles", "ProgramFiles(x86)",
     "CommonProgramFiles", "CommonProgramFiles(x86)",

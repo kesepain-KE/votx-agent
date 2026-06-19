@@ -3,6 +3,7 @@
 两种接口协议:
   type: "openai"    → OpenAI 接口协议（优先 Responses API，自动回退 Chat Completions）
   type: "anthropic" → Anthropic Messages API
+  type: "kemo"      → Kemo LLM Adapter 本地网关
 
 所有 OpenAI 兼容厂商通过同一个 Provider + 自定义 base_url 接入。
 """
@@ -18,6 +19,7 @@ def create_provider(user_config: dict, core_config: dict | None = None) -> BaseP
     type 可选值:
       "openai"    — OpenAI 接口协议（默认）
       "anthropic" — Anthropic Messages 协议
+      "kemo"      — Kemo LLM Adapter 本地网关
 
     OpenAI 协议下可通过 api_style 指定:
       "responses" — 强制 Responses API（仅 OpenAI 官方支持）
@@ -34,8 +36,11 @@ def create_provider(user_config: dict, core_config: dict | None = None) -> BaseP
     if provider_type in ("openai", "deepseek", "openai_compatible", "azure_openai", "google_gemini", ""):
         from provider.responses_api import ResponsesProvider
         return ResponsesProvider(user_config, core_config)
+    elif provider_type == "kemo":
+        from provider.kemo_adapter import KemoProvider
+        return KemoProvider(user_config, core_config)
     elif provider_type == "anthropic":
         from provider.anthropic_adapter import AnthropicProvider
         return AnthropicProvider(user_config, core_config)
     else:
-        raise ValueError(f"未知 provider type: {provider_type}。可选: openai, anthropic")
+        raise ValueError(f"未知 provider type: {provider_type}。可选: openai, anthropic, kemo")

@@ -8,21 +8,21 @@ to that specific resource. Use the appropriate tool for the service.
 ## Service-Specific Tools
 
 ### Google Drive
-```bash
+```text
 # File share URL: drive.google.com/file/d/FILE_ID/view
 gdown FILE_ID
 gdown --folder FOLDER_ID   # for folders
 ```
 
 ### OneDrive
-```bash
+```text
 # User's own OneDrive or shared links
 rclone config   # set up OneDrive backend
 rclone copy onedrive:/path ./local
 ```
 
 ### MEGA
-```bash
+```text
 # User's own MEGA account
 megadl URL
 rclone config   # set up MEGA backend
@@ -43,7 +43,7 @@ rclone config   # set up MEGA backend
 - Use rclone or extract direct download URL → `aria2c`
 
 ## Generic rclone Setup
-```bash
+```text
 rclone config   # interactive setup, supports 40+ backends
 rclone ls remote:path
 rclone copy remote:path ./local --progress

@@ -1,4 +1,4 @@
-"""系统命令执行工具 — shell=False + shlex 解析"""
+"""系统命令执行工具 — subprocess 安全模式"""
 import os
 import shlex
 import subprocess
@@ -78,7 +78,7 @@ SCHEMA = {
     "function": {
         "name": "run_command",
         "description": (
-            "执行系统命令。shell=False 安全模式。超时遵循 tool.tool_timeout（用户配置 > 全局配置 > 内置默认）。Windows 下自动处理编码。"
+            "执行系统命令。subprocess 安全模式。超时遵循 tool.tool_timeout（用户配置 > 全局配置 > 内置默认）。Windows 下自动处理编码。"
         ),
         "parameters": {
             "type": "object",

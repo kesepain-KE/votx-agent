@@ -17,7 +17,7 @@ A comprehensive OpenClaw skill for viewing, extracting, editing, and manipulatin
 
 Install required Python packages:
 
-```bash
+```text
 pip3 install pdfplumber PyPDF2 reportlab
 ```
 
@@ -25,7 +25,7 @@ pip3 install pdfplumber PyPDF2 reportlab
 
 1. Download `pdf-tools-clawhub.zip`
 2. Extract to your OpenClaw skills directory:
-   ```bash
+   ```text
    unzip pdf-tools-clawhub.zip -d ~/.openclaw/workspace/skills/
    mv ~/.openclaw/workspace/skills/pdf-tools-for-clawhub ~/.openclaw/workspace/skills/pdf-tools
    ```
@@ -48,7 +48,7 @@ The agent will automatically use the appropriate script!
 
 ### Extract Text
 
-```bash
+```text
 scripts/extract_text.py document.pdf
 scripts/extract_text.py document.pdf -p 1 3 5
 scripts/extract_text.py document.pdf -o output.txt
@@ -57,13 +57,13 @@ scripts/extract_text.py document.pdf -o output.txt
 ### Edit Text
 
 Add text overlay:
-```bash
+```text
 scripts/edit_text.py input.pdf -o output.pdf --overlay "New Text" --page 1 --x 100 --y 700
 scripts/edit_text.py input.pdf -o output.pdf --overlay "Watermark" --page 1 --x 200 --y 400 --font-size 20
 ```
 
 Replace text (limited due to PDF format complexity):
-```bash
+```text
 scripts/edit_text.py input.pdf -o output.pdf --replace "Old Text" "New Text"
 ```
 
@@ -71,32 +71,32 @@ scripts/edit_text.py input.pdf -o output.pdf --replace "Old Text" "New Text"
 
 ### Get PDF Info
 
-```bash
+```text
 scripts/pdf_info.py document.pdf
 scripts/pdf_info.py document.pdf -f json
 ```
 
 ### Merge PDFs
 
-```bash
+```text
 scripts/merge_pdfs.py file1.pdf file2.pdf file3.pdf -o merged.pdf
 ```
 
 ### Split PDF
 
 Split into individual pages:
-```bash
+```text
 scripts/split_pdf.py document.pdf -o output_dir/
 ```
 
 Split by page ranges:
-```bash
+```text
 scripts/split_pdf.py document.pdf -o output_dir/ -m ranges -r "1-3,5-7,10-12"
 ```
 
 ### Rotate Pages
 
-```bash
+```text
 scripts/rotate_pdf.py document.pdf -o rotated.pdf -r 90
 scripts/rotate_pdf.py document.pdf -o rotated.pdf -r 180 -p 1 3 5
 ```
@@ -109,7 +109,7 @@ For detailed library documentation and advanced patterns, see [references/librar
 
 ### Extract and translate a PDF
 
-```bash
+```text
 # Extract text
 scripts/extract_text.py original.pdf -o extracted.txt
 
@@ -121,7 +121,7 @@ scripts/extract_text.py original.pdf -o extracted.txt
 
 ### Add watermark to all pages
 
-```bash
+```text
 # For each page, add overlay with watermark text
 scripts/edit_text.py input.pdf -o watermarked.pdf --overlay "DRAFT" --page 1 --x 300 --y 400 --font-size 48
 ```

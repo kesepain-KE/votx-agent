@@ -56,7 +56,7 @@ users/<用户名>/
 
 可以通过 Web 创建，也可以使用命令：
 
-```bash
+```text
 python set_user.py add
 ```
 
@@ -162,7 +162,7 @@ Anthropic 示例：
 
 ## 环境变量优先级
 
-通常建议在用户 `config.json` 中配置模型。环境变量适合 Docker、服务器或临时覆盖。
+通常建议在用户 `config.json` 中配置模型。环境变量适合本地服务或临时覆盖。
 
 OpenAI 兼容接口：
 

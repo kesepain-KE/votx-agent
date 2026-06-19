@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """votx-agent 用户管理 — 创建 / 编辑 / 查看用户
 
 每个用户有独立的模型和 API Key。不填 Key 则走 .env 全局配置。
@@ -29,6 +28,14 @@ MODELS = {
 }
 OTHER_OPENAI_CHOICE = "3"
 OTHER_ANTHROPIC_CHOICE = "4"
+KEMO_CHOICE = "5"
+KEMO_DEFAULT_BASE_URL = "http://127.0.0.1:8741/v1"
+KEMO_CHAT_MODELS = [
+    "stepfun-step-3.7-flash",
+    "stepfun-step-3.5-flash-2603",
+    "stepfun-step-3.5-flash",
+    "stepfun-step-router-v1",
+]
 
 # ── 默认人设模板 ───────────────────────────────
 
@@ -423,6 +430,40 @@ def _configure_anthropic_compatible_vendor(current: dict | None = None) -> dict:
     }
 
 
+def _configure_kemo_provider(current: dict | None = None) -> dict:
+    """配置本地 Kemo LLM Adapter。"""
+    current = current or {}
+    print("\n  Kemo LLM Adapter 本地网关。")
+    cur_base_url = (
+        current.get("base_url", "").strip()
+        or os.environ.get("KEMO_BASE_URL", "").strip()
+        or KEMO_DEFAULT_BASE_URL
+    )
+    base_url = input(f"  Base URL [{cur_base_url}]: ").strip() or cur_base_url
+    api_key = _prompt_existing_key(
+        current.get("api_key", "").strip(),
+        "  API Key (留空使用 KEMO_API_KEY): ",
+    )
+    model = _pick_model_from_list(KEMO_CHAT_MODELS, current.get("model", "").strip() or KEMO_CHAT_MODELS[0])
+
+    return {
+        "type": "kemo",
+        "api_style": "chat",
+        "model": model,
+        "api_key": api_key,
+        "base_url": base_url,
+        "vision_model": model,
+        "audio_transcription_model": current.get("audio_transcription_model") or "stepfun-stepaudio-2.5-asr",
+        "image_generation_model": current.get("image_generation_model", ""),
+        "image_edit_model": current.get("image_edit_model") or "stepfun-step-image-edit-2",
+        "speech_generation_model": current.get("speech_generation_model") or "stepfun-stepaudio-2.5-tts",
+        "speech_to_speech_model": current.get("speech_to_speech_model", ""),
+        "video_generation_model": current.get("video_generation_model", ""),
+        "embedding_model": current.get("embedding_model", ""),
+        "rerank_model": current.get("rerank_model", ""),
+    }
+
+
 def _pick_provider_config(current: dict | None = None, allow_keep: bool = False) -> dict | None:
     """选择并配置 provider。默认仅展示两个 DeepSeek 模型和其他厂商入口。"""
     current = current or {}
@@ -434,10 +475,12 @@ def _pick_provider_config(current: dict | None = None, allow_keep: bool = False)
     for k, (name, desc) in MODELS.items():
         marker = " (当前)" if name == default_model else ""
         print(f"  {k}. {name} — {desc}{marker}")
-    openai_marker = " (当前)" if default_model and default_choice == "" and provider_type != "anthropic" else ""
+    openai_marker = " (当前)" if default_model and default_choice == "" and provider_type not in ("anthropic", "kemo") else ""
     anthropic_marker = " (当前)" if default_model and provider_type == "anthropic" else ""
+    kemo_marker = " (当前)" if provider_type == "kemo" else ""
     print(f"  {OTHER_OPENAI_CHOICE}. 其他厂商 — OpenAI 兼容接口{openai_marker}")
     print(f"  {OTHER_ANTHROPIC_CHOICE}. 其他厂商 — Anthropic 兼容接口{anthropic_marker}")
+    print(f"  {KEMO_CHOICE}. Kemo LLM Adapter — 本地多模态网关{kemo_marker}")
 
     if allow_keep:
         prompt_default = default_choice or "回车保持"
@@ -456,6 +499,8 @@ def _pick_provider_config(current: dict | None = None, allow_keep: bool = False)
         return _configure_openai_compatible_vendor(current)
     if choice == OTHER_ANTHROPIC_CHOICE:
         return _configure_anthropic_compatible_vendor(current)
+    if choice == KEMO_CHOICE:
+        return _configure_kemo_provider(current)
 
     print("  无效选择，默认使用 deepseek-v4-flash")
     return _configure_deepseek_provider(MODELS["1"][0], current)
@@ -513,15 +558,20 @@ def add_user(name: str = "") -> str | None:
     # config.json
     config = {
         "provider": {
-            **provider_config,
             "think": think,
             "stream": stream,
             "timeout": 120,
             "vision_model": "",
             "audio_transcription_model": "",
             "image_generation_model": "",
+            "image_edit_model": "",
             "speech_generation_model": "",
+            "speech_to_speech_model": "",
+            "video_generation_model": "",
+            "embedding_model": "",
+            "rerank_model": "",
             "capabilities_override": None,
+            **provider_config,
         },
         "history": {
             "data": f"{name}_chat_data.json",
@@ -585,6 +635,18 @@ def edit_user(name: str):
         config["provider"]["stream"] = True
     elif stream_choice in ("n", "no"):
         config["provider"]["stream"] = False
+
+    provider_cfg = config.setdefault("provider", {})
+    provider_cfg.setdefault("vision_model", "")
+    provider_cfg.setdefault("audio_transcription_model", "")
+    provider_cfg.setdefault("image_generation_model", "")
+    provider_cfg.setdefault("image_edit_model", "")
+    provider_cfg.setdefault("speech_generation_model", "")
+    provider_cfg.setdefault("speech_to_speech_model", "")
+    provider_cfg.setdefault("video_generation_model", "")
+    provider_cfg.setdefault("embedding_model", "")
+    provider_cfg.setdefault("rerank_model", "")
+    provider_cfg.setdefault("capabilities_override", None)
 
     _write_config(user_dir, config)
     print(f"  用户 '{name}' 已更新")

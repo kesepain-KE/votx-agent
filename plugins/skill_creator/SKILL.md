@@ -56,7 +56,7 @@ skill-name/
 │   │   └── description: (required)
 │   └── Markdown instructions (required)
 └── Bundled Resources (optional)
-    ├── scripts/          - Executable code (Python/Bash/etc.)
+    ├── scripts/          - Executable code (Python/etc.)
     ├── references/       - Documentation intended to be loaded into context as needed
     └── assets/           - Files used in output (templates, icons, fonts, etc.)
 ```
@@ -72,7 +72,7 @@ Every SKILL.md consists of:
 
 ##### Scripts (`scripts/`)
 
-Executable code (Python/Bash/etc.) for tasks that require deterministic reliability or are repeatedly rewritten.
+Executable code (Python/etc.) for tasks that require deterministic reliability or are repeatedly rewritten.
 
 - **When to include**: When the same code is being rewritten repeatedly or deterministic reliability is needed
 - **Example**: `scripts/rotate_pdf.py` for PDF rotation tasks
@@ -263,7 +263,7 @@ When creating a new skill from scratch, always run the `init_skill.py` script. T
 
 Usage:
 
-```bash
+```text
 scripts/init_skill.py <skill-name> --path <output-directory>
 ```
 
@@ -321,13 +321,13 @@ Write instructions for using the skill and its bundled resources.
 
 Once development of the skill is complete, it must be packaged into a distributable .skill file that gets shared with the user. The packaging process automatically validates the skill first to ensure it meets all requirements:
 
-```bash
+```text
 scripts/package_skill.py <path/to/skill-folder>
 ```
 
 Optional output directory specification:
 
-```bash
+```text
 scripts/package_skill.py <path/to/skill-folder> ./dist
 ```
 

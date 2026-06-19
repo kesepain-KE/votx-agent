@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Split PDF into separate files by page or page ranges."""
 
 import sys

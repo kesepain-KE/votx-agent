@@ -10,7 +10,6 @@
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![LLM](https://img.shields.io/badge/LLM-OpenAI%20compatible%20%7C%20Anthropic-brightgreen)](https://platform.openai.com/)
 [![Web](https://img.shields.io/badge/web-Flask%20%2B%20React%20%2B%20TypeScript-lightgrey)](https://flask.palletsprojects.com/)
-[![Docker](https://img.shields.io/badge/docker-ready-blue)](https://www.docker.com/)
 
 [中文](./README.md) | English
 
@@ -50,24 +49,19 @@ VOTX Agent is a local multi-user AI Agent framework with Web UI, CLI, tool calli
 - **External message routing**: QQ/NapCat/OneBot and Telegram with image, voice, and file attachments.
 - **Multimodal tools**: image understanding, audio transcription, image generation, and speech generation.
 - **Global/user knowledge bases**: shared `knowledge/` plus per-user `users/<name>/knowledge/`.
-- **Linux/Docker updater**: `update.py` updates framework code while preserving user data.
 
 ![VOTX Agent Web UI](votx-agent-web-UI.png)
 
 ## Install
 
-### Docker
+### Plain Python
 
-```bash
+```text
 git clone https://github.com/kesepain-KE/votx-agent.git
 cd votx-agent
-bash install_docker.sh
-```
-
-Or start manually:
-
-```bash
-docker compose up -d
+python setup.py
+python set_user.py add
+python start_web.py
 ```
 
 Open:
@@ -76,42 +70,7 @@ Open:
 http://localhost:1478
 ```
 
-Create a user:
-
-```bash
-docker exec -it votx-agent python set_user.py add
-```
-
-For Docker external message routing, use:
-
-```text
-message-runtime/config.json
-```
-
-and set:
-
-```env
-VOTX_MESSAGE_CONFIG=/app/message-runtime/config.json
-```
-
-### Native Linux
-
-```bash
-git clone https://github.com/kesepain-KE/votx-agent.git
-cd votx-agent
-bash install.sh
-votx
-```
-
-### Windows
-
-Development run:
-
-```powershell
-python start_web.py
-```
-
-Windows package build:
+### Windows Package Build
 
 ```cmd
 build_windows.bat
@@ -123,17 +82,7 @@ Output:
 dist\votx-agent-windows.zip
 ```
 
-The Windows special build does not run the automatic updater. It only prints local/remote version information when starting the Web server.
-
-### Manual Install
-
-```bash
-git clone https://github.com/kesepain-KE/votx-agent.git
-cd votx-agent
-python setup.py
-python set_user.py add
-python start_web.py
-```
+The Web server prints local/remote version information on startup.
 
 ## Model Configuration
 
@@ -207,7 +156,12 @@ Capability names:
 vision
 audio_transcription
 image_generation
+image_edit
 speech_generation
+speech_to_speech
+video_generation
+embedding
+rerank
 ```
 
 Advanced configuration:
@@ -219,11 +173,21 @@ Advanced configuration:
       "vision",
       "audio_transcription",
       "image_generation",
-      "speech_generation"
+      "image_edit",
+      "speech_generation",
+      "speech_to_speech",
+      "video_generation",
+      "embedding",
+      "rerank"
     ],
     "audio_transcription_model": "whisper-1",
     "image_generation_model": "dall-e-3",
-    "speech_generation_model": "tts-1"
+    "image_edit_model": "stepfun-step-image-edit-2",
+    "speech_generation_model": "tts-1",
+    "speech_to_speech_model": "",
+    "video_generation_model": "",
+    "embedding_model": "",
+    "rerank_model": ""
   }
 }
 ```
@@ -241,25 +205,21 @@ Common tools:
 | `vision_analyze` | Image understanding, supports multiple images |
 | `audio_transcribe` | Audio to text |
 | `image_generate` | Text to image, defaults to `users/<name>/download/` |
+| `image_edit` | Image editing, defaults to `users/<name>/download/` |
 | `speech_generate` | Text to speech, defaults to `users/<name>/download/` |
+| `speech_to_speech` | Speech-to-speech, defaults to `users/<name>/download/` |
+| `video_generate` / `video_status` / `video_download` | Video generation job creation, status, and download |
+| `embedding_create` | Text embeddings |
+| `rerank_documents` | Document reranking |
 
 ## Usage
 
-```bash
+```text
 python start_web.py
 python start_web.py --port=8080
 python start_web.py --host=0.0.0.0 --port=1478
 python start.py
 python start.py --user <username> --prompt "<message>" --once
-```
-
-After Linux installation:
-
-```bash
-votx
-votx cli
-votx web --port=8080
-votx web --host=0.0.0.0 --port=1478
 ```
 
 LAN access:
@@ -292,12 +252,6 @@ Config priority:
 VOTX_MESSAGE_CONFIG
 message/config.local.json
 message/config.json
-```
-
-Docker recommended path:
-
-```text
-message-runtime/config.json
 ```
 
 OneBot/NapCat example:
@@ -440,7 +394,6 @@ votx-agent/
 ├── cron/               # Scheduler
 ├── knowledge/          # Global knowledge base
 ├── message/            # OneBot/NapCat, Telegram, push queue
-├── message-runtime/    # Docker external message runtime config
 ├── plugins/            # Built-in skills
 ├── provider/           # OpenAI-compatible, Anthropic, multimodal capability layer
 ├── run/                # Conversation engine, history, tool runner
@@ -448,40 +401,22 @@ votx-agent/
 ├── users/              # User data
 ├── web/                # Flask + React + TypeScript + Vite
 ├── AGENTS.md           # Agent operation manual
-├── votx.py             # Linux votx command entry
 ├── start.py            # CLI/Web entry
 ├── start_web.py        # Web-only entry
-├── update.py           # Linux/Docker updater
 ├── version.json        # Current version
 └── build_windows.bat   # Windows package script
 ```
 
 ## Updates
 
-Native Linux:
-
-```bash
-python update.py --check
-python update.py --native
-```
-
-Docker:
-
-```bash
-python update.py --check
-python update.py --docker
-```
-
-The updater overwrites framework code and `plugins/`, while preserving `users/`, `skills/`, `.env`, `message-runtime/`, and message queues. `knowledge/` update is interactive: merge, skip, or full overwrite.
-
-After an update, existing user directories are repaired non-destructively. Missing directories such as `avatar/`, `task-plan/`, `tasks/`, `improve/*/permanent`, and `improve/*/temporary` are created, while existing `config.json`, `self_soul.md`, and user files are left untouched.
+This repository no longer includes an automatic updater. To update source code, pull the new revision manually and back up `users/`, `skills/`, `.env`, `message/config.local.json`, and message queues before overwriting files.
 
 ## Windows Package Contents
 
 Included:
 
 ```text
-agents/ config/ cron/ message/ message-runtime/ plugins/ provider/ run/
+agents/ config/ cron/ message/ plugins/ provider/ run/
 skills/ web/ users/ tmp/ knowledge/
 paths.py AGENTS.md set_user.py setup.py version.json .env.example
 ```
@@ -489,14 +424,14 @@ paths.py AGENTS.md set_user.py setup.py version.json .env.example
 Excluded:
 
 ```text
-update.py tests/ 使用手册-AI/ tools/ web/node_modules/
+tests/ 使用手册-AI/ tools/ web/node_modules/
 message/config.json message/config.local.json message/identity/identity_map.json
 message/push_queue/ .env .session_secret *.pyc *.pyo __pycache__/
 ```
 
 ## Development
 
-```bash
+```text
 python -m py_compile <file.py>
 python -m compileall -q .
 
