@@ -184,9 +184,7 @@ export function RightPanel(props: Props) {
               <div className="debug-grid" style={{ marginTop: 10 }}>
                 <div className="form-row">
                   <label>接口协议</label>
-                  <select value={config.type} onChange={(e) => { const v = e.target.value as 'openai' | 'anthropic' | 'kemo'; set((s: AppStore) => ({ config: { ...s.config, type: v } })); void props.saveConfigField('type', v) }}>
-                    <option value="openai">OpenAI 协议 (Chat Completions)</option>
-                    <option value="anthropic">Anthropic 协议 (Messages)</option>
+                  <select value={config.type} onChange={(e) => { const v = e.target.value as 'kemo'; set((s: AppStore) => ({ config: { ...s.config, type: v } })); void props.saveConfigField('type', v) }}>
                     <option value="kemo">Kemo LLM Adapter</option>
                   </select>
                 </div>
@@ -198,15 +196,6 @@ export function RightPanel(props: Props) {
                   <label>base-url</label>
                   <input value={config.baseUrl} onChange={(e) => set((s: AppStore) => ({ config: { ...s.config, baseUrl: e.target.value } }))} onBlur={() => props.saveConfigField('base_url', get().config.baseUrl)} />
                 </div>
-                {config.type !== 'anthropic' && (
-                  <div className="form-row">
-                    <label>api 风格</label>
-                    <select value={config.apiStyle} onChange={(e) => { set((s: AppStore) => ({ config: { ...s.config, apiStyle: e.target.value } })); void props.saveConfigField('api_style', e.target.value) }}>
-                      <option value="responses">Responses API (完整推理，较慢)</option>
-                      <option value="chat">Chat Completions API (流式，较快)</option>
-                    </select>
-                  </div>
-                )}
                 <div className="form-row">
                   <label>key</label>
                   <div className="key-shell">

@@ -114,8 +114,8 @@ def api_update_config():
         provider = config.setdefault("provider", {})
 
         # Provider 字段白名单
-        allowed = {"type", "api_style", "model", "api_key", "base_url", "think", "stream",
-                   "timeout", "max_tokens", "thinking",
+        allowed = {"type", "model", "api_key", "base_url", "think", "stream",
+                   "timeout",
                    "vision_model", "audio_transcription_model",
                    "image_generation_model", "image_edit_model",
                    "speech_generation_model", "speech_to_speech_model",
@@ -139,7 +139,7 @@ def api_update_config():
             json.dump(config, f, ensure_ascii=False, indent=2)
 
         # 关键字段变更 → 重建 Provider
-        critical = {"type", "api_style", "api_key", "base_url", "capabilities_override",
+        critical = {"type", "api_key", "base_url", "capabilities_override",
                     "vision_model", "audio_transcription_model",
                     "image_generation_model", "image_edit_model",
                     "speech_generation_model", "speech_to_speech_model",

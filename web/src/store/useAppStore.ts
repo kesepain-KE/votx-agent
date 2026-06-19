@@ -59,8 +59,7 @@ export const useAppStore = create<AppStore>(() => ({
   promptTab: 'system',
   statusSubTab: 'logs',
   config: {
-    type: 'openai',
-    apiStyle: 'chat',
+    type: 'kemo',
     model: '',
     baseUrl: '',
     keyDraft: '',

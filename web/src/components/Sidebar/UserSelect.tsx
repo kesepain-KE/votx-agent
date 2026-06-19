@@ -8,8 +8,7 @@ interface Props {
 }
 
 const FRIENDLY_PROVIDER: Record<string, string> = {
-  openai: 'OpenAI', anthropic: 'Anthropic', deepseek: 'DeepSeek',
-  azure_openai: 'Azure', google_gemini: 'Gemini',
+  kemo: 'Kemo',
 }
 
 export function UserSelect({ selectUser }: Props) {

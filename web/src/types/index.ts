@@ -97,8 +97,7 @@ export interface CapabilitiesInfo {
 
 /** 描述 UserConfig 数据结构。 */
 export interface UserConfig {
-  type: 'openai' | 'anthropic' | 'kemo'
-  apiStyle: string
+  type: 'kemo'
   model: string
   baseUrl: string
   keyDraft: string
@@ -285,7 +284,6 @@ export interface RawConfig {
   error?: string
   provider?: {
     type: string
-    api_style: string
     think: boolean
     stream: boolean
     model: string
