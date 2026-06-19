@@ -12,7 +12,6 @@
 import json
 import os
 import sys
-import urllib.request
 from pathlib import Path
 
 try:
@@ -22,19 +21,14 @@ except Exception:
     ROOT = Path(__file__).parent
 USERS_DIR = ROOT / "users"
 
-MODELS = {
-    "1": ("deepseek-v4-flash", "快速便宜，日常推荐"),
-    "2": ("deepseek-v4-pro", "更强推理，复杂任务"),
-}
-OTHER_OPENAI_CHOICE = "3"
-OTHER_ANTHROPIC_CHOICE = "4"
-KEMO_CHOICE = "5"
 KEMO_DEFAULT_BASE_URL = "http://127.0.0.1:8741/v1"
 KEMO_CHAT_MODELS = [
     "stepfun-step-3.7-flash",
     "stepfun-step-3.5-flash-2603",
     "stepfun-step-3.5-flash",
     "stepfun-step-router-v1",
+    "deepseek-deepseek-v4-flash",
+    "deepseek-deepseek-v4-pro",
 ]
 
 # ── 默认人设模板 ───────────────────────────────
@@ -165,25 +159,6 @@ def list_users() -> list[str]:
 
 # ── 交互式输入 ──────────────────────────────────
 
-def _model_to_key(model: str) -> str:
-    """执行 model_to_key 内部辅助逻辑。"""
-    for k, (name, _) in MODELS.items():
-        if name == model:
-            return k
-    return ""
-
-
-def _split_model_names(raw: str) -> list[str]:
-    """把用户输入的额外模型名拆成列表，支持中英文逗号和分号。"""
-    names = []
-    for part in raw.replace("，", ",").replace("；", ";").split(","):
-        for item in part.split(";"):
-            name = item.strip()
-            if name:
-                names.append(name)
-    return names
-
-
 def _dedupe_models(models: list[str]) -> list[str]:
     """模型名去重，保持原始顺序。"""
     seen = set()
@@ -195,102 +170,6 @@ def _dedupe_models(models: list[str]) -> list[str]:
         seen.add(name)
         result.append(name)
     return result
-
-
-def _models_from_payload(payload) -> list[str]:
-    """兼容 OpenAI /models 常见返回结构，提取模型名。"""
-    if isinstance(payload, dict):
-        items = payload.get("data") or payload.get("models") or []
-    elif isinstance(payload, list):
-        items = payload
-    else:
-        items = []
-
-    models = []
-    for item in items:
-        if isinstance(item, str):
-            models.append(item)
-        elif isinstance(item, dict):
-            models.append(item.get("id") or item.get("name") or item.get("model") or "")
-        else:
-            models.append(getattr(item, "id", "") or getattr(item, "name", ""))
-    return _dedupe_models(models)
-
-
-def _fetch_vendor_models(base_url: str, api_key: str) -> tuple[list[str], str]:
-    """尝试从 OpenAI 兼容接口获取模型列表。返回 (models, error)。"""
-    errors = []
-
-    try:
-        from openai import OpenAI
-        client = OpenAI(api_key=api_key, base_url=base_url, timeout=15.0)
-        models = _models_from_payload(client.models.list().data)
-        if models:
-            return models, ""
-    except Exception as e:
-        errors.append(f"OpenAI SDK: {e}")
-
-    try:
-        url = base_url.rstrip("/") + "/models"
-        req = urllib.request.Request(
-            url,
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Accept": "application/json",
-                "User-Agent": "votx-agent-setup",
-            },
-        )
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            payload = json.loads(resp.read().decode("utf-8"))
-        models = _models_from_payload(payload)
-        if models:
-            return models, ""
-    except Exception as e:
-        errors.append(f"HTTP GET /models: {e}")
-
-    return [], "；".join(errors)
-
-
-def _fetch_anthropic_vendor_models(base_url: str, api_key: str) -> tuple[list[str], str]:
-    """尝试从 Anthropic 兼容接口获取模型列表。返回 (models, error)。"""
-    errors = []
-
-    try:
-        from anthropic import Anthropic
-        client = Anthropic(api_key=api_key, base_url=base_url or None, timeout=15.0)
-        model_api = getattr(client, "models", None)
-        if model_api and hasattr(model_api, "list"):
-            response = model_api.list()
-            models = _models_from_payload(getattr(response, "data", response))
-            if models:
-                return models, ""
-    except Exception as e:
-        errors.append(f"Anthropic SDK: {e}")
-
-    headers = {
-        "x-api-key": api_key,
-        "Authorization": f"Bearer {api_key}",
-        "anthropic-version": "2023-06-01",
-        "Accept": "application/json",
-        "User-Agent": "votx-agent-setup",
-    }
-    base = base_url.rstrip("/")
-    candidates = [base + "/models"]
-    if not base.endswith("/v1"):
-        candidates.append(base + "/v1/models")
-
-    for url in candidates:
-        try:
-            req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                payload = json.loads(resp.read().decode("utf-8"))
-            models = _models_from_payload(payload)
-            if models:
-                return models, ""
-        except Exception as e:
-            errors.append(f"HTTP GET {url}: {e}")
-
-    return [], "；".join(errors)
 
 
 def _pick_model_from_list(models: list[str], default: str = "") -> str:
@@ -335,101 +214,6 @@ def _prompt_existing_key(current_key: str, empty_hint: str) -> str:
     return input(empty_hint).strip()
 
 
-def _configure_deepseek_provider(model: str, current: dict | None = None) -> dict:
-    """配置内置 DeepSeek 模型。"""
-    current = current or {}
-    print("\n  API Key (留空使用 .env 全局配置):")
-    api_key = _prompt_existing_key(current.get("api_key", "").strip(), "  Key: ")
-    return {
-        "type": "openai",
-        "api_style": "chat",
-        "model": model,
-        "api_key": api_key,
-        "base_url": "",
-    }
-
-
-def _configure_openai_compatible_vendor(current: dict | None = None) -> dict:
-    """配置 OpenAI 兼容的其他厂商，并尝试拉取模型列表。"""
-    current = current or {}
-    print("\n  其他厂商使用 OpenAI 兼容接口。")
-    cur_base_url = current.get("base_url", "").strip()
-    while True:
-        prompt = f"  Base URL [{cur_base_url}]: " if cur_base_url else "  Base URL: "
-        base_url = input(prompt).strip() or cur_base_url
-        if base_url:
-            break
-        print("  Base URL 不能为空")
-
-    while True:
-        api_key = _prompt_existing_key(current.get("api_key", "").strip(), "  API Key: ")
-        if api_key:
-            break
-        print("  API Key 不能为空，自动获取模型列表需要密钥")
-
-    print("  正在获取厂商模型列表...")
-    models, fetch_error = _fetch_vendor_models(base_url, api_key)
-    if models:
-        print(f"  获取到 {len(models)} 个模型")
-    else:
-        print(f"  未能自动获取模型列表: {fetch_error or '未知错误'}")
-
-    extra = input("  额外添加模型名（可选，多个用逗号分隔）: ").strip()
-    models = _dedupe_models(models + _split_model_names(extra))
-    model = _pick_model_from_list(models, current.get("model", "").strip())
-    while not model:
-        print("  模型名不能为空")
-        model = input("  输入模型名: ").strip()
-
-    return {
-        "type": "openai",
-        "api_style": "chat",
-        "model": model,
-        "api_key": api_key,
-        "base_url": base_url,
-    }
-
-
-def _configure_anthropic_compatible_vendor(current: dict | None = None) -> dict:
-    """配置 Anthropic Messages 兼容的其他厂商，并尝试拉取模型列表。"""
-    current = current or {}
-    print("\n  其他厂商使用 Anthropic Messages 兼容接口。")
-    cur_base_url = current.get("base_url", "").strip()
-    while True:
-        prompt = f"  Base URL [{cur_base_url}]: " if cur_base_url else "  Base URL: "
-        base_url = input(prompt).strip() or cur_base_url
-        if base_url:
-            break
-        print("  Base URL 不能为空")
-
-    while True:
-        api_key = _prompt_existing_key(current.get("api_key", "").strip(), "  API Key: ")
-        if api_key:
-            break
-        print("  API Key 不能为空，自动获取模型列表需要密钥")
-
-    print("  正在获取厂商模型列表...")
-    models, fetch_error = _fetch_anthropic_vendor_models(base_url, api_key)
-    if models:
-        print(f"  获取到 {len(models)} 个模型")
-    else:
-        print(f"  未能自动获取模型列表: {fetch_error or '未知错误'}")
-
-    extra = input("  额外添加模型名（可选，多个用逗号分隔）: ").strip()
-    models = _dedupe_models(models + _split_model_names(extra))
-    model = _pick_model_from_list(models, current.get("model", "").strip())
-    while not model:
-        print("  模型名不能为空")
-        model = input("  输入模型名: ").strip()
-
-    return {
-        "type": "anthropic",
-        "model": model,
-        "api_key": api_key,
-        "base_url": base_url,
-    }
-
-
 def _configure_kemo_provider(current: dict | None = None) -> dict:
     """配置本地 Kemo LLM Adapter。"""
     current = current or {}
@@ -448,7 +232,6 @@ def _configure_kemo_provider(current: dict | None = None) -> dict:
 
     return {
         "type": "kemo",
-        "api_style": "chat",
         "model": model,
         "api_key": api_key,
         "base_url": base_url,
@@ -465,45 +248,21 @@ def _configure_kemo_provider(current: dict | None = None) -> dict:
 
 
 def _pick_provider_config(current: dict | None = None, allow_keep: bool = False) -> dict | None:
-    """选择并配置 provider。默认仅展示两个 DeepSeek 模型和其他厂商入口。"""
+    """选择并配置 provider。仅支持 Kemo LLM Adapter 本地网关。"""
     current = current or {}
     default_model = current.get("model", "")
-    provider_type = current.get("type", "openai")
-    default_choice = _model_to_key(default_model)
 
-    print("\n  模型:")
-    for k, (name, desc) in MODELS.items():
-        marker = " (当前)" if name == default_model else ""
-        print(f"  {k}. {name} — {desc}{marker}")
-    openai_marker = " (当前)" if default_model and default_choice == "" and provider_type not in ("anthropic", "kemo") else ""
-    anthropic_marker = " (当前)" if default_model and provider_type == "anthropic" else ""
-    kemo_marker = " (当前)" if provider_type == "kemo" else ""
-    print(f"  {OTHER_OPENAI_CHOICE}. 其他厂商 — OpenAI 兼容接口{openai_marker}")
-    print(f"  {OTHER_ANTHROPIC_CHOICE}. 其他厂商 — Anthropic 兼容接口{anthropic_marker}")
-    print(f"  {KEMO_CHOICE}. Kemo LLM Adapter — 本地多模态网关{kemo_marker}")
+    print("\n  Provider: Kemo LLM Adapter — 本地多模态网关")
+    print(f"  当前模型: {default_model or '(未设置)'}")
 
     if allow_keep:
-        prompt_default = default_choice or "回车保持"
+        choice = input("  修改配置? (回车保持 / y=重新配置): ").strip().lower()
+        if not choice:
+            return None
     else:
-        prompt_default = "1"
-    choice = input(f"  选择 [{prompt_default}]: ").strip()
+        input("  按回车继续配置...")
 
-    if allow_keep and not choice:
-        return None
-    choice = choice or "1"
-
-    for k, (name, _) in MODELS.items():
-        if choice == k:
-            return _configure_deepseek_provider(name, current)
-    if choice == OTHER_OPENAI_CHOICE:
-        return _configure_openai_compatible_vendor(current)
-    if choice == OTHER_ANTHROPIC_CHOICE:
-        return _configure_anthropic_compatible_vendor(current)
-    if choice == KEMO_CHOICE:
-        return _configure_kemo_provider(current)
-
-    print("  无效选择，默认使用 deepseek-v4-flash")
-    return _configure_deepseek_provider(MODELS["1"][0], current)
+    return _configure_kemo_provider(current)
 
 
 def _edit_api_key_only(config: dict, cfg: dict):

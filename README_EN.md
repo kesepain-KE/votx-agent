@@ -8,7 +8,7 @@
 
 [![License](https://img.shields.io/badge/license-MIT-orange)](./LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
-[![LLM](https://img.shields.io/badge/LLM-OpenAI%20compatible%20%7C%20Anthropic-brightgreen)](https://platform.openai.com/)
+[![LLM](https://img.shields.io/badge/LLM-Kemo%20LLM%20Adapter-brightgreen)](http://127.0.0.1:8741/)
 [![Web](https://img.shields.io/badge/web-Flask%20%2B%20React%20%2B%20TypeScript-lightgrey)](https://flask.palletsprojects.com/)
 
 [中文](./README.md) | English
@@ -39,7 +39,7 @@ VOTX Agent is a local multi-user AI Agent framework with Web UI, CLI, tool calli
 
 ### Features
 
-- **Multiple providers**: OpenAI-compatible APIs, Responses API, Chat Completions, and Anthropic Messages API.
+- **Multiple providers**: Kemo LLM Adapter local multimodal gateway, unified routing for all models and capabilities.
 - **Multi-user isolation**: each user has independent `config.json`, `self_soul.md`, history, files, memory, and knowledge base.
 - **Shared Web/CLI engine**: `run/engine.py` handles system prompts, tool calls, and history persistence.
 - **Skills/Plugins architecture**: `plugins/` for built-in skills, `skills/` for user extensions.
@@ -95,39 +95,24 @@ users/<username>/config.json
 The setup model menu:
 
 ```text
-1. deepseek-v4-flash   — fast and inexpensive
-2. deepseek-v4-pro     — stronger reasoning
-3. Other provider      — OpenAI-compatible API
-4. Other provider      — Anthropic-compatible API
+Kemo LLM Adapter — Local multimodal gateway
+Available models: stepfun-step-3.7-flash, deepseek-v4-flash, etc.
 ```
 
-When choosing another provider, the script asks for `base_url` and `api_key`, then tries to fetch the provider's available model list. If the provider does not return a model list, you can manually add extra model names.
+Configure Base URL and API Key to get started. You can manually enter other model names.
 
-OpenAI-compatible example:
+Kemo configuration example:
 
 ```json
 {
   "provider": {
-    "type": "openai",
-    "api_style": "chat",
-    "model": "deepseek-v4-flash",
-    "api_key": "<your-api-key>",
-    "base_url": "https://api.deepseek.com",
+    "type": "kemo",
+    "model": "stepfun-step-3.7-flash",
+    "api_key": "sk-kemo-deepseek",
+    "base_url": "http://127.0.0.1:8741/v1",
     "stream": true,
-    "think": false
-  }
-}
-```
-
-Anthropic example:
-
-```json
-{
-  "provider": {
-    "type": "anthropic",
-    "model": "claude-3-5-sonnet-latest",
-    "api_key": "<your-api-key>",
-    "stream": true
+    "think": true,
+    "timeout": 240
   }
 }
 ```
@@ -135,10 +120,8 @@ Anthropic example:
 Environment variables are fallback only:
 
 ```env
-DEEPSEEK_API_KEY=sk-xxx
-DEEPSEEK_BASE_URL=https://api.deepseek.com
-OPENAI_API_KEY=sk-xxx
-ANTHROPIC_API_KEY=sk-ant-xxx
+KEMO_API_KEY=sk-kemo-your-key-here
+KEMO_BASE_URL=http://127.0.0.1:8741/v1
 TAVILY_API_KEY=tvly-xxx
 ```
 
@@ -395,7 +378,7 @@ votx-agent/
 ├── knowledge/          # Global knowledge base
 ├── message/            # OneBot/NapCat, Telegram, push queue
 ├── plugins/            # Built-in skills
-├── provider/           # OpenAI-compatible, Anthropic, multimodal capability layer
+├── provider/           # Kemo LLM Adapter local gateway adapter layer
 ├── run/                # Conversation engine, history, tool runner
 ├── skills/             # User extension skills
 ├── users/              # User data
@@ -454,8 +437,7 @@ knowledge/
 
 ## Related Efforts
 
-- [OpenAI API](https://platform.openai.com/docs)
-- [Anthropic API](https://docs.anthropic.com/)
+- [Kemo LLM Adapter](./../llm-adapter-kemo/api.md)
 - [NapCat](https://github.com/NapNeko/NapCatQQ)
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp)
 

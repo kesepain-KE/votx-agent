@@ -105,10 +105,10 @@ users/<用户名>/improve/
 ```json
 {
   "provider": {
-    "type": "openai",
-    "model": "deepseek-v4-flash",
+    "type": "kemo",
+    "model": "stepfun-step-3.7-flash",
     "api_key": "",
-    "base_url": "https://api.deepseek.com",
+    "base_url": "http://127.0.0.1:8741/v1",
     "stream": true,
     "think": false,
     "timeout": 120
@@ -136,71 +136,52 @@ users/<用户名>/improve/
 `provider.type` 表示服务商适配类型：
 
 ```text
-openai     OpenAI 兼容接口，例如 OpenAI、DeepSeek、硅基流动、OpenRouter 等
-anthropic  Anthropic Claude 接口
+kemo       Kemo LLM Adapter 本地多模态网关，统一路由所有模型和能力
 ```
 
-`python set_user.py add` 创建用户时只显示：
+`python set_user.py add` 创建用户时只显示 Kemo 配置入口，包括：
 
-```text
-1. deepseek-v4-flash   — 快速便宜
-2. deepseek-v4-pro     — 更强推理
-3. 其他厂商            — OpenAI 兼容接口
-4. 其他厂商            — Anthropic 兼容接口
-```
-
-选择其他厂商后，需要填写 `base_url` 和 `api_key`。脚本会尝试读取厂商拥有的模型列表并展示；如果接口不可用或模型不完整，用户可以手动额外添加模型名。
+- Base URL（默认 `http://127.0.0.1:8741/v1`）
+- API Key（对应 llm-adapter-kemo 的 `config/api_keys.json` 中的密钥）
+- 模型选择（stepfun-step-3.7-flash 等，可手动输入其他模型名）
 
 ### 完整的 provider 字段
 
 | 字段 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `type` | string | `"openai"` | 服务商类型：`openai` 或 `anthropic` |
-| `api_style` | string | `"chat"` | API 风格：`"chat"`（标准 chat completions）、`"responses"`（OpenAI Responses API） |
+| `type` | string | `"kemo"` | 服务商类型：仅支持 `"kemo"` |
 | `model` | string | 必填 | 模型名称 |
 | `api_key` | string | `""` | API 密钥，留空读取环境变量 |
-| `base_url` | string | 模型默认 | API 端点地址 |
+| `base_url` | string | `http://127.0.0.1:8741/v1` | Kemo 网关地址 |
 | `stream` | bool | `true` | 是否启用流式输出 |
-| `think` | bool | `false` | 是否启用思考模式（DeepSeek 等支持） |
-| `thinking` | bool/object | - | Anthropic 扩展思考模式（可传 `{"type":"enabled","budget_tokens":4000}`） |
+| `think` | bool | `false` | 是否启用思考模式 |
 | `timeout` | int | 120 | API 请求超时秒数 |
-| `max_tokens` | int | - | 最大输出 token 数（不设则用模型默认值） |
 | `vision_model` | string | `""` | 专用视觉模型（留空使用默认聊天模型） |
 | `audio_transcription_model` | string | `""` | 专用语音转文字模型 |
 | `image_generation_model` | string | `""` | 专用文生图模型 |
+| `image_edit_model` | string | `""` | 专用图像编辑模型 |
 | `speech_generation_model` | string | `""` | 专用文生语音模型 |
+| `speech_to_speech_model` | string | `""` | 专用语音生语音模型 |
+| `video_generation_model` | string | `""` | 专用视频生成模型 |
+| `embedding_model` | string | `""` | 专用文本嵌入模型 |
+| `rerank_model` | string | `""` | 专用文档重排模型 |
 | `capabilities_override` | array | - | 手动声明多模态能力，见下文 |
 
-OpenAI 兼容示例：
+Kemo 配置示例：
 
 ```json
 {
   "provider": {
-    "type": "openai",
-    "model": "deepseek-v4-flash",
-    "api_key": "<你的 API Key>",
-    "base_url": "https://api.deepseek.com",
+    "type": "kemo",
+    "model": "stepfun-step-3.7-flash",
+    "api_key": "sk-kemo-deepseek",
+    "base_url": "http://127.0.0.1:8741/v1",
     "stream": true,
-    "think": false,
-    "timeout": 120
-  }
-}
-```
-
-Anthropic 示例：
-
-```json
-{
-  "provider": {
-    "type": "anthropic",
-    "model": "claude-3-5-sonnet-latest",
-    "api_key": "<你的 API Key>",
-    "base_url": "",
-    "stream": true,
-    "thinking": {
-      "type": "enabled",
-      "budget_tokens": 4000
-    }
+    "think": true,
+    "timeout": 240,
+    "vision_model": "stepfun-step-3.7-flash",
+    "audio_transcription_model": "stepfun-stepaudio-2.5-asr",
+    "speech_generation_model": "stepfun-stepaudio-2.5-tts"
   }
 }
 ```
@@ -211,21 +192,14 @@ Anthropic 示例：
 
 通常建议在用户 `config.json` 中配置模型。环境变量适合本地服务或临时覆盖。
 
-OpenAI 兼容接口：
+Kemo 本地网关：
 
 ```text
-api_key:  config.json provider.api_key > DEEPSEEK_API_KEY > OPENAI_API_KEY
-base_url: config.json provider.base_url > DEEPSEEK_BASE_URL > 默认值
+api_key:  config.json provider.api_key > KEMO_API_KEY
+base_url: config.json provider.base_url > KEMO_BASE_URL > http://127.0.0.1:8741/v1
 ```
 
-Anthropic：
-
-```text
-api_key:  config.json provider.api_key > ANTHROPIC_API_KEY
-base_url: config.json provider.base_url > ANTHROPIC_BASE_URL
-```
-
-`VOTX_PROVIDER` 可以覆盖服务商类型，但日常使用更推荐直接改用户配置。
+`VOTX_PROVIDER` 可以覆盖服务商类型（仅支持 `kemo`），但日常使用更推荐直接改用户配置。
 
 ## 多模态能力配置
 
@@ -245,10 +219,10 @@ speech_generation
 ```json
 {
   "provider": {
-    "type": "openai",
-    "model": "gpt-4o",
-    "api_key": "<你的 API Key>",
-    "base_url": "https://api.openai.com/v1",
+    "type": "kemo",
+    "model": "stepfun-step-3.7-flash",
+    "api_key": "sk-kemo-deepseek",
+    "base_url": "http://127.0.0.1:8741/v1",
     "capabilities_override": [
       "vision",
       "audio_transcription",
@@ -256,9 +230,9 @@ speech_generation
       "speech_generation"
     ],
     "vision_model": "",
-    "audio_transcription_model": "whisper-1",
-    "image_generation_model": "dall-e-3",
-    "speech_generation_model": "tts-1"
+    "audio_transcription_model": "stepfun-stepaudio-2.5-asr",
+    "image_generation_model": "",
+    "speech_generation_model": "stepfun-stepaudio-2.5-tts"
   }
 }
 ```
