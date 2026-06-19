@@ -5,7 +5,6 @@
 # ═══════════════════════════════════════════════════════════════════════
 
 # ── 核心运行时 (必装) ────────────────────────────────────────────────
-openai>=1.0.0,<3.0.0       # provider/ — OpenAI 兼容协议 (Chat Completions + Responses API)
 flask>=3.0                  # web/ — Flask 后端 + SSE 流式传输
 pyyaml>=6.0                 # plugins/ + skills/ — SKILL.md YAML frontmatter 解析
 websockets>=12.0            # message/ — OneBot/NapCat 正向 WebSocket 连接
@@ -14,9 +13,6 @@ websockets>=12.0            # message/ — OneBot/NapCat 正向 WebSocket 连接
 yt-dlp>=2024.0              # plugins/download_anything — 视频/音频下载 (download_video)
 tavily-python>=0.7.0        # plugins/tavily_search — 网络搜索/提取/爬取/深度研究
 python-docx>=1.0.0          # plugins/word_docx — Word 文档创建和读取 (create_docx/read_docx)
-
-# ── 多 Provider 支持 (可选，按需安装) ─────────────────────────────────
-anthropic>=0.30.0,<2.0.0   # provider/anthropic_adapter — Anthropic Claude (Messages API)
 
 # ── 文档处理 ─────────────────────────────────────────────────────────
 markitdown>=0.0.1           # plugins/markdown_converter — 文档转 Markdown (PDF/Word/PPT/Excel/HTML 等)
