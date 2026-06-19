@@ -117,7 +117,7 @@ class KemoProvider(BaseProvider):
         self.kemo_api_key: str = api_key
         self.model: str = _configured(cfg.get("model")) or DEFAULT_CHAT_MODEL
         self.stream: bool = cfg.get("stream", core.get("output", {}).get("stream", False))
-        self.think: bool = cfg.get("think", False)
+        self.think: bool = True  # 始终开启思考功能
         self.timeout: int = cfg.get("timeout", 120)
 
         # 能力模型
@@ -176,10 +176,7 @@ class KemoProvider(BaseProvider):
             "messages": messages,
             "stream": False,
         }
-        if self.think:
-            body["reasoning_effort"] = "high"
-        else:
-            body["extra_body"] = {"thinking": {"type": "disabled"}}
+        body["reasoning_effort"] = "high"
         if tools:
             body["tools"] = tools
 
@@ -223,10 +220,7 @@ class KemoProvider(BaseProvider):
             "messages": messages,
             "stream": True,
         }
-        if self.think:
-            body["reasoning_effort"] = "high"
-        else:
-            body["extra_body"] = {"thinking": {"type": "disabled"}}
+        body["reasoning_effort"] = "high"
         if tools:
             body["tools"] = tools
 

@@ -114,7 +114,7 @@ def api_update_config():
         provider = config.setdefault("provider", {})
 
         # Provider 字段白名单
-        allowed = {"type", "model", "api_key", "base_url", "think", "stream",
+        allowed = {"type", "model", "api_key", "base_url", "stream",
                    "timeout",
                    "vision_model", "audio_transcription_model",
                    "image_generation_model", "image_edit_model",

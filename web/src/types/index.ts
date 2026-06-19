@@ -101,7 +101,6 @@ export interface UserConfig {
   model: string
   baseUrl: string
   keyDraft: string
-  think: boolean
   stream: boolean
   acceptTask: boolean
   capabilitiesOverride: string[] | null
@@ -284,7 +283,6 @@ export interface RawConfig {
   error?: string
   provider?: {
     type: string
-    think: boolean
     stream: boolean
     model: string
     base_url: string

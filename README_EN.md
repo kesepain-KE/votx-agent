@@ -8,7 +8,7 @@
 
 [![License](https://img.shields.io/badge/license-MIT-orange)](./LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
-[![LLM](https://img.shields.io/badge/LLM-Kemo%20LLM%20Adapter-brightgreen)](http://127.0.0.1:8741/)
+[![Kemo](https://img.shields.io/badge/LLM-Kemo%20LLM%20Adapter-brightgreen)](https://github.com/kesepain-KE/llm-adapter-kemo)
 [![Web](https://img.shields.io/badge/web-Flask%20%2B%20React%20%2B%20TypeScript-lightgrey)](https://flask.palletsprojects.com/)
 
 [中文](./README.md) | English
@@ -17,8 +17,8 @@
 
 - [Background](#background)
 - [Install](#install)
-- [Model Configuration](#model-configuration)
-- [Multimodal](#multimodal)
+- [Provider Configuration](#provider-configuration)
+- [Multimodal Capabilities](#multimodal-capabilities)
 - [Usage](#usage)
 - [External Message Router](#external-message-router)
 - [Files and Knowledge](#files-and-knowledge)
@@ -35,20 +35,36 @@
 
 ## Background
 
-VOTX Agent is a local multi-user AI Agent framework with Web UI, CLI, tool calling, task plans, persistent memory, self-improvement, external message routing, and multimodal capabilities. See [version.json](./version.json) for the current version.
+votx-agent is a local multi-user AI Agent framework with Web UI, CLI, tool calling, task plans, persistent memory, self-improvement, external message routing, and full-stack multimodal capabilities. Current version v2.3.3.
+
+### Architecture Overview
+
+```
+User Input → ChatManager.add_user_message()
+  → engine.run_chat_turn()
+    → Loop:
+      1. chat.build_messages() → system prompt + history
+      2. provider.respond_stream() → yields SSE events
+      3. If tool_calls → tool_runner.execute()
+      4. chat.add_tool_call_message() + add_tool_results()
+      5. Back to step 1 (max MAX_TOOL_ROUNDS)
+    → Final text → chat.add_assistant_message()
+```
+
+The single conversation engine lives in `run/engine.py`. Both CLI (`main.py`) and Web (`web/routes/`) consume it, only differing in how they render the event stream. Web backend is Flask + SSE; frontend is React + TypeScript + Vite.
 
 ### Features
 
-- **Multiple providers**: Kemo LLM Adapter local multimodal gateway, unified routing for all models and capabilities.
-- **Multi-user isolation**: each user has independent `config.json`, `self_soul.md`, history, files, memory, and knowledge base.
+- **Single Provider (Kemo LLM Adapter)**: Pure HTTP local multimodal gateway, no OpenAI SDK dependency — all models and capabilities are routed through Kemo.
+- **Multi-user data isolation**: Each user has independent `config.json`, `self_soul.md`, history, files, memory, and knowledge base.
 - **Shared Web/CLI engine**: `run/engine.py` handles system prompts, tool calls, and history persistence.
 - **Skills/Plugins architecture**: `plugins/` for built-in skills, `skills/` for user extensions.
-- **Tool-first workflow**: file, network, download, PDF, DOCX, and knowledge-base tasks should use dedicated skills/tools first; shell is a last-resort diagnostic/build tool.
-- **Task plans**: complex requests can be decomposed into plans, approved from Web UI, paused, resumed, or aborted.
-- **auto_improve**: temporary/permanent memory layers with active review and cleanup.
-- **External message routing**: QQ/NapCat/OneBot and Telegram with image, voice, and file attachments.
-- **Multimodal tools**: image understanding, audio transcription, image generation, and speech generation.
-- **Global/user knowledge bases**: shared `knowledge/` plus per-user `users/<name>/knowledge/`.
+- **Tool-first workflow**: File, network, download, PDF, DOCX, and knowledge-base tasks use dedicated skills/tools first; shell is a last-resort diagnostic/build tool.
+- **Task plans**: Complex requests can be decomposed into plans, approved from Web UI, paused, resumed, or aborted.
+- **auto_improve**: Temporary/permanent memory layers with active review and cleanup.
+- **External message routing**: QQ/NapCat/OneBot and Telegram with image, voice, file attachments, and push queue.
+- **Full-stack multimodal**: Image understanding, audio transcription, image generation, image editing, speech generation, speech-to-speech, video generation, embeddings, and reranking.
+- **Global/user knowledge bases**: Shared `knowledge/` plus per-user `users/<name>/knowledge/`.
 
 ![VOTX Agent Web UI](votx-agent-web-UI.png)
 
@@ -56,7 +72,7 @@ VOTX Agent is a local multi-user AI Agent framework with Web UI, CLI, tool calli
 
 ### Plain Python
 
-```text
+```bash
 git clone https://github.com/kesepain-KE/votx-agent.git
 cd votx-agent
 python setup.py
@@ -66,7 +82,7 @@ python start_web.py
 
 Open:
 
-```text
+```
 http://localhost:1478
 ```
 
@@ -78,28 +94,21 @@ build_windows.bat
 
 Output:
 
-```text
+```
 dist\votx-agent-windows.zip
 ```
 
 The Web server prints local/remote version information on startup.
 
-## Model Configuration
+## Provider Configuration
 
-Recommended location:
+votx-agent only supports Kemo LLM Adapter as its provider. Configure in your user settings:
 
-```text
+```
 users/<username>/config.json
 ```
 
-The setup model menu:
-
-```text
-Kemo LLM Adapter — Local multimodal gateway
-Available models: stepfun-step-3.7-flash, deepseek-v4-flash, etc.
-```
-
-Configure Base URL and API Key to get started. You can manually enter other model names.
+The user-creation model menu offers `stepfun-step-3.7-flash`, `deepseek-v4-flash`, etc. You can also manually enter other model names.
 
 Kemo configuration example:
 
@@ -111,7 +120,6 @@ Kemo configuration example:
     "api_key": "sk-kemo-deepseek",
     "base_url": "http://127.0.0.1:8741/v1",
     "stream": true,
-    "think": true,
     "timeout": 240
   }
 }
@@ -127,15 +135,27 @@ TAVILY_API_KEY=tvly-xxx
 
 Priority:
 
-```text
-users/<name>/config.json > environment variables > defaults
+```
+users/<name>/config.json > environment variables > program defaults
 ```
 
-## Multimodal
+### Provider Architecture
+
+```
+provider/
+├── base.py          # BaseProvider abstract interface (respond / respond_stream + all multimodal capability stubs)
+├── schema.py        # ToolCall + ProviderResponse unified data structures
+├── factory.py       # create_provider() → only supports type: "kemo"
+└── kemo_adapter.py  # Kemo LLM Adapter Provider — pure urllib HTTP, no OpenAI SDK dependency
+```
+
+KemoProvider communicates with the Kemo LLM Adapter gateway via pure `urllib` HTTP. No OpenAI SDK or third-party library is required. All chat, streaming, and multimodal capabilities are handled through this single implementation.
+
+## Multimodal Capabilities
 
 Capability names:
 
-```text
+```
 vision
 audio_transcription
 image_generation
@@ -147,7 +167,7 @@ embedding
 rerank
 ```
 
-Advanced configuration:
+Advanced configuration (in `users/<name>/config.json` under `provider`):
 
 ```json
 {
@@ -163,10 +183,10 @@ Advanced configuration:
       "embedding",
       "rerank"
     ],
-    "audio_transcription_model": "whisper-1",
-    "image_generation_model": "dall-e-3",
+    "audio_transcription_model": "stepfun-stepaudio-2.5-asr",
+    "image_generation_model": "",
     "image_edit_model": "stepfun-step-image-edit-2",
-    "speech_generation_model": "tts-1",
+    "speech_generation_model": "stepfun-stepaudio-2.5-tts",
     "speech_to_speech_model": "",
     "video_generation_model": "",
     "embedding_model": "",
@@ -177,7 +197,7 @@ Advanced configuration:
 
 Call priority:
 
-```text
+```
 dedicated model > default chat model
 ```
 
@@ -185,23 +205,28 @@ Common tools:
 
 | Tool | Description |
 |---|---|
-| `vision_analyze` | Image understanding, supports multiple images |
+| `vision_analyze` / `vision_universal` | Image understanding, supports multiple images |
 | `audio_transcribe` | Audio to text |
 | `image_generate` | Text to image, defaults to `users/<name>/download/` |
-| `image_edit` | Image editing, defaults to `users/<name>/download/` |
+| `image_edit` | Image editing (requires Kemo support), defaults to `users/<name>/download/` |
 | `speech_generate` | Text to speech, defaults to `users/<name>/download/` |
 | `speech_to_speech` | Speech-to-speech, defaults to `users/<name>/download/` |
-| `video_generate` / `video_status` / `video_download` | Video generation job creation, status, and download |
-| `embedding_create` | Text embeddings |
-| `rerank_documents` | Document reranking |
+| `video_generate` / `video_status` / `video_download` | Video generation, status, and download (requires Kemo support) |
+| `embedding_create` | Text embeddings (requires Kemo support) |
+| `rerank_documents` | Document reranking (requires Kemo support) |
 
 ## Usage
 
-```text
+```bash
+# Start Web UI
 python start_web.py
 python start_web.py --port=8080
 python start_web.py --host=0.0.0.0 --port=1478
+
+# CLI mode
 python start.py
+
+# One-shot mode
 python start.py --user <username> --prompt "<message>" --once
 ```
 
@@ -213,29 +238,37 @@ PORT=1478
 VOTX_SESSION_COOKIE_NAME=votx_agent_session
 ```
 
-After startup, devices on the same LAN can open `http://<server-lan-ip>:1478`. If multiple Web projects run on the same IP with different ports, give each project a different `VOTX_SESSION_COOKIE_NAME` to avoid browser cookie-name conflicts that can kick users out of other projects.
+After startup, devices on the same LAN can open `http://<server-lan-ip>:1478`. If multiple Web projects run on the same IP with different ports, give each project a different `VOTX_SESSION_COOKIE_NAME` to avoid browser cookie-name conflicts.
 
-Slash commands:
+Slash commands (shared between Web UI and CLI):
 
 | Command | Description |
 |---|---|
-| `/clear` | Clear current conversation |
-| `/new` | Archive current conversation and start a new one |
-| `/archive` | Archive manually |
-| `/summarize` | Generate a summary |
-| `/retry` | Retry the previous turn |
-| `/stats` | Show statistics |
-| `/help` | Show help |
+| `/clear` | Clear current conversation history and tool logs |
+| `/archive` | Archive current conversation with summary |
+| `/new` | Archive current conversation, then start a new one |
+| `/summarize` | Generate a summary of the current conversation |
+| `/retry` | Remove the last AI reply and regenerate |
+| `/history` or `/stats` | Show conversation statistics |
+| `/help` | Show available commands |
+
+CLI-only commands:
+
+| Command | Description |
+|---|---|
+| `/exit` / `/quit` / `/q` | Exit CLI (auto-summarize + save) |
 
 ## External Message Router
 
-Config priority:
+Config file priority:
 
 ```text
-VOTX_MESSAGE_CONFIG
-message/config.local.json
-message/config.json
+VOTX_MESSAGE_CONFIG environment variable
+message/config.local.json (if exists)
+message/config.json (default)
 ```
+
+Full configuration example at `message/config.example.json`.
 
 OneBot/NapCat example:
 
@@ -275,13 +308,13 @@ Telegram example:
 
 External attachments are saved to:
 
-```text
+```
 users/<username>/history/file/
 ```
 
 Attachment log:
 
-```text
+```
 users/<username>/history/log/external_attachments.jsonl
 ```
 
@@ -332,6 +365,17 @@ Common built-in capabilities:
 | `word_docx` | DOCX creation and reading with formatting, tables, images, templates, page numbers, and TOC |
 | `tavily_search` | Tavily search, extraction, crawling, site maps, and deep research |
 | `time` | Current time and sleep up to 30 minutes |
+| `audio_universal` | Audio transcription with multilingual and timestamp support |
+| `vision_universal` | Image understanding for local files and remote URLs |
+| `image_generation` | Text to image with various sizes and quality |
+| `speech_generation` | Text to speech with multiple voice styles |
+| `embeddings` | Text embeddings (requires Provider support) |
+| `rerank` | Document reranking (requires Provider support) |
+| `image_edit` | Image editing (requires Provider support) |
+| `video_generation` | Video generation, status, download (requires Provider support) |
+| `speech_to_speech` | Speech-to-speech (requires Provider support) |
+| `task_time` | Cron-based scheduled task management |
+| `qq_send` / `qq_file` | External message and file push |
 
 Core built-ins cannot be disabled:
 
@@ -366,33 +410,41 @@ HTTP_TIMEOUT=30
 HTTP_VERIFY_SSL=0
 ```
 
-`network_scope` supports `public` / `local` / `private` / `all`. Cloud metadata addresses should always be blocked.
+`network_scope` supports `public` / `local` / `private` / `all`. Cloud metadata addresses are always blocked.
 
 ## Project Structure
 
 ```text
 votx-agent/
 ├── agents/             # Sub-agents: auto_improve, task_plan
-├── config/             # Global config and base persona
+├── config/             # Global config (config_core.json) and base persona (soul.md)
 ├── cron/               # Scheduler
-├── knowledge/          # Global knowledge base
-├── message/            # OneBot/NapCat, Telegram, push queue
-├── plugins/            # Built-in skills
-├── provider/           # Kemo LLM Adapter local gateway adapter layer
-├── run/                # Conversation engine, history, tool runner
+├── knowledge/          # Global knowledge base (includes architecture docs)
+├── message/            # External message routing: OneBot/NapCat, Telegram, push queue, identity mapping
+├── plugins/            # Built-in skills (30+ tool/directive skills)
+├── provider/           # Kemo LLM Adapter Provider — pure HTTP local gateway adapter
+├── run/                # Conversation engine, history management, tool runner, summarizer, prompt cache
 ├── skills/             # User extension skills
-├── users/              # User data
+├── users/              # User data (config, history, files, knowledge, memory)
 ├── web/                # Flask + React + TypeScript + Vite
 ├── AGENTS.md           # Agent operation manual
-├── start.py            # CLI/Web entry
-├── start_web.py        # Web-only entry
+├── CLAUDE.md           # Claude Code development guide
+├── main.py             # CLI entry point
+├── start.py            # CLI/Web entry (user selection)
+├── start_web.py        # Web-only entry point
+├── setup.py            # Environment setup script
+├── set_user.py         # User management script
+├── paths.py            # Path resolution (dev/PyInstaller compatible)
 ├── version.json        # Current version
-└── build_windows.bat   # Windows package script
+├── requirements.txt    # Python dependency manifest
+├── pyproject.toml      # Project metadata
+├── build_windows.bat   # Windows packaging script
+└── LICENSE             # MIT License
 ```
 
 ## Updates
 
-This repository no longer includes an automatic updater. To update source code, pull the new revision manually and back up `users/`, `skills/`, `.env`, `message/config.local.json`, and message queues before overwriting files.
+This repository does not include an automatic updater. To update source code, pull the new revision manually and back up `users/`, `skills/`, `.env`, `message/config.local.json`, and message queues before overwriting files.
 
 ## Windows Package Contents
 
@@ -414,15 +466,17 @@ message/push_queue/ .env .session_secret *.pyc *.pyo __pycache__/
 
 ## Development
 
-```text
+```bash
+# Syntax check
 python -m py_compile <file.py>
 python -m compileall -q .
 
+# Web frontend
 cd web
 npm install
-npm run dev
-npm run build
-npx tsc --noEmit
+npm run dev      # Development mode
+npm run build    # Production build
+npx tsc --noEmit # TypeScript check
 ```
 
 Maintainer docs:
@@ -437,9 +491,9 @@ knowledge/
 
 ## Related Efforts
 
-- [Kemo LLM Adapter](./../llm-adapter-kemo/api.md)
-- [NapCat](https://github.com/NapNeko/NapCatQQ)
-- [yt-dlp](https://github.com/yt-dlp/yt-dlp)
+- [Kemo LLM Adapter](https://github.com/kesepain-KE/llm-adapter-kemo) — Local multimodal LLM gateway, the provider backend for votx-agent
+- [NapCat](https://github.com/NapNeko/NapCatQQ) — QQ bot framework
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp) — Video download engine
 
 ## Maintainers
 

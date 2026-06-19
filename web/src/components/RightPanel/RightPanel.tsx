@@ -6,7 +6,7 @@ import { planStatusColor, planStatusLabel, planStepIcon, PROMPT_TABS } from '@/h
 
 /** 描述 Props 数据结构。 */
 interface Props {
-  toggleConfigSwitch: (key: 'think' | 'stream' | 'accept_task') => Promise<void>
+  toggleConfigSwitch: (key: 'stream' | 'accept_task') => Promise<void>
   saveConfigField: (key: string, value: unknown) => Promise<void>
   saveAllConfig: () => Promise<void>
   applyConfig: () => Promise<void>
@@ -97,10 +97,6 @@ export function RightPanel(props: Props) {
         {/* ── 调试 ── */}
         <div className={`pane ${activeTab === 'debug' ? 'active' : ''}`}>
           <div className="debug-grid">
-            <div className="toggle-card">
-              <div><b>思考开关</b><p style={{ color: 'var(--text-secondary)', fontSize: 11, marginTop: 2 }}>think</p></div>
-              <div className={`switch ${config.think ? 'on' : ''}`} onClick={() => props.toggleConfigSwitch('think')} />
-            </div>
             <div className="toggle-card">
               <div><b>流式输出开关</b><p style={{ color: 'var(--text-secondary)', fontSize: 11, marginTop: 2 }}>stream</p></div>
               <div className={`switch ${config.stream ? 'on' : ''}`} onClick={() => props.toggleConfigSwitch('stream')} />

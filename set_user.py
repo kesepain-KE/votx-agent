@@ -308,16 +308,13 @@ def add_user(name: str = "") -> str | None:
     display_name = input(f"  角色名称 (回车='{name}'): ").strip() or name
     provider_config = _pick_provider_config()
 
-    think_choice = input("  启用思考模式? (y/N): ").strip().lower()
-    think = think_choice in ("y", "yes")
-
     stream_choice = input("  启用流式输出? (Y/n): ").strip().lower()
     stream = stream_choice not in ("n", "no")
 
     # config.json
     config = {
         "provider": {
-            "think": think,
+            "think": True,
             "stream": stream,
             "timeout": 120,
             "vision_model": "",
@@ -367,7 +364,7 @@ def edit_user(name: str):
     print(f"\n  编辑用户: {name}")
     print(
         f"  当前配置: 模型={cfg.get('model')}  "
-        f"think={cfg.get('think')}  stream={cfg.get('stream')}"
+        f"stream={cfg.get('stream')}"
     )
     has_key = bool(cfg.get("api_key", "").strip())
     print(f"  API Key: {'自定义' if has_key else '.env 全局'}")
@@ -379,13 +376,6 @@ def edit_user(name: str):
     else:
         _edit_api_key_only(config, cfg)
 
-    think_cur = cfg.get("think", False)
-    think_choice = input(f"  思考模式 [{'Y' if think_cur else 'N'}]: ").strip().lower()
-    if think_choice in ("y", "yes"):
-        config["provider"]["think"] = True
-    elif think_choice in ("n", "no"):
-        config["provider"]["think"] = False
-
     stream_cur = cfg.get("stream", True)
     stream_choice = input(
         f"  流式输出 [{'Y' if stream_cur else 'N'}]: "
@@ -396,6 +386,7 @@ def edit_user(name: str):
         config["provider"]["stream"] = False
 
     provider_cfg = config.setdefault("provider", {})
+    provider_cfg["think"] = True
     provider_cfg.setdefault("vision_model", "")
     provider_cfg.setdefault("audio_transcription_model", "")
     provider_cfg.setdefault("image_generation_model", "")

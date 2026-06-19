@@ -63,7 +63,7 @@ export const useAppStore = create<AppStore>(() => ({
     model: '',
     baseUrl: '',
     keyDraft: '',
-    think: false,
+    think: true,
     stream: false,
     acceptTask: true,
     capabilitiesOverride: null,

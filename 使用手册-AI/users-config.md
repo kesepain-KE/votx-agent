@@ -88,8 +88,7 @@ users/<用户名>/improve/
     "model": "stepfun-step-3.7-flash",
     "api_key": "",
     "base_url": "http://127.0.0.1:8741/v1",
-    "stream": true,
-    "think": false
+    "stream": true
   },
   "history": {
     "data": true,
@@ -133,7 +132,6 @@ Kemo 配置示例：
     "api_key": "sk-kemo-deepseek",
     "base_url": "http://127.0.0.1:8741/v1",
     "stream": true,
-    "think": true,
     "timeout": 240,
     "vision_model": "stepfun-step-3.7-flash",
     "audio_transcription_model": "stepfun-stepaudio-2.5-asr",

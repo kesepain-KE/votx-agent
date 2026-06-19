@@ -251,7 +251,7 @@ export function useAppActions() {
   function snapshotConfig() {
     const { config } = get()
     set({
-      lastSavedConfig: { type: config.type, model: config.model, baseUrl: config.baseUrl, think: config.think, stream: config.stream, acceptTask: config.acceptTask, capabilitiesOverride: config.capabilitiesOverride, visionModel: config.visionModel, audioTranscriptionModel: config.audioTranscriptionModel, imageGenerationModel: config.imageGenerationModel, imageEditModel: config.imageEditModel, speechGenerationModel: config.speechGenerationModel, speechToSpeechModel: config.speechToSpeechModel, videoGenerationModel: config.videoGenerationModel, embeddingModel: config.embeddingModel, rerankModel: config.rerankModel },
+      lastSavedConfig: { type: config.type, model: config.model, baseUrl: config.baseUrl, stream: config.stream, acceptTask: config.acceptTask, capabilitiesOverride: config.capabilitiesOverride, visionModel: config.visionModel, audioTranscriptionModel: config.audioTranscriptionModel, imageGenerationModel: config.imageGenerationModel, imageEditModel: config.imageEditModel, speechGenerationModel: config.speechGenerationModel, speechToSpeechModel: config.speechToSpeechModel, videoGenerationModel: config.videoGenerationModel, embeddingModel: config.embeddingModel, rerankModel: config.rerankModel },
     })
   }
 
@@ -864,7 +864,7 @@ export function useAppActions() {
       const cfg = await api<RawConfig>('/api/config'); if (cfg.error) return
       const provider = cfg.provider; const rawType = provider?.type || 'kemo'
       set((s) => ({
-        config: { ...s.config, type: 'kemo', think: !!provider?.think, stream: !!provider?.stream, acceptTask: !!(cfg.task_plan && cfg.task_plan.accept_task), model: provider?.model || '', baseUrl: provider?.base_url || '',
+        config: { ...s.config, type: 'kemo', stream: !!provider?.stream, acceptTask: !!(cfg.task_plan && cfg.task_plan.accept_task), model: provider?.model || '', baseUrl: provider?.base_url || '',
           capabilitiesOverride: (provider as Record<string,unknown>)?.capabilities_override as string[]|null ?? null,
           visionModel: (provider as Record<string,unknown>)?.vision_model as string || '',
           audioTranscriptionModel: (provider as Record<string,unknown>)?.audio_transcription_model as string || '',
@@ -887,11 +887,11 @@ export function useAppActions() {
     try { await api('/api/config', { method: 'POST', ...jsonBody({ [key]: value }) }); if (key === 'model') set({ modelName: String(value || '-') }); toast('已保存') } catch { toast('保存失败') }
   }, [get, set])
 
-  const toggleConfigSwitch = useCallback(async (key: 'think' | 'stream' | 'accept_task') => {
+  const toggleConfigSwitch = useCallback(async (key: 'stream' | 'accept_task') => {
     if (!get().userActive) { toast('请先选择用户'); return }
     const prop = key === 'accept_task' ? 'acceptTask' : key; const current = get().config[prop]
     set((s) => ({ config: { ...s.config, [prop]: !current } }))
-    try { await api('/api/config', { method: 'POST', ...jsonBody({ [key]: !current }) }); toast(`${!current ? '已开启' : '已关闭'}${key === 'accept_task' ? '任务计划' : key}`) } catch { set((s) => ({ config: { ...s.config, [prop]: current } })); toast('保存失败') }
+    try { await api('/api/config', { method: 'POST', ...jsonBody({ [key]: !current }) }); toast(`${!current ? '已开启' : '已关闭'}${key === 'accept_task' ? '任务计划' : '流式输出'}`) } catch { set((s) => ({ config: { ...s.config, [prop]: current } })); toast('保存失败') }
   }, [get, set])
 
   const saveAllConfig = useCallback(async () => {
@@ -951,7 +951,7 @@ export function useAppActions() {
   const restoreConfig = useCallback(() => {
     if (!get().userActive) { toast('请先选择用户'); return }
     const last = get().lastSavedConfig; if (!last.model && !last.baseUrl && !last.type) { toast('没有可恢复的保存状态'); return }
-    set((s) => ({ config: { ...s.config, type: last.type || 'kemo', model: last.model || '', baseUrl: last.baseUrl || '', think: 'think' in last ? !!last.think : s.config.think, stream: 'stream' in last ? !!last.stream : s.config.stream, acceptTask: 'acceptTask' in last ? !!last.acceptTask : s.config.acceptTask, capabilitiesOverride: ('capabilitiesOverride' in last ? last.capabilitiesOverride ?? null : s.config.capabilitiesOverride), visionModel: 'visionModel' in last ? (last.visionModel || '') : s.config.visionModel, audioTranscriptionModel: 'audioTranscriptionModel' in last ? (last.audioTranscriptionModel || '') : s.config.audioTranscriptionModel, imageGenerationModel: 'imageGenerationModel' in last ? (last.imageGenerationModel || '') : s.config.imageGenerationModel, imageEditModel: 'imageEditModel' in last ? (last.imageEditModel || '') : s.config.imageEditModel, speechGenerationModel: 'speechGenerationModel' in last ? (last.speechGenerationModel || '') : s.config.speechGenerationModel, speechToSpeechModel: 'speechToSpeechModel' in last ? (last.speechToSpeechModel || '') : s.config.speechToSpeechModel, videoGenerationModel: 'videoGenerationModel' in last ? (last.videoGenerationModel || '') : s.config.videoGenerationModel, embeddingModel: 'embeddingModel' in last ? (last.embeddingModel || '') : s.config.embeddingModel, rerankModel: 'rerankModel' in last ? (last.rerankModel || '') : s.config.rerankModel } }))
+    set((s) => ({ config: { ...s.config, type: last.type || 'kemo', model: last.model || '', baseUrl: last.baseUrl || '', stream: 'stream' in last ? !!last.stream : s.config.stream, acceptTask: 'acceptTask' in last ? !!last.acceptTask : s.config.acceptTask, capabilitiesOverride: ('capabilitiesOverride' in last ? last.capabilitiesOverride ?? null : s.config.capabilitiesOverride), visionModel: 'visionModel' in last ? (last.visionModel || '') : s.config.visionModel, audioTranscriptionModel: 'audioTranscriptionModel' in last ? (last.audioTranscriptionModel || '') : s.config.audioTranscriptionModel, imageGenerationModel: 'imageGenerationModel' in last ? (last.imageGenerationModel || '') : s.config.imageGenerationModel, imageEditModel: 'imageEditModel' in last ? (last.imageEditModel || '') : s.config.imageEditModel, speechGenerationModel: 'speechGenerationModel' in last ? (last.speechGenerationModel || '') : s.config.speechGenerationModel, speechToSpeechModel: 'speechToSpeechModel' in last ? (last.speechToSpeechModel || '') : s.config.speechToSpeechModel, videoGenerationModel: 'videoGenerationModel' in last ? (last.videoGenerationModel || '') : s.config.videoGenerationModel, embeddingModel: 'embeddingModel' in last ? (last.embeddingModel || '') : s.config.embeddingModel, rerankModel: 'rerankModel' in last ? (last.rerankModel || '') : s.config.rerankModel } }))
     toast('已恢复到上次保存状态')
   }, [get, set])
 
