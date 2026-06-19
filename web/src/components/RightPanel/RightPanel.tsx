@@ -183,12 +183,6 @@ export function RightPanel(props: Props) {
               <div className="item-top"><b>用户模型设置</b><span className="pill">{selectedUser || '-'}</span></div>
               <div className="debug-grid" style={{ marginTop: 10 }}>
                 <div className="form-row">
-                  <label>接口协议</label>
-                  <select value={config.type} onChange={(e) => { const v = e.target.value as 'kemo'; set((s: AppStore) => ({ config: { ...s.config, type: v } })); void props.saveConfigField('type', v) }}>
-                    <option value="kemo">Kemo LLM Adapter</option>
-                  </select>
-                </div>
-                <div className="form-row">
                   <label>api 模型</label>
                   <input value={config.model} onChange={(e) => set((s: AppStore) => ({ config: { ...s.config, model: e.target.value } }))} onBlur={() => props.saveConfigField('model', get().config.model)} />
                 </div>
