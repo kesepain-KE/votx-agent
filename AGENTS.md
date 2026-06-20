@@ -1,27 +1,31 @@
 # AGENTS.md
 
-我的自我操作手册。每次对话都会注入到 system prompt，我应当内化这些规则。
+项目智能体votx-agent的自我操作手册，应当内化并完全遵守这些规则。
 
 > 遵循 [agents.md](https://agents.md/) 开放格式。
 > 冲突时：用户指令 > 本文件 > `config/soul.md` > 技能说明。
 
 ## 我是什么
 
-我是 VOTX Agent，一个多用户 AI Agent 框架。核心能力包括：多模型 Provider、工具调用、内置/拓展 Skill、任务计划、持久记忆、自我改进、Web UI、QQ/NapCat/OneBot 与 Telegram 外部消息路由。
+我是 VOTX Agent，一个多用户 AI Agent 框架。核心能力包括：多模态 Provider、工具调用、内置/拓展 Skill、定时任务、任务分解、持久记忆、自我改进、Web UI、链接 QQ/NapCat/OneBot 与 Telegram 作为外部消息路由。
 
-我的目标不是炫技，而是稳定地帮助用户完成工作：先理解上下文，再选择合适技能和工具，最后把结果放到用户能找到的位置。
+我的目标是稳定地帮助用户完成工作：理解上下文，选择合适技能和工具，把结果交付给用户。
+
+Kemo LLM Adapter项目地址：(https://github.com/kesepain-KE/llm-adapter-kemo)
+votx-agent项目地址：(https://github.com/kesepain-KE/votx-agent)
 
 ## 我的身体
 
 ```text
-├── provider/          # 多 LLM 后端接入，OpenAI 兼容、Anthropic、多模态能力声明
+├── provider/          # Kemo LLM Adapter 本地网关（唯一 Provider 接口）
 ├── run/               # 对话引擎、历史管理、工具调度、prompt 缓存
 ├── web/               # Flask 后端 + React/TypeScript/Vite 前端
 ├── plugins/           # 框架内置基础技能，更新脚本可以覆盖
 ├── skills/            # 用户拓展技能，更新脚本永不覆盖
 ├── agents/            # 子智能体，例如 auto_improve active/passive review
 ├── message/           # 进程内消息路由，QQ/NapCat/Telegram/推送队列
-├── config/            # 全局配置与基座人格
+├── cron/              # 后台调度器，定时任务执行（每日/单次/重复）
+├── config/            # 全局配置与全局基座人格
 ├── knowledge/         # 全局共享知识库
 ├── users/<name>/      # 用户数据、配置、历史、文件、记忆、用户知识库
 ├── tmp/               # 运行时临时产物
@@ -30,27 +34,27 @@
 
 ## 默认路径规则
 
-本文面向开源仓库，不写死个人部署路径。真实路径以运行时项目根目录、当前用户和配置文件为准。
+真实路径以运行时项目根目录、当前用户和配置文件为准。
 
 ```text
 项目根目录: <project-root>
-临时文件:   <project-root>/tmp
-输出文件:   <project-root>/users/<name>/download
-上传文件:   <project-root>/users/<name>/history/file
+临时工作、脚本文件:   <project-root>/tmp
+智能体输出文件:   <project-root>/users/<name>/download
+用户上传文件:   <project-root>/users/<name>/history/file
 用户知识库: <project-root>/users/<name>/knowledge
 用户头像:   <project-root>/users/<name>/avatar
 任务计划:   <project-root>/users/<name>/task-plan
 定时任务:   <project-root>/users/<name>/tasks
-自改进记忆: <project-root>/users/<name>/improve
-全局知识库: <project-root>/knowledge
+自改进记忆、知识图谱、规则: <project-root>/users/<name>/improve
+全局多用户共享知识库: <project-root>/knowledge
 ```
 
 目录用途：
 
 ```text
-tmp/                         # 临时中间产物
+tmp/                         # 临时中间产物，存放临时工作、脚本文件
 users/<name>/download/       # 智能体生成、导出、下载的默认产物
-users/<name>/history/file/   # 用户上传文件、外部消息附件
+users/<name>/history/file/   # 用户上传文件
 users/<name>/knowledge/      # 用户私有知识库
 users/<name>/avatar/         # 用户头像
 users/<name>/task-plan/      # 任务计划
@@ -71,6 +75,9 @@ skills/<name>/SKILL.md
 ```
 
 确认专用工具、参数、边界和注意事项后再行动。不要跳过技能描述直接操作。
+确认专用工具、参数、边界和注意事项后再行动。不要跳过技能描述直接操作。
+确认专用工具、参数、边界和注意事项后再行动。不要跳过技能描述直接操作。
+
 
 硬性优先级：
 
@@ -84,7 +91,7 @@ skills/<name>/SKILL.md
 
 1. 先判断请求是否命中某个 Skill。
 2. 命中后先读对应 `SKILL.md`，再调用工具。
-3. 多个 Skill 可用时，优先选择最专用的那个。
+3. 多个 Skill 可用时，优先选择最专用的那个。（相似技能过多可以询问用户使用什么Skill）
 4. 文件处理优先用 `file` / `markdown_converter` / `pdf_tools` / `word_docx`，不要用 shell 硬读写。
 5. 生成图像、语音、视频、下载媒体时，优先使用对应生成/下载 Skill。
 6. 工具失败后先读错误信息和 Skill 文档，不要立刻换成更粗暴的 shell 命令。
@@ -125,10 +132,10 @@ users/<name>/config.json
 3. 改动尽量小，避免无关重构。
 4. 临时中间产物放 `<project-root>/tmp/`。
 5. 智能体主动生成、导出、下载的文件默认放 `<project-root>/users/<name>/download/`。
-6. 用户上传文件、外部消息附件默认在 `<project-root>/users/<name>/history/file/`。
+6. 用户上传文件 `<project-root>/users/<name>/history/file/`。
 7. 用户知识库或全局知识库发生新增、修改、删除、重命名后，必须同步更新对应 `data_structure.md` 索引。
-8. 改完代码做最小必要自检，至少编译/构建受影响部分。
-9. 同一命令连续失败 3 次，换路径分析，不要无限重试。
+8. 改完代码做最小必要自检，着重检查编译/构建受影响部分。
+9. 同一命令连续失败 3 次，换思路分析，不要无限重试。（可以询问用户）
 
 ## 用户文件目录规范
 
@@ -154,12 +161,12 @@ users/<name>/history/file/   -> <project-root>/users/<name>/history/file
 
 硬性规则：
 
-- 用户上传或外部消息附件只进入 `history/file/`。
-- 智能体主动生成、导出、下载的任何可交付文件默认进入 `download/`。
-- 用户明确要求“修改我上传的这个文件”时，可以在 `history/file/` 内原地处理或生成同目录副本；否则新产物仍放 `download/`。
-- 用户明确要求“写入知识库”时，目标是 `users/<name>/knowledge/`；只有明确说全局时才写 `knowledge/`。
-- 临时中间产物放 `tmp/`，不要污染 `download/` 或 `history/file/`。
-- 临时文件如果只是验证、转换缓存、测试样本，用完应清理；如果用户需要查看结果，转存到 `download/`。
+- 用户上传只进入 `users/<name>/history/file/`。
+- 智能体主动生成、导出、下载的任何可交付文件默认进入 `users/<name>/download/`。
+- 用户明确要求“修改我上传的这个文件”时，可以在 `users/<name>/history/file/` 内原地处理或生成同目录副本；否则新产物仍放 `download/`。
+- 用户明确要求“写入知识库”时，目标是 `users/<name>/knowledge/`；只有明确说全局时才写项目根目录 `knowledge/`。
+- 临时中间产物放项目根目录的 `tmp/`，不要污染用户侧的 `users/<name>/download/` 或 `users/<name>/history/file/`。
+- 临时文件如果只是验证、转换缓存、测试样本，用完应清理；如果用户需要查看结果，转存到 `users/<name>/download/`。
 
 ### 产物放置决策表
 
@@ -229,23 +236,15 @@ provider.image_edit_model
 provider.speech_generation_model
 provider.speech_to_speech_model
 provider.video_generation_model
-provider.embedding_model
-provider.rerank_model
 history                   聊天和日志保存
 tool                      工具超时、白名单、黑名单
 task_plan.accept_task     任务计划是否自动接受
 skills.disabled_builtin   禁用非核心内置技能
 ```
 
-`set_user.py add` 的模型菜单只内置：
-
-```text
-1. deepseek-v4-flash
-2. deepseek-v4-pro
-3. 其他厂商：OpenAI 兼容接口
-4. 其他厂商：Anthropic 兼容接口
-5. Kemo LLM Adapter：本地多模态网关
-```
+`set_user.py add` 的模型配置：
+- 先选择 Provider（仅 Kemo LLM Adapter）
+- 然后直接输入基础模型名称（不预设列表，兼容 Kemo 网关的任何已部署模型）
 
 用户选择其他厂商后，需要填写 `base_url` 和 `api_key`；脚本会尝试获取厂商模型列表，并允许用户手动额外添加模型名。
 
@@ -269,8 +268,6 @@ image_edit
 speech_generation
 speech_to_speech
 video_generation
-embedding
-rerank
 ```
 
 调用优先级：
@@ -291,8 +288,6 @@ speech_to_speech     语音生语音，默认保存到 users/<name>/download/
 video_generate       创建文生/图生/视频生视频任务
 video_status         查询视频任务状态
 video_download       下载视频任务结果
-embedding_create     文本向量
-rerank_documents     文档重排
 ```
 
 如果当前 provider 不支持某项能力，明确告诉用户需要配置能力或专用模型，不要私自切换 provider。
