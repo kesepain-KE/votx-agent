@@ -1003,9 +1003,109 @@
       max-width: 100%;
       background: rgba(255,255,255,0.05);
       border: 1px solid var(--glass-border);
-      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    }      max-width: 100%;
+    }    }
+    .bubble.markdown {
+      white-space: normal;
+      overflow-x: hidden;
     }
-    .bubble-wrap {
+    /* ── Markdown 内容样式（react-markdown 渲染） ── */
+    .bubble.markdown > :first-child { margin-top: 0; }
+    .bubble.markdown > :last-child { margin-bottom: 0; }
+    .bubble.markdown p { margin: 0 0 0.6em; }
+    .bubble.markdown p:last-child { margin-bottom: 0; }
+    .bubble.markdown h1,
+    .bubble.markdown h2,
+    .bubble.markdown h3,
+    .bubble.markdown h4,
+    .bubble.markdown h5,
+    .bubble.markdown h6 {
+      margin: 1em 0 0.4em; font-weight: 700; line-height: 1.3;
+    }
+    .bubble.markdown h1 { font-size: 1.3em; }
+    .bubble.markdown h2 { font-size: 1.15em; }
+    .bubble.markdown h3 { font-size: 1.05em; }
+    .bubble.markdown h4, .bubble.markdown h5, .bubble.markdown h6 { font-size: 0.95em; }
+    .bubble.markdown ul,
+    .bubble.markdown ol {
+      margin: 0 0 0.5em; padding-left: 1.6em;
+    }
+    .bubble.markdown li { margin: 0.2em 0; }
+    .bubble.markdown li > p { margin: 0.2em 0; }
+    .bubble.markdown blockquote {
+      margin: 0.5em 0; padding: 0.4em 0.8em;
+      border-left: 3px solid var(--accent-dim);
+      color: var(--text-secondary);
+      background: rgba(255,255,255,0.02);
+      border-radius: 0 var(--r-xs) var(--r-xs) 0;
+    }
+    .bubble.markdown blockquote p:last-child { margin-bottom: 0; }
+    .bubble.markdown pre {
+      margin: 0.5em 0; padding: 12px 14px;
+      border-radius: var(--r-sm);
+      background: rgba(0,0,0,0.25);
+      overflow-x: auto;
+      font-family: var(--font-mono);
+      font-size: 13px; line-height: 1.5;
+    }
+    body[data-color-scheme="light"] .bubble.markdown pre {
+      background: rgba(0,0,0,0.04);
+    }
+    .bubble.markdown code {
+      font-family: var(--font-mono);
+      font-size: 0.88em;
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.08);
+    }
+    .bubble.markdown pre code {
+      padding: 0; background: none; border-radius: 0;
+      font-size: inherit;
+    }
+    body[data-color-scheme="light"] .bubble.markdown code {
+      background: rgba(0,0,0,0.06);
+    }
+    .bubble.markdown hr {
+      margin: 0.8em 0; border: none; height: 1px;
+      background: var(--glass-border);
+    }
+    .bubble.markdown table {
+      border-collapse: collapse; width: 100%;
+      margin: 0.5em 0; font-size: 0.9em;
+    }
+    .bubble.markdown th,
+    .bubble.markdown td {
+      padding: 6px 10px; border: 1px solid var(--glass-border);
+      text-align: left;
+    }
+    .bubble.markdown th {
+      font-weight: 700;
+      background: rgba(255,255,255,0.04);
+    }
+    body[data-color-scheme="light"] .bubble.markdown th {
+      background: rgba(0,0,0,0.03);
+    }
+    .bubble.markdown img {
+      max-width: 100%; border-radius: var(--r-sm);
+      margin: 0.4em 0;
+    }
+    .bubble.markdown a {
+      color: var(--accent-dim);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .bubble.markdown a:hover { opacity: 0.8; }
+    .bubble.markdown input[type="checkbox"] {
+      margin-right: 4px; vertical-align: middle;
+      accent-color: var(--accent-dim);
+    }
+    .md-table-wrap {
+      overflow-x: auto; margin: 0.5em 0;
+    }
+    .bubble.markdown .katex-display {
+      margin: 0.6em 0; overflow-x: auto; overflow-y: hidden;
+      padding: 4px 0;
+    }    .bubble-wrap {
       display: flex; flex-direction: column; gap: 3px;
       min-width: 0; max-width: 100%; overflow: hidden;
     }
@@ -1701,6 +1801,9 @@
     .katex-error { color: var(--danger); }
 
     /* Rendered Markdown inside bubbles */
+    .bubble.markdown > :first-child { margin-top: 0; }
+    .bubble.markdown > :last-child { margin-bottom: 0; }
+    .bubble.markdown p { margin: 0 0 8px; }
     .bubble h1, .bubble h2, .bubble h3, .bubble h4, .bubble h5, .bubble h6 {
       margin: 10px 0 6px; line-height: 1.3;
     }
@@ -1712,17 +1815,81 @@
       border-left: 3px solid var(--glass-border);
       color: var(--text-secondary);
     }
-    .bubble table { border-collapse: collapse; margin: 8px 0; width: 100%; }
+    .bubble .md-table-wrap {
+      max-width: 100%;
+      overflow-x: auto;
+      margin: 8px 0;
+    }
+    .bubble table {
+      border-collapse: collapse;
+      margin: 8px 0;
+      width: 100%;
+    }
+    .bubble .md-table-wrap table {
+      width: max-content;
+      min-width: 100%;
+      margin: 0;
+    }
     .bubble th, .bubble td {
       border: 1px solid var(--glass-border);
       padding: 6px 10px; text-align: left; font-size: 0.93em;
+      white-space: normal;
     }
     .bubble th { background: rgba(255,255,255,0.04); font-weight: 700; }
     .bubble ul, .bubble ol { padding-left: 22px; margin: 6px 0; }
     .bubble li { margin: 2px 0; }
+    .bubble li > p { margin: 2px 0; }
     .bubble hr {
       border: 0; border-top: 1px solid var(--glass-border);
       margin: 12px 0;
+    }
+    .bubble pre {
+      margin: 8px 0;
+      padding: 11px 12px;
+      max-width: 100%;
+      overflow-x: auto;
+      white-space: pre;
+      overflow-wrap: normal;
+      word-break: normal;
+      border-radius: var(--r-sm);
+      border: 1px solid var(--glass-border);
+      background: rgba(0,0,0,0.18);
+      font: 12px/1.55 var(--font-mono);
+    }
+    body[data-color-scheme="light"] .bubble pre { background: rgba(0,0,0,0.04); }
+    .bubble pre code {
+      padding: 0;
+      border: 0;
+      background: transparent;
+      white-space: pre;
+      overflow-wrap: normal;
+      word-break: normal;
+    }
+    .bubble :not(pre) > code {
+      padding: 2px 5px;
+      border-radius: 4px;
+      border: 1px solid var(--glass-border);
+      background: rgba(255,255,255,0.05);
+      font: 0.9em var(--font-mono);
+      overflow-wrap: anywhere;
+    }
+    body[data-color-scheme="light"] .bubble :not(pre) > code { background: rgba(0,0,0,0.04); }
+    .bubble a {
+      color: var(--accent);
+      text-decoration: none;
+      border-bottom: 1px solid color-mix(in srgb, var(--accent), transparent 55%);
+    }
+    .bubble a:hover { border-bottom-color: var(--accent); }
+    .bubble img {
+      max-width: 100%;
+      height: auto;
+      border-radius: var(--r-sm);
+      display: block;
+      margin: 8px 0;
+    }
+    .unsafe-link {
+      color: var(--danger);
+      text-decoration: line-through;
     }
     .bubble input[type=checkbox] {
       margin-right: 6px; accent-color: var(--accent);
@@ -1752,6 +1919,18 @@
     .bubble abbr[title] {
       text-decoration: underline dotted; cursor: help;
     }
+    .bubble .katex {
+      overflow-wrap: normal;
+      word-break: normal;
+    }
+    .bubble .katex-display {
+      max-width: 100%;
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+    .bubble .katex-display > .katex {
+      white-space: nowrap;
+    }
 
     /* Selection */
     ::selection { background: rgba(255,255,255,0.15); color: var(--text-primary); }
@@ -1775,14 +1954,14 @@
     body[data-color-scheme="light"] select:focus-visible { border-color: rgba(0,0,0,0.25); }
 
     /* Micro edge gloss */
-    .card, .stat, .conv, .item, .toggle-card, .bubble, .log-row {
+    .card, .stat, .conv, .item, .toggle-card, .log-row {
       position: relative; overflow: hidden;
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
     }
 
     body[data-color-scheme="light"] .card, body[data-color-scheme="light"] .stat,
     body[data-color-scheme="light"] .conv, body[data-color-scheme="light"] .item,
-    body[data-color-scheme="light"] .toggle-card, body[data-color-scheme="light"] .bubble,
+    body[data-color-scheme="light"] .toggle-card,
     body[data-color-scheme="light"] .log-row {
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
     }
@@ -1818,6 +1997,11 @@
     @media (max-width: 760px) {
       .app { grid-template-columns: 1fr; }
       .sidebar { display: none; }
+      .chat { padding: 14px 12px; }
+      .msg { max-width: 100%; }
+      .bubble { font-size: 13px; border-radius: 14px; }
+      .bubble pre { font-size: 11px; padding: 10px; }
+      .bubble .katex-display > .katex { font-size: 1em; }
       .top { align-items: flex-start; flex-direction: column; }
       .top-actions { flex-wrap: wrap; }
     }

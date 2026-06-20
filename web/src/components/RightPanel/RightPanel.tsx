@@ -160,18 +160,6 @@ export function RightPanel(props: Props) {
                     onChange={(e) => set((s: AppStore) => ({ config: { ...s.config, videoGenerationModel: e.target.value } }))}
                     onBlur={() => props.saveConfigField('video_generation_model', get().config.videoGenerationModel)} />
                 </div>
-                <div className="form-row">
-                  <label>向量模型</label>
-                  <input value={config.embeddingModel || ''} placeholder="留空则不启用"
-                    onChange={(e) => set((s: AppStore) => ({ config: { ...s.config, embeddingModel: e.target.value } }))}
-                    onBlur={() => props.saveConfigField('embedding_model', get().config.embeddingModel)} />
-                </div>
-                <div className="form-row">
-                  <label>重排序模型</label>
-                  <input value={config.rerankModel || ''} placeholder="留空则不启用"
-                    onChange={(e) => set((s: AppStore) => ({ config: { ...s.config, rerankModel: e.target.value } }))}
-                    onBlur={() => props.saveConfigField('rerank_model', get().config.rerankModel)} />
-                </div>
               </div>
             </details>
 

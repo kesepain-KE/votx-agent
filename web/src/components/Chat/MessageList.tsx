@@ -1,8 +1,8 @@
 /** 描述 Props 数据结构。 */
 import { useState } from 'react'
 import type { Message, ToolCard } from '@/types'
-import { formatContent } from '@/utils/format'
 import { useAppStore } from '@/store/useAppStore'
+import { MarkdownMessage } from './MarkdownMessage'
 
 /** 描述 Props 数据结构。 */
 interface Props {
@@ -93,10 +93,7 @@ function AssistantMessage({ message, patchMessage, copyMsg, loadToolResult }: Pr
       {(message.tools || []).map((tc) => (
         <ToolCallCard key={tc._key} tc={tc} message={message} patchMessage={patchMessage} loadToolResult={loadToolResult} />
       ))}
-      {message.streaming
-        ? <div className="bubble">{message._raw}</div>
-        : <div className="bubble" dangerouslySetInnerHTML={{ __html: formatContent(message.content) }} />
-      }
+      {message.streaming ? <div className="bubble">{message._raw}</div> : <MarkdownMessage content={message.content} />}
       {message.usage ? (
         <div className="msg-footer">
           <div className="live-stats">

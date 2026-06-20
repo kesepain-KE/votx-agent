@@ -111,8 +111,6 @@ export interface UserConfig {
   speechGenerationModel: string
   speechToSpeechModel: string
   videoGenerationModel: string
-  embeddingModel: string
-  rerankModel: string
 }
 
 /** 描述 LogEntry 数据结构。 */
@@ -294,8 +292,6 @@ export interface RawConfig {
     speech_generation_model?: string
     speech_to_speech_model?: string
     video_generation_model?: string
-    embedding_model?: string
-    rerank_model?: string
   }
   task_plan?: { accept_task: boolean }
 }

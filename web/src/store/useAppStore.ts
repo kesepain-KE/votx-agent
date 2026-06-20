@@ -74,8 +74,6 @@ export const useAppStore = create<AppStore>(() => ({
     speechGenerationModel: '',
     speechToSpeechModel: '',
     videoGenerationModel: '',
-    embeddingModel: '',
-    rerankModel: '',
   },
   lastSavedConfig: {},
   stats: { messages: '-', tools: '-', size: '-' },

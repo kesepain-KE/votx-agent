@@ -6,7 +6,7 @@ import { type ChangeEvent, type DragEvent, type KeyboardEvent, type MouseEvent, 
 import { api, jsonBody } from '@/api/client'
 import { defaultPromptData, THEMES, useAppStore } from '@/store/useAppStore'
 import type { AppStore, AttachChip, Conversation, FileItem, Message, Plan, PlanStep, RawConfig, RawConversation, RawMessage, RawToolLog, SSEEvent, Task, ThemeId, ToolCard, UsageInfo, UserInfo } from '@/types'
-import { fmtMs, fmtSize, fmtTime, formatContent, formatNumber, isImageFile } from '@/utils/format'
+import { fmtMs, fmtSize, fmtTime, formatNumber, isImageFile } from '@/utils/format'
 
 /* ── 纯函数 ── */
 
@@ -62,7 +62,7 @@ export function planStepIcon(status?: string) {
 
 /* ── 常量 ── */
 
-export const COMMANDS = ['/clear', '/history', '/retry', '/help', '/stats', '/archive', '/summarize', '/new']
+export const COMMANDS = ['/clear', '/retry', '/help', '/stats']
 /** 导出 TABS 常量配置。 */
 export const TABS = [
   { id: 'overview', label: '概览' },
@@ -251,7 +251,7 @@ export function useAppActions() {
   function snapshotConfig() {
     const { config } = get()
     set({
-      lastSavedConfig: { type: config.type, model: config.model, baseUrl: config.baseUrl, stream: config.stream, acceptTask: config.acceptTask, capabilitiesOverride: config.capabilitiesOverride, visionModel: config.visionModel, audioTranscriptionModel: config.audioTranscriptionModel, imageGenerationModel: config.imageGenerationModel, imageEditModel: config.imageEditModel, speechGenerationModel: config.speechGenerationModel, speechToSpeechModel: config.speechToSpeechModel, videoGenerationModel: config.videoGenerationModel, embeddingModel: config.embeddingModel, rerankModel: config.rerankModel },
+      lastSavedConfig: { type: config.type, model: config.model, baseUrl: config.baseUrl, stream: config.stream, acceptTask: config.acceptTask, capabilitiesOverride: config.capabilitiesOverride, visionModel: config.visionModel, audioTranscriptionModel: config.audioTranscriptionModel, imageGenerationModel: config.imageGenerationModel, imageEditModel: config.imageEditModel, speechGenerationModel: config.speechGenerationModel, speechToSpeechModel: config.speechToSpeechModel, videoGenerationModel: config.videoGenerationModel },
     })
   }
 
@@ -873,8 +873,6 @@ export function useAppActions() {
           speechGenerationModel: (provider as Record<string,unknown>)?.speech_generation_model as string || '',
           speechToSpeechModel: (provider as Record<string,unknown>)?.speech_to_speech_model as string || '',
           videoGenerationModel: (provider as Record<string,unknown>)?.video_generation_model as string || '',
-          embeddingModel: (provider as Record<string,unknown>)?.embedding_model as string || '',
-          rerankModel: (provider as Record<string,unknown>)?.rerank_model as string || '',
         },
         modelName: provider?.model || '-',
       }))
@@ -951,7 +949,7 @@ export function useAppActions() {
   const restoreConfig = useCallback(() => {
     if (!get().userActive) { toast('请先选择用户'); return }
     const last = get().lastSavedConfig; if (!last.model && !last.baseUrl && !last.type) { toast('没有可恢复的保存状态'); return }
-    set((s) => ({ config: { ...s.config, type: last.type || 'kemo', model: last.model || '', baseUrl: last.baseUrl || '', stream: 'stream' in last ? !!last.stream : s.config.stream, acceptTask: 'acceptTask' in last ? !!last.acceptTask : s.config.acceptTask, capabilitiesOverride: ('capabilitiesOverride' in last ? last.capabilitiesOverride ?? null : s.config.capabilitiesOverride), visionModel: 'visionModel' in last ? (last.visionModel || '') : s.config.visionModel, audioTranscriptionModel: 'audioTranscriptionModel' in last ? (last.audioTranscriptionModel || '') : s.config.audioTranscriptionModel, imageGenerationModel: 'imageGenerationModel' in last ? (last.imageGenerationModel || '') : s.config.imageGenerationModel, imageEditModel: 'imageEditModel' in last ? (last.imageEditModel || '') : s.config.imageEditModel, speechGenerationModel: 'speechGenerationModel' in last ? (last.speechGenerationModel || '') : s.config.speechGenerationModel, speechToSpeechModel: 'speechToSpeechModel' in last ? (last.speechToSpeechModel || '') : s.config.speechToSpeechModel, videoGenerationModel: 'videoGenerationModel' in last ? (last.videoGenerationModel || '') : s.config.videoGenerationModel, embeddingModel: 'embeddingModel' in last ? (last.embeddingModel || '') : s.config.embeddingModel, rerankModel: 'rerankModel' in last ? (last.rerankModel || '') : s.config.rerankModel } }))
+    set((s) => ({ config: { ...s.config, type: last.type || 'kemo', model: last.model || '', baseUrl: last.baseUrl || '', stream: 'stream' in last ? !!last.stream : s.config.stream, acceptTask: 'acceptTask' in last ? !!last.acceptTask : s.config.acceptTask, capabilitiesOverride: ('capabilitiesOverride' in last ? last.capabilitiesOverride ?? null : s.config.capabilitiesOverride), visionModel: 'visionModel' in last ? (last.visionModel || '') : s.config.visionModel, audioTranscriptionModel: 'audioTranscriptionModel' in last ? (last.audioTranscriptionModel || '') : s.config.audioTranscriptionModel, imageGenerationModel: 'imageGenerationModel' in last ? (last.imageGenerationModel || '') : s.config.imageGenerationModel, imageEditModel: 'imageEditModel' in last ? (last.imageEditModel || '') : s.config.imageEditModel, speechGenerationModel: 'speechGenerationModel' in last ? (last.speechGenerationModel || '') : s.config.speechGenerationModel, speechToSpeechModel: 'speechToSpeechModel' in last ? (last.speechToSpeechModel || '') : s.config.speechToSpeechModel, videoGenerationModel: 'videoGenerationModel' in last ? (last.videoGenerationModel || '') : s.config.videoGenerationModel } }))
     toast('已恢复到上次保存状态')
   }, [get, set])
 
