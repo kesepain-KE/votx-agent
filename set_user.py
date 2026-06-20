@@ -22,14 +22,6 @@ except Exception:
 USERS_DIR = ROOT / "users"
 
 KEMO_DEFAULT_BASE_URL = "http://127.0.0.1:8741/v1"
-KEMO_CHAT_MODELS = [
-    "stepfun-step-3.7-flash",
-    "stepfun-step-3.5-flash-2603",
-    "stepfun-step-3.5-flash",
-    "stepfun-step-router-v1",
-    "deepseek-deepseek-v4-flash",
-    "deepseek-deepseek-v4-pro",
-]
 
 # ── 默认人设模板 ───────────────────────────────
 
@@ -159,48 +151,6 @@ def list_users() -> list[str]:
 
 # ── 交互式输入 ──────────────────────────────────
 
-def _dedupe_models(models: list[str]) -> list[str]:
-    """模型名去重，保持原始顺序。"""
-    seen = set()
-    result = []
-    for model in models:
-        name = str(model).strip()
-        if not name or name in seen:
-            continue
-        seen.add(name)
-        result.append(name)
-    return result
-
-
-def _pick_model_from_list(models: list[str], default: str = "") -> str:
-    """从厂商模型列表中选择模型，并允许手动输入。"""
-    models = _dedupe_models(models)
-    if default and default not in models:
-        models.append(default)
-
-    if not models:
-        return input("  输入模型名: ").strip()
-
-    print("\n  可用模型:")
-    for i, name in enumerate(models, 1):
-        marker = " (当前)" if name == default else ""
-        print(f"  {i}. {name}{marker}")
-    custom_idx = len(models) + 1
-    print(f"  {custom_idx}. 手动输入模型名")
-
-    default_idx = str(models.index(default) + 1) if default in models else "1"
-    choice = input(f"  选择 [{default_idx}]: ").strip() or default_idx
-    if choice == str(custom_idx):
-        return input("  输入模型名: ").strip() or (default or models[0])
-    try:
-        idx = int(choice) - 1
-        if 0 <= idx < len(models):
-            return models[idx]
-    except ValueError:
-        pass
-    return default or models[0]
-
-
 def _prompt_existing_key(current_key: str, empty_hint: str) -> str:
     """编辑时处理 API Key：回车保持，'-' 清除。"""
     if current_key:
@@ -228,7 +178,10 @@ def _configure_kemo_provider(current: dict | None = None) -> dict:
         current.get("api_key", "").strip(),
         "  API Key (留空使用 KEMO_API_KEY): ",
     )
-    model = _pick_model_from_list(KEMO_CHAT_MODELS, current.get("model", "").strip() or KEMO_CHAT_MODELS[0])
+    default_model = current.get("model", "").strip()
+    model = input(f"  模型名称 [{default_model}]: ").strip() or default_model
+    if not model:
+        model = input("  请输入模型名称: ").strip()
 
     return {
         "type": "kemo",
@@ -242,8 +195,6 @@ def _configure_kemo_provider(current: dict | None = None) -> dict:
         "speech_generation_model": current.get("speech_generation_model") or "stepfun-stepaudio-2.5-tts",
         "speech_to_speech_model": current.get("speech_to_speech_model", ""),
         "video_generation_model": current.get("video_generation_model", ""),
-        "embedding_model": current.get("embedding_model", ""),
-        "rerank_model": current.get("rerank_model", ""),
     }
 
 
@@ -324,8 +275,6 @@ def add_user(name: str = "") -> str | None:
             "speech_generation_model": "",
             "speech_to_speech_model": "",
             "video_generation_model": "",
-            "embedding_model": "",
-            "rerank_model": "",
             "capabilities_override": None,
             **provider_config,
         },
@@ -394,8 +343,6 @@ def edit_user(name: str):
     provider_cfg.setdefault("speech_generation_model", "")
     provider_cfg.setdefault("speech_to_speech_model", "")
     provider_cfg.setdefault("video_generation_model", "")
-    provider_cfg.setdefault("embedding_model", "")
-    provider_cfg.setdefault("rerank_model", "")
     provider_cfg.setdefault("capabilities_override", None)
 
     _write_config(user_dir, config)
