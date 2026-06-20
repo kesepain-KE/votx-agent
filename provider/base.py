@@ -14,8 +14,6 @@ VALID_CAPABILITIES = {
     "speech_generation",
     "speech_to_speech",
     "video_generation",
-    "embedding",
-    "rerank",
 }
 
 
@@ -48,7 +46,7 @@ class BaseProvider(ABC):
         """返回当前 provider 支持的能力集合。
         可能的值: "vision", "audio_transcription", "image_generation",
         "image_edit", "speech_generation", "speech_to_speech",
-        "video_generation", "embedding", "rerank"
+        "video_generation"
         """
         return set()
 
@@ -83,11 +81,3 @@ class BaseProvider(ABC):
     def download_video(self, job_id: str, output_dir: str, **kwargs) -> str:
         """下载视频结果并返回本地路径。"""
         raise NotImplementedError("当前 provider 不支持视频生成 (video_generation)")
-
-    def create_embeddings(self, texts: str | list[str], **kwargs) -> dict:
-        """文本嵌入。返回 provider 原始兼容响应。"""
-        raise NotImplementedError("当前 provider 不支持文本嵌入 (embedding)")
-
-    def rerank_documents(self, query: str, documents: list[str], **kwargs) -> dict:
-        """文档重排。返回 provider 原始兼容响应。"""
-        raise NotImplementedError("当前 provider 不支持文档重排 (rerank)")

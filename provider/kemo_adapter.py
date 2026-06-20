@@ -2,6 +2,10 @@
 
 所有通信用 urllib HTTP 直接调用 llm-adapter-kemo 端点。
 不依赖 OpenAI SDK，不依赖市场 API。
+
+ASR 降级策略：
+  1. Kemo 网关 /v1/audio/transcriptions 优先
+  2. 网关返回 404/501（未映射 ASR 路由）时 → StepFun 原生 SSE ASR
 """
 
 from __future__ import annotations
@@ -128,8 +132,6 @@ class KemoProvider(BaseProvider):
         self.image_edit_model: str = _configured(cfg.get("image_edit_model")) or DEFAULT_IMAGE_EDIT_MODEL
         self.speech_to_speech_model: str = _configured(cfg.get("speech_to_speech_model", ""))
         self.video_generation_model: str = _configured(cfg.get("video_generation_model", ""))
-        self.embedding_model: str = _configured(cfg.get("embedding_model", ""))
-        self.rerank_model: str = _configured(cfg.get("rerank_model", ""))
 
         self.user_config: dict = user_config
         self.last_response: ProviderResponse | None = None
@@ -158,10 +160,6 @@ class KemoProvider(BaseProvider):
             caps.add("image_edit")
         if self.video_generation_model:
             caps.add("video_generation")
-        if self.embedding_model:
-            caps.add("embedding")
-        if self.rerank_model:
-            caps.add("rerank")
         return caps
 
     # ── Chat ──
@@ -523,7 +521,10 @@ class KemoProvider(BaseProvider):
         return filepath
 
     def transcribe_audio(self, file_path: str, **kwargs) -> str:
-        """ASR — 直接 multipart POST {base_url}/v1/audio/transcriptions。"""
+        """ASR — Kemo 网关优先，StepFun 原生 SSE ASR 降级。
+
+        优先 Kemo 网关，网关返回 404/501 时用同一套凭据再试标准接口。
+        """
         if "audio_transcription" not in self.capabilities():
             raise NotImplementedError("当前 provider 不支持语音识别 (audio_transcription)")
 
@@ -536,10 +537,43 @@ class KemoProvider(BaseProvider):
         if not model:
             raise ValueError("audio_transcription_model 未配置")
 
+        # ── 第 1 步：Kemo 网关 ──
+        try:
+            return self._transcribe_audio_kemo(audio_file, model, **kwargs)
+        except urllib.error.HTTPError as exc:
+            if exc.code not in (404, 501):
+                body_text = exc.read().decode("utf-8", errors="replace")
+                raise RuntimeError(
+                    f"Kemo ASR failed ({exc.code}): {_error_message(body_text)}"
+                ) from exc
+            kemo_err = f"Kemo ASR ({exc.code}): {_error_message(exc.read().decode('utf-8', errors='replace'))}"
+        except urllib.error.URLError as exc:
+            raise RuntimeError(f"Kemo ASR connection failed: {exc}") from exc
+        except RuntimeError as exc:
+            # 404/501 也可能被 _transcribe_audio_kemo 以 RuntimeError 抛出
+            msg = str(exc)
+            if "404" not in msg and "501" not in msg:
+                raise
+            kemo_err = msg
+
+        # ── 第 2 步：标准 ASR 接口降级 ──
+        stepfun_err = None
+        try:
+            return self._transcribe_audio_fallback(audio_file, model, **kwargs)
+        except Exception as exc:
+            stepfun_err = str(exc)
+
+        raise RuntimeError(
+            f"ASR 全部失败: {kemo_err}; "
+            f"StepFun fallback {'也' if stepfun_err else '未配置或跳过'}"
+            + (f" ({stepfun_err})" if stepfun_err else "")
+        )
+
+    def _transcribe_audio_kemo(self, audio_file: Path, model: str, **kwargs) -> str:
+        """通过 Kemo 网关 multipart 上传音频进行 ASR。"""
         language = kwargs.get("language", "zh")
         prompt = kwargs.get("prompt", "")
-        filename = audio_file.name
-        content_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+        content_type = mimetypes.guess_type(audio_file.name)[0] or "application/octet-stream"
         audio_bytes = audio_file.read_bytes()
 
         fields: dict[str, str] = {"model": model, "language": language}
@@ -548,7 +582,7 @@ class KemoProvider(BaseProvider):
 
         body, multipart_type = _multipart_body(
             fields=fields,
-            files=[("file", filename, audio_bytes, content_type)],
+            files=[("file", audio_file.name, audio_bytes, content_type)],
         )
 
         url = f"{self.base_url.rstrip('/')}/audio/transcriptions"
@@ -561,15 +595,43 @@ class KemoProvider(BaseProvider):
             },
             method="POST",
         )
-        try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
-                payload = json.loads(response.read().decode("utf-8"))
-        except urllib.error.HTTPError as exc:
-            body_text = exc.read().decode("utf-8", errors="replace")
-            raise RuntimeError(f"Kemo ASR failed ({exc.code}): {_error_message(body_text)}") from exc
-        except urllib.error.URLError as exc:
-            raise RuntimeError(f"Kemo ASR connection failed: {exc}") from exc
+        with urllib.request.urlopen(request, timeout=self.timeout) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        return (payload.get("text") or "").strip()
 
+    def _transcribe_audio_fallback(self, audio_file: Path, model: str, **kwargs) -> str:
+        """标准 ASR 降级 — 复用同一套 api_key + base_url 再试一次。
+
+        走 OpenAI 兼容的 /v1/audio/transcriptions multipart 接口。
+        小米模型就是因为支持标准接口才成功语音识别的。
+        """
+        language = kwargs.get("language", "zh")
+        prompt = kwargs.get("prompt", "")
+        content_type = mimetypes.guess_type(audio_file.name)[0] or "application/octet-stream"
+        audio_bytes = audio_file.read_bytes()
+
+        fields: dict[str, str] = {"model": model, "language": language}
+        if prompt:
+            fields["prompt"] = prompt
+
+        body, multipart_type = _multipart_body(
+            fields=fields,
+            files=[("file", audio_file.name, audio_bytes, content_type)],
+        )
+
+        url = f"{self.base_url.rstrip('/')}/audio/transcriptions"
+        request = urllib.request.Request(
+            url,
+            data=body,
+            headers={
+                "Authorization": f"Bearer {self.kemo_api_key}",
+                "Content-Type": multipart_type,
+            },
+            method="POST",
+        )
+
+        with urllib.request.urlopen(request, timeout=self.timeout) as response:
+            payload = json.loads(response.read().decode("utf-8"))
         return (payload.get("text") or "").strip()
 
     def speech_to_speech(self, audio_path: str, **kwargs) -> str:
@@ -696,37 +758,3 @@ class KemoProvider(BaseProvider):
         with open(filepath, "wb") as f:
             f.write(raw)
         return filepath
-
-    def create_embeddings(self, texts: str | list[str], **kwargs) -> dict:
-        if "embedding" not in self.capabilities():
-            raise NotImplementedError("当前 provider 不支持文本嵌入 (embedding)")
-
-        cfg = self.user_config.get("provider", {}) or {}
-        model = _configured(kwargs.get("model")) or _configured(cfg.get("embedding_model"))
-        if not model:
-            raise ValueError("embedding_model 未配置")
-        payload: dict[str, Any] = {
-            "model": model,
-            "input": texts,
-            "encoding_format": kwargs.get("encoding_format", "float"),
-        }
-        return self._json_request("POST", "embeddings", payload)
-
-    def rerank_documents(self, query: str, documents: list[str], **kwargs) -> dict:
-        if "rerank" not in self.capabilities():
-            raise NotImplementedError("当前 provider 不支持文档重排 (rerank)")
-
-        cfg = self.user_config.get("provider", {}) or {}
-        model = _configured(kwargs.get("model")) or _configured(cfg.get("rerank_model"))
-        if not model:
-            raise ValueError("rerank_model 未配置")
-        payload: dict[str, Any] = {
-            "model": model,
-            "query": query,
-            "documents": documents,
-        }
-        if kwargs.get("top_n") is not None:
-            payload["top_n"] = int(kwargs["top_n"])
-        if kwargs.get("return_documents") is not None:
-            payload["return_documents"] = bool(kwargs["return_documents"])
-        return self._json_request("POST", "rerank", payload)
