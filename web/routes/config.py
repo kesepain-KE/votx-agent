@@ -119,7 +119,7 @@ def api_update_config():
                    "vision_model", "audio_transcription_model",
                    "image_generation_model", "image_edit_model",
                    "speech_generation_model", "speech_to_speech_model",
-                   "video_generation_model", "embedding_model", "rerank_model"}
+                   "video_generation_model"}
         for key in allowed & data.keys():
             provider[key] = data[key]
 
@@ -143,7 +143,7 @@ def api_update_config():
                     "vision_model", "audio_transcription_model",
                     "image_generation_model", "image_edit_model",
                     "speech_generation_model", "speech_to_speech_model",
-                    "video_generation_model", "embedding_model", "rerank_model"}
+                    "video_generation_model"}
         if critical & data.keys():
             from provider.factory import create_provider
             try:

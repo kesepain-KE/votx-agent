@@ -148,10 +148,8 @@ def _dispatch(cmd: str, session_data=None) -> dict | None:
         return {"type": "command_result", "content": (
             "可用命令:\n"
             "  /clear — 清除当前对话历史及工具日志\n"
-            "  /archive — 保存当前对话并生成摘要\n"
-            "  /new — 保存当前对话摘要后开启新对话\n"
-            "  /summarize — 生成当前对话摘要\n"
-            "  /history 或 /stats — 查看当前会话统计\n"
+
+            "  /stats — 查看当前会话统计\n"
             "  /retry — 移除上一条 AI 回复并重新生成\n"
             "  /help — 显示本帮助信息"
         )}
