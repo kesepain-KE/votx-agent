@@ -63,7 +63,7 @@ votx-agent 是一个本地单用户（多用户数据隔离）AI Agent 框架，
 - **任务计划**：复杂请求可生成计划，Web UI 批准后执行，支持暂停、继续、终止。
 - **auto_improve**：临时记忆与永久记忆分层，支持主动审阅与清理。
 - **外部消息路由**：QQ/NapCat/OneBot 与 Telegram，可接收图片、语音、文件，支持推送队列。
-- **全栈多模态能力**：图像识别、语音识别、图像生成、图像编辑、语音生成、语音生语音、视频生成、文本嵌入、文档重排，按 Provider 能力启用。
+- **全栈多模态能力**：图像识别、语音识别、图像生成、图像编辑、语音生成、语音生语音、视频生成，按 Provider 能力启用。
 - **全局/用户知识库**：`knowledge/` 全局共享，`users/<name>/knowledge/` 用户私有。
 
 ![VOTX Agent Web UI](votx-agent-web-UI.png)
@@ -163,8 +163,6 @@ image_edit
 speech_generation
 speech_to_speech
 video_generation
-embedding
-rerank
 ```
 
 高级配置（在 `users/<name>/config.json` 的 `provider` 中）：
@@ -179,18 +177,14 @@ rerank
       "image_edit",
       "speech_generation",
       "speech_to_speech",
-      "video_generation",
-      "embedding",
-      "rerank"
+      "video_generation"
     ],
     "audio_transcription_model": "stepfun-stepaudio-2.5-asr",
     "image_generation_model": "",
     "image_edit_model": "stepfun-step-image-edit-2",
     "speech_generation_model": "stepfun-stepaudio-2.5-tts",
     "speech_to_speech_model": "",
-    "video_generation_model": "",
-    "embedding_model": "",
-    "rerank_model": ""
+    "video_generation_model": ""
   }
 }
 ```
@@ -212,8 +206,6 @@ rerank
 | `speech_generate` | 文生语音，默认输出到 `users/<name>/download/` |
 | `speech_to_speech` | 语音生语音，默认输出到 `users/<name>/download/` |
 | `video_generate` / `video_status` / `video_download` | 视频生成、查询和下载（需 Kemo 支持） |
-| `embedding_create` | 文本嵌入（需 Kemo 支持） |
-| `rerank_documents` | 文档重排（需 Kemo 支持） |
 
 ## 用法
 
@@ -369,8 +361,6 @@ users/<用户名>/history/log/external_attachments.jsonl
 | `vision_universal` | 通用识图，支持本地图片和远程 URL |
 | `image_generation` | 文生图，支持多种尺寸和质量 |
 | `speech_generation` | 文生语音，支持多种语音风格 |
-| `embeddings` | 文本嵌入（需 Provider 支持） |
-| `rerank` | 文档重排（需 Provider 支持） |
 | `image_edit` | 图像编辑（需 Provider 支持） |
 | `video_generation` | 视频生成、查询和下载（需 Provider 支持） |
 | `speech_to_speech` | 语音生语音（需 Provider 支持） |
@@ -428,7 +418,6 @@ votx-agent/
 ├── users/              # 用户数据（配置、历史、文件、知识库、记忆）
 ├── web/                # Flask + React + TypeScript + Vite
 ├── AGENTS.md           # 智能体操作手册
-├── CLAUDE.md           # Claude Code 开发指引
 ├── main.py             # CLI 入口
 ├── start.py            # CLI/Web 入口（用户选择）
 ├── start_web.py        # Web 专用入口
@@ -437,7 +426,6 @@ votx-agent/
 ├── paths.py            # 路径解析（开发/PyInstaller 通用）
 ├── version.json        # 当前版本
 ├── requirements.txt    # Python 依赖清单
-├── pyproject.toml      # 项目元信息
 ├── build_windows.bat   # Windows 打包脚本
 └── LICENSE             # MIT 许可证
 ```
@@ -482,8 +470,6 @@ npx tsc --noEmit # TypeScript 检查
 维护者文档：
 
 ```text
-开发文档.md
-开发文档/
 AGENTS.md
 knowledge/
 使用手册-AI/

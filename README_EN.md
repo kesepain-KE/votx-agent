@@ -63,7 +63,7 @@ The single conversation engine lives in `run/engine.py`. Both CLI (`main.py`) an
 - **Task plans**: Complex requests can be decomposed into plans, approved from Web UI, paused, resumed, or aborted.
 - **auto_improve**: Temporary/permanent memory layers with active review and cleanup.
 - **External message routing**: QQ/NapCat/OneBot and Telegram with image, voice, file attachments, and push queue.
-- **Full-stack multimodal**: Image understanding, audio transcription, image generation, image editing, speech generation, speech-to-speech, video generation, embeddings, and reranking.
+- **Full-stack multimodal**: Image understanding, audio transcription, image generation, image editing, speech generation, speech-to-speech, and video generation.
 - **Global/user knowledge bases**: Shared `knowledge/` plus per-user `users/<name>/knowledge/`.
 
 ![VOTX Agent Web UI](votx-agent-web-UI.png)
@@ -163,8 +163,6 @@ image_edit
 speech_generation
 speech_to_speech
 video_generation
-embedding
-rerank
 ```
 
 Advanced configuration (in `users/<name>/config.json` under `provider`):
@@ -179,18 +177,14 @@ Advanced configuration (in `users/<name>/config.json` under `provider`):
       "image_edit",
       "speech_generation",
       "speech_to_speech",
-      "video_generation",
-      "embedding",
-      "rerank"
+      "video_generation"
     ],
     "audio_transcription_model": "stepfun-stepaudio-2.5-asr",
     "image_generation_model": "",
     "image_edit_model": "stepfun-step-image-edit-2",
     "speech_generation_model": "stepfun-stepaudio-2.5-tts",
     "speech_to_speech_model": "",
-    "video_generation_model": "",
-    "embedding_model": "",
-    "rerank_model": ""
+    "video_generation_model": ""
   }
 }
 ```
@@ -212,8 +206,6 @@ Common tools:
 | `speech_generate` | Text to speech, defaults to `users/<name>/download/` |
 | `speech_to_speech` | Speech-to-speech, defaults to `users/<name>/download/` |
 | `video_generate` / `video_status` / `video_download` | Video generation, status, and download (requires Kemo support) |
-| `embedding_create` | Text embeddings (requires Kemo support) |
-| `rerank_documents` | Document reranking (requires Kemo support) |
 
 ## Usage
 
@@ -369,8 +361,6 @@ Common built-in capabilities:
 | `vision_universal` | Image understanding for local files and remote URLs |
 | `image_generation` | Text to image with various sizes and quality |
 | `speech_generation` | Text to speech with multiple voice styles |
-| `embeddings` | Text embeddings (requires Provider support) |
-| `rerank` | Document reranking (requires Provider support) |
 | `image_edit` | Image editing (requires Provider support) |
 | `video_generation` | Video generation, status, download (requires Provider support) |
 | `speech_to_speech` | Speech-to-speech (requires Provider support) |
@@ -428,7 +418,6 @@ votx-agent/
 ├── users/              # User data (config, history, files, knowledge, memory)
 ├── web/                # Flask + React + TypeScript + Vite
 ├── AGENTS.md           # Agent operation manual
-├── CLAUDE.md           # Claude Code development guide
 ├── main.py             # CLI entry point
 ├── start.py            # CLI/Web entry (user selection)
 ├── start_web.py        # Web-only entry point
@@ -437,7 +426,6 @@ votx-agent/
 ├── paths.py            # Path resolution (dev/PyInstaller compatible)
 ├── version.json        # Current version
 ├── requirements.txt    # Python dependency manifest
-├── pyproject.toml      # Project metadata
 ├── build_windows.bat   # Windows packaging script
 └── LICENSE             # MIT License
 ```
@@ -482,8 +470,6 @@ npx tsc --noEmit # TypeScript check
 Maintainer docs:
 
 ```text
-开发文档.md
-开发文档/
 AGENTS.md
 knowledge/
 使用手册-AI/
