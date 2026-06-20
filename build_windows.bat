@@ -139,9 +139,9 @@ xcopy /E /I /Y run dist\votx-agent\run\ >nul
 xcopy /E /I /Y skills dist\votx-agent\skills\ >nul
 xcopy /E /I /Y knowledge dist\votx-agent\knowledge\ >nul
 copy /Y paths.py dist\votx-agent\ >nul
+del /s /q dist\votx-agent\*.bak 2>nul
 copy /Y AGENTS.md dist\votx-agent\ >nul
 copy /Y set_user.py dist\votx-agent\ >nul
-copy /Y setup.py dist\votx-agent\ >nul
 copy /Y version.json dist\votx-agent\ >nul
 if exist ".env.example" copy /Y .env.example dist\votx-agent\ >nul
 

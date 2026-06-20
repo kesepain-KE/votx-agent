@@ -46,11 +46,11 @@ hiddenimports = [
     "message.routes.onebot",
     "message.routes.telegram",
     "websockets",
-    # Provider 适配器
-    "provider.openai_api",
-    "provider.responses_api",
-    "provider.anthropic_adapter",
-    # Skill tool.py 动态依赖
+    # Provider — Kemo LLM Adapter（唯一活跃 provider）
+    "provider.factory",
+    "provider.kemo_adapter",
+    "provider.schema",
+    # Skill tool.py 公共依赖
     "plugins._common",
     # 可选工具包
     "yaml",
@@ -61,6 +61,7 @@ hiddenimports = [
     "pypdf",
     "reportlab",
     "pdfplumber",
+    "markitdown",
     # Web 框架内部
     "flask",
     "flask.app",
