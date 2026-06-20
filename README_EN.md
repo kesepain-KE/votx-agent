@@ -35,7 +35,7 @@
 
 ## Background
 
-votx-agent is a local multi-user AI Agent framework with Web UI, CLI, tool calling, task plans, persistent memory, self-improvement, external message routing, and full-stack multimodal capabilities. Current version v2.3.3.
+votx-agent is a local multi-user AI Agent framework with Web UI, CLI, tool calling, task plans, persistent memory, self-improvement, external message routing, and full-stack multimodal capabilities. 
 
 ### Architecture Overview
 
@@ -98,7 +98,7 @@ Output:
 dist\votx-agent-windows.zip
 ```
 
-The Web server prints local/remote version information on startup.
+The Web server checks the remote version on startup and prints version status in the terminal (set `VOTX_SKIP_VERSION_CHECK=1` to skip).
 
 ## Provider Configuration
 
@@ -423,6 +423,7 @@ votx-agent/
 ├── start_web.py        # Web-only entry point
 ├── setup.py            # Environment setup script
 ├── set_user.py         # User management script
+├── update.py           # Cross-platform update script
 ├── paths.py            # Path resolution (dev/PyInstaller compatible)
 ├── version.json        # Current version
 ├── requirements.txt    # Python dependency manifest
@@ -432,7 +433,28 @@ votx-agent/
 
 ## Updates
 
-This repository does not include an automatic updater. To update source code, pull the new revision manually and back up `users/`, `skills/`, `.env`, `message/config.local.json`, and message queues before overwriting files.
+```bash
+# Check version
+python update.py --check
+
+# Run update (backup → sync framework → handle config/knowledge → refresh deps)
+python update.py --yes
+
+# Preview what will happen
+python update.py --dry-run
+```
+
+`update.py` works on all platforms (Linux / macOS / Windows with git), written in pure Python with no rsync dependency. It:
+
+1. Compares local version against GitHub main's `version.json`
+2. Shallow-clones the latest source into a temp directory
+3. Backs up the current project (`users/`, `skills/`, `.env`, etc. are excluded)
+4. Syncs framework code while skipping user data and build artifacts
+5. Interactively handles `config/` and `knowledge/` (overwrite / keep / merge)
+6. Patches user directory skeletons
+7. Refreshes dependencies (`python setup.py --skip-env`)
+
+For manual updates, pull the new revision and back up `users/`, `skills/`, `.env`, `message/config.local.json`, and message queues before overwriting. `update.py` handles these exclusions automatically.
 
 ## Windows Package Contents
 

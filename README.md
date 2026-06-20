@@ -35,7 +35,7 @@
 
 ## 背景
 
-votx-agent 是一个本地单用户（多用户数据隔离）AI Agent 框架，支持 Web UI、CLI、工具调用、任务计划、持久记忆、自我改进、外部消息路由和多模态能力。当前版本 v2.3.3。
+votx-agent 是一个本地单用户（多用户数据隔离）AI Agent 框架，支持 Web UI、CLI、工具调用、任务计划、持久记忆、自我改进、外部消息路由和多模态能力。
 
 ### 架构概览
 
@@ -98,7 +98,7 @@ build_windows.bat
 dist\votx-agent-windows.zip
 ```
 
-启动 Web 时会提示本地/远程版本。
+启动 Web 时自动检测远程版本，终端会打印版本状态（支持 `VOTX_SKIP_VERSION_CHECK=1` 跳过）。
 
 ## Provider 配置
 
@@ -423,6 +423,7 @@ votx-agent/
 ├── start_web.py        # Web 专用入口
 ├── setup.py            # 环境安装脚本
 ├── set_user.py         # 用户管理脚本
+├── update.py           # 全平台更新脚本
 ├── paths.py            # 路径解析（开发/PyInstaller 通用）
 ├── version.json        # 当前版本
 ├── requirements.txt    # Python 依赖清单
@@ -432,7 +433,28 @@ votx-agent/
 
 ## 更新
 
-当前仓库不包含自动更新脚本。更新源码时请手动拉取新版代码，并在覆盖前备份 `users/`、`skills/`、`.env`、`message/config.local.json` 和消息队列。
+```bash
+# 检查版本
+python update.py --check
+
+# 执行更新（备份 → 同步框架 → 处理配置/知识库 → 刷新依赖）
+python update.py --yes
+
+# 仅查看会做什么
+python update.py --dry-run
+```
+
+`update.py` 全平台通用（Linux / macOS / Windows 需有 git），纯 Python 实现，不依赖 rsync。它会：
+
+1. 比对本地与 GitHub main 的 `version.json`
+2. 浅克隆最新源码到临时目录
+3. 备份当前项目（`users/`、`skills/`、`.env` 等不备份）
+4. 同步框架代码，跳过排除列表中的用户数据和构建产物
+5. 交互处理 `config/` 和 `knowledge/`（覆盖 / 保持 / 合并）
+6. 补齐用户目录骨架
+7. 刷新依赖（`python setup.py --skip-env`）
+
+手动更新请拉取新版代码，并在覆盖前备份 `users/`、`skills/`、`.env`、`message/config.local.json` 和消息队列。`update.py` 自动处理这些排除项。
 
 ## Windows 打包内容
 

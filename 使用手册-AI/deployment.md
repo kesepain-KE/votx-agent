@@ -97,7 +97,19 @@ dist\votx-agent-windows.zip
 
 ## 源码更新
 
-当前项目不包含自动更新脚本。手动更新前先备份：
+### 自动更新（推荐）
+
+```bash
+python update.py --check      # 检查版本
+python update.py --yes        # 全自动更新
+python update.py --dry-run    # 预览操作
+```
+
+`update.py` 纯 Python 实现，全平台可用（需 git）。自动处理备份、排除和依赖刷新，不会覆盖 `users/`、`skills/`、`.env` 等用户数据。
+
+### 手动更新
+
+手动拉取新版代码前，先备份：
 
 ```text
 users/
@@ -113,4 +125,4 @@ message/push_queue/
 ```text
 python setup.py
 python start_web.py
-```
+``````

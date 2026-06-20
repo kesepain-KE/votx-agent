@@ -114,11 +114,9 @@ def _compare_versions(left: str, right: str) -> int:
     return (a > b) - (a < b)
 
 
-def _print_windows_version_status():
-    """在 Windows Web 启动终端里提示当前版本状态，不执行自动更新。"""
+def _print_version_status():
+    """后台检测远程版本（非阻塞），仅打印提示，不执行更新。"""
     if os.environ.get("VOTX_SKIP_VERSION_CHECK", "").strip() in ("1", "true", "yes"):
-        return
-    if platform.system().lower() != "windows":
         return
 
     local_version = _read_local_version()
@@ -160,7 +158,7 @@ def _print_windows_version_status():
 
         cmp_result = _compare_versions(local_version, remote_version)
         if cmp_result < 0:
-            print(f"[版本] 本地 {local_version}；远程 {remote_version}。发现新版本，请前往 GitHub releases 下载 Windows 特供版。")
+            print(f"[版本] 本地 {local_version}；远程 {remote_version}。发现新版本，可运行 python update.py 更新。")
         elif cmp_result > 0:
             print(f"[版本] 本地 {local_version}；远程 {remote_version}。本地版本高于 main 发布版本。")
         else:
@@ -190,7 +188,7 @@ except ModuleNotFoundError as e:
 if not _check_users():
     sys.exit(1)
 
-_print_windows_version_status()
+_print_version_status()
 
 
 def _can_bind(host: str, port: int) -> tuple[bool, str]:
