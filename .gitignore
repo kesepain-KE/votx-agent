@@ -96,6 +96,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+web/dist/
 web/build/
 web/dist-ssr/
 *.local
