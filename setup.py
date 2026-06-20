@@ -1,3 +1,55 @@
+
+def build_frontend() -> bool:
+    """构建前端 web/dist/ (Node.js 构建产物)"""
+    dist_dir = ROOT / "web" / "dist"
+    if dist_dir.is_dir() and any(dist_dir.iterdir()):
+        print("  web/dist/         [已构建]")
+        return True
+
+    print("  web/dist/ 不存在，需要构建前端...")
+
+    # 检查 Node.js
+    try:
+        subprocess.run(["node", "--version"], capture_output=True, check=True)
+        subprocess.run(["npm", "--version"], capture_output=True, check=True)
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        print("  Node.js/npm 未安装，跳过自动构建")
+        print("  手动构建: cd web && npm install && npm run build")
+        return False
+
+    web_dir = ROOT / "web"
+    print("  npm install...")
+    try:
+        subprocess.run(
+            ["npm", "install"],
+            cwd=str(web_dir),
+            capture_output=True,
+            check=True,
+        )
+    except subprocess.CalledProcessError:
+        print("  npm install       [FAIL]")
+        print(f"  手动执行: cd {web_dir} && npm install && npm run build")
+        return False
+
+    print("  npm run build...")
+    try:
+        subprocess.run(
+            ["npm", "run", "build"],
+            cwd=str(web_dir),
+            capture_output=True,
+            check=True,
+        )
+    except subprocess.CalledProcessError:
+        print("  npm run build     [FAIL]")
+        print(f"  手动执行: cd {web_dir} && npm run build")
+        return False
+
+    if dist_dir.is_dir() and any(dist_dir.iterdir()):
+        print("  前端构建          [OK]")
+        return True
+    else:
+        print("  前端构建          [FAIL] — 构建后 dist 仍为空")
+        return False
 """votx-agent 环境安装 — 全新安装 / 迁移后一键就绪
 
 使用:
@@ -206,8 +258,13 @@ def main():
     if not verify_imports():
         sys.exit(1)
 
-    # 5. 用户状态
-    print("\n[5] 用户状态")
+    # 5. 前端构建（web/dist/ — 构建产物，不跟踪在 Git 中）
+    if not check_only:
+        print("\n[5] 前端构建")
+        build_frontend()
+
+    # 6. 用户状态
+    print("\n[6] 用户状态")
     has_users = check_users()
 
     print()
@@ -220,6 +277,7 @@ def main():
         print("  python set_user.py       # 创建用户")
         print("  python start.py          # CLI")
         print("  python start_web.py      # Web UI")
+    print()
 
 
 if __name__ == "__main__":
