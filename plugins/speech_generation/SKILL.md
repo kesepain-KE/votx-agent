@@ -34,7 +34,7 @@ tags: ["multimodal", "audio", "tts"]
 |------|------|------|--------|------|
 | `text` | string | 是 | — | 要转换的文字（最大 4096 字符） |
 | `voice` | string | 否 | `"alloy"` | 语音风格（原生端点: alloy/echo/fable/onyx/nova/shimmer） |
-| `format` | string | 否 | `"mp3"` | 输出格式: mp3/opus/aac/flac/wav/pcm |
+| `voice` | string | 否 | `"alloy"` | 语音风格。支持 OpenAI 标准音色 (alloy/echo/fable/onyx/nova/shimmer) 及各厂商自定义音色 ID（如 StepFun 的 ruanmengnvsheng / tianmeinvsheng 等） || `format` | string | 否 | `"mp3"` | 输出格式: mp3/opus/aac/flac/wav/pcm |
 | `speed` | float | 否 | 1.0 | 语速 0.25-4.0 |
 | `output_dir` | string | 否 | `users/<user>/generated/audio/` | 输出目录 |
 

@@ -23,19 +23,21 @@ def speech_generate(
 
     Args:
         text:       要转换的文字（必填，最大 4096 字符）
-        voice:      语音风格 alloy/echo/fable/onyx/nova/shimmer
+    text: str,
+    voice: str = "alloy",
+    format: str = "mp3",
+    speed: float = 1.0,
+    output_dir: str = ""
+) -> str:
+    """文生语音，将文字转换为语音文件并保存到本地。
+
+    Args:
+        text:       要转换的文字（必填，最大 4096 字符）
+        voice:      语音风格，支持 OpenAI 标准音色及各厂商自定义音色 ID，默认 alloy
         format:     输出音频格式 mp3/opus/aac/flac/wav/pcm
         speed:      语速 0.25-4.0，默认 1.0
         output_dir: 输出目录（默认 users/<user>/download/）
-    """
-    ctx = get_multimodal_context()
-    if not ctx or not ctx.get("provider"):
-        return err("speech_generate: 缺少 provider 上下文，请重新进入会话")
-
-    provider = ctx["provider"]
-
-    # 能力检查
-    if "speech_generation" not in provider.capabilities():
+    """    if "speech_generation" not in provider.capabilities():
         return err(
             f"当前 provider 不支持语音生成 (speech_generation)。"
             f"请切换到支持 TTS 的 provider（如 OpenAI 官方 API）后再试。"
@@ -69,11 +71,10 @@ def speech_generate(
         return filepath
     except NotImplementedError as e:
         return err(str(e))
-    except Exception as e:
-        return err(f"语音生成失败: {e}")
-
-
-SCHEMA = {
+                "voice": {
+                    "type": "string",
+                    "description": "语音风格，支持 OpenAI 标准音色 (alloy/echo/fable/onyx/nova/shimmer) 及各厂商自定义音色 ID（如 StepFun: ruanmengnvsheng / tianmeinvsheng 等），默认 alloy"
+                },SCHEMA = {
     "type": "function",
     "function": {
         "name": "speech_generate",
