@@ -1003,8 +1003,7 @@
       max-width: 100%;
       background: rgba(255,255,255,0.05);
       border: 1px solid var(--glass-border);
-    }      max-width: 100%;
-    }    }
+    }
     .bubble.markdown {
       white-space: normal;
       overflow-x: hidden;
@@ -1105,7 +1104,8 @@
     .bubble.markdown .katex-display {
       margin: 0.6em 0; overflow-x: auto; overflow-y: hidden;
       padding: 4px 0;
-    }    .bubble-wrap {
+    }
+    .bubble-wrap {
       display: flex; flex-direction: column; gap: 3px;
       min-width: 0; max-width: 100%; overflow: hidden;
     }
@@ -2008,32 +2008,3 @@
 
 #root { height: 100%; }
 
-body::before {
-  content: "";
-  position: fixed; inset: 0; pointer-events: none; z-index: 0;
-  background:
-    radial-gradient(680px 420px at 8% 6%, rgba(255,255,255,0.06), transparent 60%),
-    radial-gradient(580px 380px at 92% 14%, rgba(255,255,255,0.04), transparent 58%),
-    radial-gradient(520px 360px at 22% 90%, rgba(255,255,255,0.03), transparent 62%),
-    radial-gradient(560px 400px at 78% 82%, rgba(255,255,255,0.04), transparent 60%);
-}
-
-body[data-color-scheme="light"]::before {
-  background:
-    radial-gradient(680px 420px at 8% 6%, rgba(0,0,0,0.03), transparent 60%),
-    radial-gradient(580px 380px at 92% 14%, rgba(0,0,0,0.02), transparent 58%),
-    radial-gradient(520px 360px at 22% 90%, rgba(0,0,0,0.025), transparent 62%),
-    radial-gradient(560px 400px at 78% 82%, rgba(0,0,0,0.02), transparent 60%);
-  opacity: 0.7;
-}
-
-body::after {
-  content: "";
-  position: fixed; inset: 0; pointer-events: none; z-index: 0;
-  background-image:
-    linear-gradient(rgba(127, 127, 127, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(127, 127, 127, 0.03) 1px, transparent 1px);
-  background-size: 48px 48px;
-  mask-image: radial-gradient(circle at 50% 30%, #000 0%, transparent 75%);
-  opacity: 0.45;
-}
