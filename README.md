@@ -1,3 +1,22 @@
+<div align="center">
+<br>
+
+# 🏛️ votx-agent 经典版 (Classic)
+
+> **此分支为 votx-agent v2.3.3 的经典归档版本。**
+> **仅做关键维护更新，无自动更新检测干扰，适合长期稳定部署。**
+
+[![Classic](https://img.shields.io/badge/status-classic-8B4513?style=for-the-badge)](https://github.com/kesepain-KE/votx-agent/tree/votx-agent-classic)
+[![version](https://img.shields.io/badge/version-2.3.3-blue?style=for-the-badge)](./version.json)
+[![License](https://img.shields.io/badge/license-MIT-orange?style=for-the-badge)](./LICENSE)
+
+<br>
+</div>
+
+---
+
+<br>
+
 # 项目简介
 
 [![standard-readme compliant](https://img.shields.io/badge/readme%20style-standard-brightgreen.svg?style=flat-square)](https://github.com/RichardLitt/standard-readme)
