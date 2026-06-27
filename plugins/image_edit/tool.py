@@ -6,12 +6,12 @@ Image Edit Skill - 图像编辑工具
 """
 
 import base64
-import json
 import os
 import uuid
 from urllib.request import urlretrieve
 
 from plugins._common import err, safe_path, check_sandbox, get_current_user_dir, get_multimodal_context
+from plugins._common.artifacts import make_image_artifact, make_tool_result
 from run.tool import register_tool
 
 
@@ -91,29 +91,31 @@ def image_edit(
         try:
             if item.get("url"):
                 urlretrieve(item["url"], filepath)
-                saved.append({
-                    "path": filepath,
-                    "url": item["url"],
-                    "revised_prompt": item.get("revised_prompt", prompt),
-                    "finish_reason": item.get("finish_reason"),
-                    "seed": item.get("seed"),
-                })
+                artifact = make_image_artifact(
+                    filepath,
+                    source_url=item["url"],
+                    revised_prompt=item.get("revised_prompt", prompt),
+                    finish_reason=item.get("finish_reason"),
+                    seed=item.get("seed"),
+                )
+                saved.append(artifact)
             elif item.get("b64_json"):
                 with open(filepath, "wb") as f:
                     f.write(base64.b64decode(item["b64_json"]))
-                saved.append({
-                    "path": filepath,
-                    "url": None,
-                    "revised_prompt": item.get("revised_prompt", prompt),
-                    "finish_reason": item.get("finish_reason"),
-                    "seed": item.get("seed"),
-                })
+                artifact = make_image_artifact(
+                    filepath,
+                    source_url=None,
+                    revised_prompt=item.get("revised_prompt", prompt),
+                    finish_reason=item.get("finish_reason"),
+                    seed=item.get("seed"),
+                )
+                saved.append(artifact)
         except Exception as e:
             return err(f"保存编辑结果失败: {e}")
 
     if not saved:
         return err("图像编辑未返回可保存的结果")
-    return json.dumps(saved, ensure_ascii=False, indent=2)
+    return make_tool_result(True, "图片编辑完成", saved)
 
 
 SCHEMA = {
