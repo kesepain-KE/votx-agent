@@ -113,7 +113,7 @@ users/<用户名>/improve/
 `provider.type` 表示服务商适配类型：
 
 ```text
-kemo       满血模式：搭配 Kemo LLM Adapter 网关，多模态全开；残血模式：直连任意 OpenAI 兼容 API（base_url 指向谁就是谁），部分端点（如图生图、视频、部分 ASR 路由）可能不可用
+kemo       满血模式：搭配 Kemo LLM Adapter 网关（https://github.com/kesepain-KE/llm-adapter-kemo），多模态全开；残血模式：直连任意 OpenAI 兼容 API（base_url 指向谁就是谁），部分端点（如图生图、视频、部分 ASR 路由）可能不可用
 ```
 
 `python set_user.py add` 创建用户时只显示 Kemo 配置入口，包括：
