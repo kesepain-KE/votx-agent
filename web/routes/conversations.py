@@ -12,6 +12,7 @@ import traceback
 from flask import jsonify, request, session as flask_session
 
 from web.server import app
+from web.routes._tool_links import decorate_tool_calls_with_log_ids
 from web.session import require_session
 
 
@@ -166,6 +167,7 @@ def api_conversations_load():
 
     try:
         msgs = _read_conv_messages(kind, path_or_err)
+        msgs = decorate_tool_calls_with_log_ids(user_dir, msgs)
         return jsonify({
             "id": conv_id,
             "kind": kind,
@@ -196,6 +198,7 @@ def api_conversations_select():
 
     try:
         msgs = _read_conv_messages(kind, path_or_err)
+        msgs = decorate_tool_calls_with_log_ids(user_dir, msgs)
         if kind == "current":
             session_data.pop("_preview_conv_id", None)
             session_data.pop("_preview_conv_kind", None)

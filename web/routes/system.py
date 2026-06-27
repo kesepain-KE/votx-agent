@@ -7,6 +7,7 @@ import traceback
 from flask import Response, jsonify, request, session as flask_session
 
 from web.server import app
+from web.routes._tool_links import decorate_tool_calls_with_log_ids
 from web.session import _root, require_session
 from run.prompt_cache import invalidate_prompt_cache
 
@@ -19,35 +20,7 @@ def api_messages():
         return err, code
     chat = session_data["chat"]
     messages = [m for m in chat.messages if m.get("role") != "tool"]
-
-    # 构建 {tool_call_id: log_id} 映射表
-    tc_to_log: dict[str, str] = {}
-    user_dir = session_data.get("user_dir", "")
-    log_path = os.path.join(user_dir, "history", "log", "tool_log.jsonl")
-    if os.path.exists(log_path):
-        try:
-            with open(log_path, encoding="utf-8") as f:
-                for line in f:
-                    try:
-                        entry = json.loads(line.strip())
-                        tcid = entry.get("tool_call_id", "")
-                        lid = entry.get("id", "")
-                        if tcid and lid:
-                            tc_to_log[tcid] = lid
-                    except json.JSONDecodeError:
-                        pass
-        except Exception:
-            pass
-
-    # 给 assistant 消息的 tool_calls 装饰 log_id
-    for msg in messages:
-        if msg.get("role") == "assistant" and msg.get("tool_calls"):
-            for tc in msg["tool_calls"]:
-                tc_id = tc.get("id", "")
-                if tc_id in tc_to_log:
-                    tc["log_id"] = tc_to_log[tc_id]
-
-    return jsonify(messages)
+    return jsonify(decorate_tool_calls_with_log_ids(session_data.get("user_dir", ""), messages))
 
 
 @app.route("/api/system-prompt")
