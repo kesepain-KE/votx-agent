@@ -3,6 +3,7 @@ import { useState } from 'react'
 import type { Message, ToolCard } from '@/types'
 import { useAppStore } from '@/store/useAppStore'
 import { AssistantMessageContent } from './AssistantMessageContent'
+import { ArtifactContent } from './artifacts/ArtifactContent'
 
 /** 描述 Props 数据结构。 */
 interface Props {
@@ -59,8 +60,19 @@ function ToolCallCard({ tc, message, patchMessage, loadToolResult }: { tc: ToolC
         {result && (
           <>
             <div className="tc-section-label">结果</div>
-            <pre className="tc-result">{result}</pre>
-            <button className="tc-copy-btn" onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(result) }}>复制结果</button>
+            <div className="tc-result-rendered">
+              <ArtifactContent content={result} density="compact" surface="plain" markdown={false} copyable={false} />
+            </div>
+            <button
+              type="button"
+              className="tc-copy-btn"
+              onClick={(e) => {
+                e.stopPropagation()
+                navigator.clipboard.writeText(result)
+              }}
+            >
+              复制结果
+            </button>
           </>
         )}
       </div>
