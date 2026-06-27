@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import type { Message, ToolCard } from '@/types'
 import { useAppStore } from '@/store/useAppStore'
-import { MarkdownMessage } from './MarkdownMessage'
+import { AssistantMessageContent } from './AssistantMessageContent'
 
 /** 描述 Props 数据结构。 */
 interface Props {
@@ -87,13 +87,14 @@ function UserMessage({ message, copyMsg }: { message: Message; copyMsg: Props['c
 
 /** 渲染 AssistantMessage 组件。 */
 function AssistantMessage({ message, patchMessage, copyMsg, loadToolResult }: Props) {
+  const assistantContent = message.streaming ? (message._raw || '') : (message.content || message._raw || '')
   return (
     <div className="bubble-wrap">
       <ThinkBlock message={message} patchMessage={patchMessage} />
       {(message.tools || []).map((tc) => (
         <ToolCallCard key={tc._key} tc={tc} message={message} patchMessage={patchMessage} loadToolResult={loadToolResult} />
       ))}
-      {message.streaming ? <div className="bubble">{message._raw}</div> : <MarkdownMessage content={message.content} />}
+      <AssistantMessageContent content={assistantContent} streaming={Boolean(message.streaming)} />
       {message.usage ? (
         <div className="msg-footer">
           <div className="live-stats">

@@ -1008,6 +1008,9 @@
       white-space: normal;
       overflow-x: hidden;
     }
+    .bubble.markdown.markdown-streaming {
+      white-space: normal;
+    }
     /* ── Markdown 内容样式（react-markdown 渲染） ── */
     .bubble.markdown > :first-child { margin-top: 0; }
     .bubble.markdown > :last-child { margin-bottom: 0; }
@@ -1098,6 +1101,70 @@
       margin-right: 4px; vertical-align: middle;
       accent-color: var(--accent-dim);
     }
+    .bubble.artifact {
+      padding: 0;
+      overflow: hidden;
+      white-space: normal;
+    }
+    .bubble.artifact .artifact-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 10px 14px 8px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      border-bottom: 1px solid var(--glass-border);
+    }
+    .bubble.artifact .artifact-label {
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+    .bubble.artifact .artifact-actions {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .artifact-copy-btn {
+      width: 22px;
+      height: 22px;
+      padding: 0;
+      border: 1px solid var(--glass-border);
+      border-radius: 6px;
+      background: var(--glass-bg);
+      color: var(--text-tertiary);
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      font-size: 12px;
+      line-height: 1;
+      transition: border-color var(--duration) var(--ease-out), color var(--duration) var(--ease-out), background var(--duration) var(--ease-out);
+    }
+    .artifact-copy-btn:hover {
+      border-color: var(--glass-border-hover);
+      color: var(--text-primary);
+      background: var(--glass-bg-hover);
+    }
+    .bubble.artifact pre {
+      margin: 0;
+      padding: 12px 14px;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      overflow-x: auto;
+      white-space: pre;
+      word-break: normal;
+      overflow-wrap: normal;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+    .bubble.artifact-json .artifact-label { color: var(--accent); }
+    .bubble.artifact-yaml .artifact-label { color: var(--accent-dim); }
+    .bubble.artifact-diff .artifact-label { color: var(--success); }
+    .bubble.artifact-terminal .artifact-label { color: var(--warning); }
+    .bubble.artifact-code .artifact-label { color: var(--text-secondary); }
     .md-table-wrap {
       overflow-x: auto; margin: 0.5em 0;
     }
@@ -2007,4 +2074,3 @@
     }
 
 #root { height: 100%; }
-
