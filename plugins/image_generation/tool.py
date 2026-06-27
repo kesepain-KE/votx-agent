@@ -6,12 +6,12 @@ Image Generation Skill - 文生图工具
 """
 
 import base64
-import json
 import os
 import uuid
 from urllib.request import urlretrieve
 
 from plugins._common import err, safe_path, check_sandbox, get_current_user_dir, get_multimodal_context
+from plugins._common.artifacts import make_image_artifact, make_tool_result
 from run.tool import register_tool
 
 
@@ -78,24 +78,26 @@ def image_generate(
         if r.get("url"):
             filepath = os.path.join(str(sandboxed), f"{fname}.png")
             urlretrieve(r["url"], filepath)
-            saved.append({
-                "path": filepath,
-                "url": r["url"],
-                "revised_prompt": r.get("revised_prompt", prompt),
-            })
+            artifact = make_image_artifact(
+                filepath,
+                source_url=r["url"],
+                revised_prompt=r.get("revised_prompt", prompt),
+            )
+            saved.append(artifact)
         elif r.get("b64_json"):
             filepath = os.path.join(str(sandboxed), f"{fname}.png")
             with open(filepath, "wb") as f:
                 f.write(base64.b64decode(r["b64_json"]))
-            saved.append({
-                "path": filepath,
-                "url": None,
-                "revised_prompt": r.get("revised_prompt", prompt),
-            })
+            artifact = make_image_artifact(
+                filepath,
+                source_url=None,
+                revised_prompt=r.get("revised_prompt", prompt),
+            )
+            saved.append(artifact)
 
     if not saved:
         return err("图像生成未返回可保存的结果")
-    return json.dumps(saved, ensure_ascii=False, indent=2)
+    return make_tool_result(True, "图片生成完成", saved)
 
 
 SCHEMA = {
