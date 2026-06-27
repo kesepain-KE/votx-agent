@@ -132,26 +132,29 @@ users/<用户名>/improve/
 
 ## 模型配置
 
-`provider.type` 表示服务商适配类型：
+`provider.type` 统一填写 `kemo`。真正切换的是 `base_url` 和 `api_key`：
+
+- 全血模式：`base_url` 指向 Kemo LLM Adapter 网关，多模态全开。
+- 残血模式：`base_url` 指向任意 OpenAI 兼容 API，部分端点（图生图、视频、部分 ASR 路由）可能不可用。
 
 ```text
-kemo       Kemo LLM Adapter 本地多模态网关，统一路由所有模型和能力
+kemo       统一 provider 类型；通过 base_url/api_key 切换到 Kemo 网关或 OpenAI 兼容接口
 ```
 
-`python set_user.py add` 创建用户时只显示 Kemo 配置入口，包括：
+`python set_user.py add` 创建用户时会先显示 Kemo 配置入口，但底层仍是同一套 `type = kemo + base_url/api_key`：
 
-- Base URL（默认 `http://127.0.0.1:8741/v1`）
-- API Key（对应 llm-adapter-kemo 的 `config/api_keys.json` 中的密钥）
+- Base URL（Kemo 网关或 OpenAI 兼容接口地址）
+- API Key（对应网关或上游接口的密钥）
 - 模型选择（stepfun-step-3.7-flash 等，可手动输入其他模型名）
 
 ### 完整的 provider 字段
 
 | 字段 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `type` | string | `"kemo"` | 服务商类型：仅支持 `"kemo"` |
+| `type` | string | `"kemo"` | 服务商类型：统一写 `"kemo"` |
 | `model` | string | 必填 | 模型名称 |
 | `api_key` | string | `""` | API 密钥，留空读取环境变量 |
-| `base_url` | string | `http://127.0.0.1:8741/v1` | Kemo 网关地址 |
+| `base_url` | string | `http://127.0.0.1:8741/v1` | Kemo 网关或 OpenAI 兼容接口地址 |
 | `stream` | bool | `true` | 是否启用流式输出 |
 | `timeout` | int | 120 | API 请求超时秒数 |
 | `vision_model` | string | `""` | 专用视觉模型（留空使用默认聊天模型） |
@@ -187,14 +190,14 @@ Kemo 配置示例：
 
 通常建议在用户 `config.json` 中配置模型。环境变量适合本地服务或临时覆盖。
 
-Kemo 本地网关：
+Kemo / OpenAI-compatible 兜底：
 
 ```text
 api_key:  config.json provider.api_key > KEMO_API_KEY
 base_url: config.json provider.base_url > KEMO_BASE_URL > http://127.0.0.1:8741/v1
 ```
 
-`VOTX_PROVIDER` 可以覆盖服务商类型（仅支持 `kemo`），但日常使用更推荐直接改用户配置。
+`VOTX_PROVIDER` 只负责覆盖类型（仍然是 `kemo`），不会替你切换 `base_url`。
 
 ## 多模态能力配置
 

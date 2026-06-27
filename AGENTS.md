@@ -243,10 +243,11 @@ skills.disabled_builtin   禁用非核心内置技能
 ```
 
 `set_user.py add` 的模型配置：
-- 先选择 Provider（仅 Kemo LLM Adapter）
-- 然后直接输入基础模型名称（不预设列表，兼容 Kemo 网关的任何已部署模型）
+- 先选择 Provider（类型统一 `kemo`）
+- 然后填写 `base_url` 和 `api_key`
+- `base_url` 指向 Kemo 网关时是全血模式；指向任意 OpenAI 兼容接口时是残血模式
 
-用户选择其他厂商后，需要填写 `base_url` 和 `api_key`；脚本会尝试获取厂商模型列表，并允许用户手动额外添加模型名。
+脚本仍只负责 `kemo` 这一种 provider 类型，不会自动切换成其他 provider。
 
 模型配置优先级通常是：
 

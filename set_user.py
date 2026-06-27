@@ -165,9 +165,9 @@ def _prompt_existing_key(current_key: str, empty_hint: str) -> str:
 
 
 def _configure_kemo_provider(current: dict | None = None) -> dict:
-    """配置本地 Kemo LLM Adapter。"""
+    """配置 provider（type 固定为 kemo）。"""
     current = current or {}
-    print("\n  Kemo LLM Adapter 本地网关。")
+    print("\n  Kemo LLM Adapter 本地网关 / OpenAI 兼容接口。")
     cur_base_url = (
         current.get("base_url", "").strip()
         or os.environ.get("KEMO_BASE_URL", "").strip()
@@ -176,7 +176,7 @@ def _configure_kemo_provider(current: dict | None = None) -> dict:
     base_url = input(f"  Base URL [{cur_base_url}]: ").strip() or cur_base_url
     api_key = _prompt_existing_key(
         current.get("api_key", "").strip(),
-        "  API Key (留空使用 KEMO_API_KEY): ",
+        "  API Key (留空使用 KEMO_API_KEY 或上游密钥): ",
     )
     default_model = current.get("model", "").strip()
     model = input(f"  模型名称 [{default_model}]: ").strip() or default_model
@@ -199,11 +199,11 @@ def _configure_kemo_provider(current: dict | None = None) -> dict:
 
 
 def _pick_provider_config(current: dict | None = None, allow_keep: bool = False) -> dict | None:
-    """选择并配置 provider。仅支持 Kemo LLM Adapter 本地网关。"""
+    """选择并配置 provider。type 统一为 kemo。"""
     current = current or {}
     default_model = current.get("model", "")
 
-    print("\n  Provider: Kemo LLM Adapter — 本地多模态网关")
+    print("\n  Provider: kemo（Kemo 网关 / OpenAI-compatible）")
     print(f"  当前模型: {default_model or '(未设置)'}")
 
     if allow_keep:

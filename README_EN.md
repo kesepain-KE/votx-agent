@@ -102,7 +102,12 @@ The Web server checks the remote version on startup and prints version status in
 
 ## Provider Configuration
 
-votx-agent only supports Kemo LLM Adapter as its provider. Configure in your user settings:
+votx-agent uses `provider.type = "kemo"` everywhere. To switch modes, only change `base_url` and `api_key`:
+
+- Full-blood mode: pair with the Kemo LLM Adapter gateway, with all multimodal features enabled.
+- Degraded mode: point `base_url` to any OpenAI-compatible API; some endpoints (such as image generation, video, or parts of ASR routing) may be unavailable.
+
+Configure in your user settings:
 
 ```
 users/<username>/config.json
@@ -149,7 +154,7 @@ provider/
 └── kemo_adapter.py  # Kemo LLM Adapter Provider — pure urllib HTTP, no OpenAI SDK dependency
 ```
 
-KemoProvider communicates with the Kemo LLM Adapter gateway via pure `urllib` HTTP. No OpenAI SDK or third-party library is required. All chat, streaming, and multimodal capabilities are handled through this single implementation.
+KemoProvider communicates with the configured `base_url` via pure `urllib` HTTP. `type` stays `kemo`, while `base_url` can target either the Kemo LLM Adapter gateway or any OpenAI-compatible API; image generation, video, and some ASR routes may only be available on the Kemo gateway.
 
 ## Multimodal Capabilities
 

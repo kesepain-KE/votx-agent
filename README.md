@@ -102,7 +102,12 @@ dist\votx-agent-windows.zip
 
 ## Provider 配置
 
-votx-agent 仅支持 Kemo LLM Adapter 作为 Provider。推荐在用户配置中填写：
+votx-agent 统一使用 `provider.type = "kemo"`。切换时只改 `base_url` 和 `api_key`：
+
+- 全血模式：搭配 Kemo LLM Adapter 网关，多模态全开。
+- 残血模式：直连任意 OpenAI 兼容 API，`base_url` 指向谁就是谁；部分端点（如图生图、视频、部分 ASR 路由）可能不可用。
+
+推荐在用户配置中填写：
 
 ```
 users/<用户名>/config.json
@@ -149,7 +154,7 @@ provider/
 └── kemo_adapter.py  # Kemo LLM Adapter Provider — 纯 urllib HTTP 实现，无 OpenAI SDK 依赖
 ```
 
-KemoProvider 通过纯 `urllib` HTTP 直接调用 Kemo LLM Adapter 的端点，不依赖 OpenAI SDK 或任何第三方库。所有聊天、流式、多模态能力均通过此单一实现完成。
+KemoProvider 通过纯 `urllib` HTTP 直接调用配置的 `base_url`。`type` 固定为 `kemo`，但 `base_url` 可以指向 Kemo LLM Adapter 网关或任意 OpenAI 兼容 API；图生图、视频、部分 ASR 路由等能力可能只在 Kemo 网关可用。
 
 ## 多模态能力
 
