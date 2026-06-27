@@ -65,11 +65,15 @@ export function parseJsonPreview(content: string) {
 export function looksLikeDiff(content: string) {
   const lines = content.split('\n')
   let score = 0
+  let hasStrongMarker = false
   for (const line of lines) {
-    if (/^(diff --git|index |@@ |--- |\+\+\+ )/.test(line)) score += 2
+    if (/^(diff --git|index |@@ |--- |\+\+\+ )/.test(line)) {
+      score += 2
+      hasStrongMarker = true
+    }
     else if (/^[+-]/.test(line)) score += 1
   }
-  return score >= 3
+  return hasStrongMarker && score >= 3
 }
 
 export function looksLikeTerminal(content: string) {
