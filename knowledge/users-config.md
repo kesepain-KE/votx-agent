@@ -132,10 +132,11 @@ users/<用户名>/improve/
 
 ## 模型配置
 
-`provider.type` 统一填写 `kemo`。真正切换的是 `base_url` 和 `api_key`：
+Provider 接入方式：
+- 全血模式：搭配 Kemo LLM Adapter 网关，多模态全开。
+- 残血模式：直连任意 OpenAI 兼容 API（`base_url` 指向谁就是谁），部分端点（如图生图、视频、部分 ASR 路由）可能不可用。
 
-- 全血模式：`base_url` 指向 Kemo LLM Adapter 网关，多模态全开。
-- 残血模式：`base_url` 指向任意 OpenAI 兼容 API，部分端点（图生图、视频、部分 ASR 路由）可能不可用。
+配置上改 `base_url` 和 `api_key` 即可切换，provider type 统一填 `"kemo"`。
 
 ```text
 kemo       统一 provider 类型；通过 base_url/api_key 切换到 Kemo 网关或 OpenAI 兼容接口

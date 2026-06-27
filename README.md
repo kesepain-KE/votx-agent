@@ -102,10 +102,11 @@ dist\votx-agent-windows.zip
 
 ## Provider 配置
 
-votx-agent 统一使用 `provider.type = "kemo"`。切换时只改 `base_url` 和 `api_key`：
-
+Provider 接入方式：
 - 全血模式：搭配 Kemo LLM Adapter 网关，多模态全开。
-- 残血模式：直连任意 OpenAI 兼容 API，`base_url` 指向谁就是谁；部分端点（如图生图、视频、部分 ASR 路由）可能不可用。
+- 残血模式：直连任意 OpenAI 兼容 API（`base_url` 指向谁就是谁），部分端点（如图生图、视频、部分 ASR 路由）可能不可用。
+
+配置上改 `base_url` 和 `api_key` 即可切换，provider type 统一填 `"kemo"`。
 
 推荐在用户配置中填写：
 

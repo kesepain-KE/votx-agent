@@ -102,10 +102,12 @@ The Web server checks the remote version on startup and prints version status in
 
 ## Provider Configuration
 
-votx-agent uses `provider.type = "kemo"` everywhere. To switch modes, only change `base_url` and `api_key`:
+Provider setup:
 
-- Full-blood mode: pair with the Kemo LLM Adapter gateway, with all multimodal features enabled.
-- Degraded mode: point `base_url` to any OpenAI-compatible API; some endpoints (such as image generation, video, or parts of ASR routing) may be unavailable.
+- Full-blood mode: pair with the Kemo LLM Adapter gateway for full multimodal support.
+- Degraded mode: point `base_url` at any OpenAI-compatible API (`base_url` determines the target); some endpoints (such as image generation, video, or parts of ASR routing) may be unavailable.
+
+Switch modes by changing only `base_url` and `api_key`; keep `provider.type` set to `"kemo"`.
 
 Configure in your user settings:
 
