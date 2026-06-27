@@ -22,6 +22,7 @@ export function ArtifactContent({
   copyable = surface === 'bubble',
 }: ArtifactContentProps) {
   const artifact = detectRawArtifact(content, { streaming })
+  const markdownStreaming = surface === 'plain' ? true : streaming
 
   if (artifact) {
     return (
@@ -47,7 +48,7 @@ export function ArtifactContent({
   return (
     <MarkdownMessage
       content={content}
-      streaming={streaming}
+      streaming={markdownStreaming}
       bubble={surface === 'bubble'}
       copyable={copyable}
       className={className}
