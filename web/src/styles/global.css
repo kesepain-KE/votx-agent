@@ -1004,45 +1004,50 @@
       background: rgba(255,255,255,0.05);
       border: 1px solid var(--glass-border);
     }
-    .bubble.markdown {
+    .markdown-body {
       white-space: normal;
       overflow-x: hidden;
     }
-    .bubble.markdown.markdown-streaming {
+    .markdown-body.markdown-streaming {
       white-space: normal;
     }
+    .markdown-body.markdown-embedded {
+      white-space: normal;
+      overflow-x: hidden;
+      min-width: 0;
+    }
     /* ── Markdown 内容样式（react-markdown 渲染） ── */
-    .bubble.markdown > :first-child { margin-top: 0; }
-    .bubble.markdown > :last-child { margin-bottom: 0; }
-    .bubble.markdown p { margin: 0 0 0.6em; }
-    .bubble.markdown p:last-child { margin-bottom: 0; }
-    .bubble.markdown h1,
-    .bubble.markdown h2,
-    .bubble.markdown h3,
-    .bubble.markdown h4,
-    .bubble.markdown h5,
-    .bubble.markdown h6 {
+    .markdown-body > :first-child { margin-top: 0; }
+    .markdown-body > :last-child { margin-bottom: 0; }
+    .markdown-body p { margin: 0 0 0.6em; }
+    .markdown-body p:last-child { margin-bottom: 0; }
+    .markdown-body h1,
+    .markdown-body h2,
+    .markdown-body h3,
+    .markdown-body h4,
+    .markdown-body h5,
+    .markdown-body h6 {
       margin: 1em 0 0.4em; font-weight: 700; line-height: 1.3;
     }
-    .bubble.markdown h1 { font-size: 1.3em; }
-    .bubble.markdown h2 { font-size: 1.15em; }
-    .bubble.markdown h3 { font-size: 1.05em; }
-    .bubble.markdown h4, .bubble.markdown h5, .bubble.markdown h6 { font-size: 0.95em; }
-    .bubble.markdown ul,
-    .bubble.markdown ol {
+    .markdown-body h1 { font-size: 1.3em; }
+    .markdown-body h2 { font-size: 1.15em; }
+    .markdown-body h3 { font-size: 1.05em; }
+    .markdown-body h4, .markdown-body h5, .markdown-body h6 { font-size: 0.95em; }
+    .markdown-body ul,
+    .markdown-body ol {
       margin: 0 0 0.5em; padding-left: 1.6em;
     }
-    .bubble.markdown li { margin: 0.2em 0; }
-    .bubble.markdown li > p { margin: 0.2em 0; }
-    .bubble.markdown blockquote {
+    .markdown-body li { margin: 0.2em 0; }
+    .markdown-body li > p { margin: 0.2em 0; }
+    .markdown-body blockquote {
       margin: 0.5em 0; padding: 0.4em 0.8em;
       border-left: 3px solid var(--accent-dim);
       color: var(--text-secondary);
       background: rgba(255,255,255,0.02);
       border-radius: 0 var(--r-xs) var(--r-xs) 0;
     }
-    .bubble.markdown blockquote p:last-child { margin-bottom: 0; }
-    .bubble.markdown pre {
+    .markdown-body blockquote p:last-child { margin-bottom: 0; }
+    .markdown-body pre {
       margin: 0.5em 0; padding: 12px 14px;
       border-radius: var(--r-sm);
       background: rgba(0,0,0,0.25);
@@ -1050,63 +1055,73 @@
       font-family: var(--font-mono);
       font-size: 13px; line-height: 1.5;
     }
-    body[data-color-scheme="light"] .bubble.markdown pre {
+    body[data-color-scheme="light"] .markdown-body pre {
       background: rgba(0,0,0,0.04);
     }
-    .bubble.markdown code {
+    .markdown-body code {
       font-family: var(--font-mono);
       font-size: 0.88em;
       padding: 1px 5px;
       border-radius: 4px;
       background: rgba(255,255,255,0.08);
     }
-    .bubble.markdown pre code {
+    .markdown-body pre code {
       padding: 0; background: none; border-radius: 0;
       font-size: inherit;
     }
-    body[data-color-scheme="light"] .bubble.markdown code {
+    body[data-color-scheme="light"] .markdown-body code {
       background: rgba(0,0,0,0.06);
     }
-    .bubble.markdown hr {
+    .markdown-body hr {
       margin: 0.8em 0; border: none; height: 1px;
       background: var(--glass-border);
     }
-    .bubble.markdown table {
+    .markdown-body table {
       border-collapse: collapse; width: 100%;
       margin: 0.5em 0; font-size: 0.9em;
     }
-    .bubble.markdown th,
-    .bubble.markdown td {
+    .markdown-body th,
+    .markdown-body td {
       padding: 6px 10px; border: 1px solid var(--glass-border);
       text-align: left;
     }
-    .bubble.markdown th {
+    .markdown-body th {
       font-weight: 700;
       background: rgba(255,255,255,0.04);
     }
-    body[data-color-scheme="light"] .bubble.markdown th {
+    body[data-color-scheme="light"] .markdown-body th {
       background: rgba(0,0,0,0.03);
     }
-    .bubble.markdown img {
+    .markdown-body img {
       max-width: 100%; border-radius: var(--r-sm);
       margin: 0.4em 0;
     }
-    .bubble.markdown a {
+    .markdown-body a {
       color: var(--accent-dim);
       text-decoration: underline;
       text-underline-offset: 2px;
     }
-    .bubble.markdown a:hover { opacity: 0.8; }
-    .bubble.markdown input[type="checkbox"] {
+    .markdown-body a:hover { opacity: 0.8; }
+    .markdown-body input[type="checkbox"] {
       margin-right: 4px; vertical-align: middle;
       accent-color: var(--accent-dim);
     }
-    .bubble.artifact {
-      padding: 0;
+    .artifact {
+      margin: 8px 0;
       overflow: hidden;
       white-space: normal;
+      max-width: 100%;
+      border: 1px solid var(--glass-border);
+      border-radius: var(--r-md);
+      background: rgba(255,255,255,0.03);
+      box-shadow: var(--shadow-card), inset 0 1px 0 rgba(255,255,255,0.04);
     }
-    .bubble.artifact .artifact-head {
+    .artifact-normal { border-radius: var(--r-md); }
+    .artifact-compact {
+      margin: 6px 0;
+      border-radius: 12px;
+    }
+    .artifact-head {
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -1116,15 +1131,9 @@
       color: var(--text-secondary);
       border-bottom: 1px solid var(--glass-border);
     }
-    .bubble.artifact .artifact-label {
+    .artifact-label {
       font-weight: 700;
       letter-spacing: 0;
-    }
-    .bubble.artifact .artifact-actions {
-      margin-left: auto;
-      display: flex;
-      align-items: center;
-      gap: 6px;
     }
     .artifact-copy-btn {
       width: 22px;
@@ -1146,13 +1155,14 @@
       color: var(--text-primary);
       background: var(--glass-bg-hover);
     }
-    .bubble.artifact pre {
+    .artifact-body {
       margin: 0;
       padding: 12px 14px;
       border: 0;
       border-radius: 0;
       background: transparent;
       overflow-x: auto;
+      overflow-y: auto;
       white-space: pre;
       word-break: normal;
       overflow-wrap: normal;
@@ -1160,15 +1170,39 @@
       font-size: 13px;
       line-height: 1.55;
     }
-    .bubble.artifact-json .artifact-label { color: var(--accent); }
-    .bubble.artifact-yaml .artifact-label { color: var(--accent-dim); }
-    .bubble.artifact-diff .artifact-label { color: var(--success); }
-    .bubble.artifact-terminal .artifact-label { color: var(--warning); }
-    .bubble.artifact-code .artifact-label { color: var(--text-secondary); }
+    .artifact-body code {
+      padding: 0;
+      background: transparent;
+      border: 0;
+      white-space: inherit;
+      font: inherit;
+    }
+    .artifact-normal .artifact-head {
+      padding: 10px 14px 8px;
+      font-size: 12px;
+    }
+    .artifact-normal .artifact-body {
+      padding: 12px 14px;
+      max-height: 420px;
+    }
+    .artifact-compact .artifact-head {
+      padding: 8px 12px 6px;
+      font-size: 11px;
+    }
+    .artifact-compact .artifact-body {
+      padding: 10px 12px;
+      font-size: 12px;
+      max-height: 320px;
+    }
+    .artifact-json .artifact-label { color: var(--accent); }
+    .artifact-yaml .artifact-label { color: var(--accent-dim); }
+    .artifact-diff .artifact-label { color: var(--success); }
+    .artifact-terminal .artifact-label { color: var(--warning); }
+    .artifact-code .artifact-label { color: var(--text-secondary); }
     .md-table-wrap {
       overflow-x: auto; margin: 0.5em 0;
     }
-    .bubble.markdown .katex-display {
+    .markdown-body .katex-display {
       margin: 0.6em 0; overflow-x: auto; overflow-y: hidden;
       padding: 4px 0;
     }
@@ -1335,10 +1369,29 @@
       font-size: 11px; color: var(--text-secondary); padding: 6px 0;
     }
 
-    .tc-result {
-      max-height: 300px; overflow-y: auto;
-      border-top: 1px solid rgba(255,255,255,0.06);
-      padding-top: 6px; margin-top: 4px;
+    .tc-result-rendered {
+      margin-top: 6px;
+    }
+
+    .tc-result-rendered > .artifact,
+    .tc-result-rendered > .plain-result {
+      margin: 0;
+    }
+
+    .plain-result {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+      font: 12px/1.55 var(--font-mono);
+      color: var(--text-primary);
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .plain-result-compact {
+      font-size: 12px;
+      line-height: 1.5;
     }
 
     .tc-copy-btn {
