@@ -1707,7 +1707,6 @@ def pdf_watermark(
             pages=total,
 
         )
-        return _ok("PDF 水印完成", [make_file_artifact(out)], text=text, pages=total)
 
     except Exception as e:
 
