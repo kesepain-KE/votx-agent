@@ -58,8 +58,14 @@ export function prettyJson(content: string) {
 }
 
 export function parseJsonPreview(content: string) {
-  const pretty = prettyJson(content)
-  return pretty === content ? null : pretty
+  const normalized = normalizeContent(content)
+  const trimmed = normalized.trim()
+  if (!trimmed || !/^[{\[]/.test(trimmed)) return null
+  try {
+    return JSON.stringify(JSON.parse(trimmed), null, 2)
+  } catch {
+    return null
+  }
 }
 
 export function looksLikeDiff(content: string) {
