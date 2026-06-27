@@ -7,7 +7,7 @@ import json
 import os
 import time as _time
 
-from run.tool import load_tool_schemas
+from run.tool import ToolExecutionCancelled, load_tool_schemas
 from skills import register_all
 
 
@@ -283,7 +283,7 @@ def build_system_prompt(root: str, user_dir: str) -> str:
     return system_prompt
 
 
-def run_chat_turn(chat, tool_runner, provider, tools: list[dict]):
+def run_chat_turn(chat, tool_runner, provider, tools: list[dict], cancel_event=None):
     """执行一轮对话的工具调用循环，生成事件 dict (生成器模式)。
 
     调用方必须先调用 chat.add_user_message() 和 tool_runner.reset_count()。
@@ -310,6 +310,8 @@ def run_chat_turn(chat, tool_runner, provider, tools: list[dict]):
     _turn_start = _time.time()
 
     while tool_round < MAX_TOOL_ROUNDS:
+        if cancel_event and cancel_event.is_set():
+            return
         messages = chat.build_messages()
 
         # 流式路径：思考先于正文，逐 chunk yield
@@ -318,6 +320,8 @@ def run_chat_turn(chat, tool_runner, provider, tools: list[dict]):
                 full_text = ""
                 full_thinking = ""
                 for item in provider.respond_stream(messages, tools):
+                    if cancel_event and cancel_event.is_set():
+                        return
                     if isinstance(item, dict):
                         if item.get("type") == "thinking_chunk":
                             full_thinking += item["content"]
@@ -361,9 +365,14 @@ def run_chat_turn(chat, tool_runner, provider, tools: list[dict]):
                 yield {"type": "usage", "data": {**provider.last_usage, "elapsed": _elapsed}}
 
         if tool_runner.has_tool_calls(response):
+            if cancel_event and cancel_event.is_set():
+                return
             reasoning = response.reasoning
             chat.add_tool_call_message(response.tool_calls, reasoning)
-            results, details = tool_runner.execute(response)
+            try:
+                results, details = tool_runner.execute(response, cancel_event=cancel_event)
+            except ToolExecutionCancelled:
+                return
             chat.add_tool_results(results)
             tool_round += 1
 
@@ -401,6 +410,8 @@ def run_chat_turn(chat, tool_runner, provider, tools: list[dict]):
                 _fail_streak = 0
         else:
             # 无 tool_calls → 这是最终回复
+            if cancel_event and cancel_event.is_set():
+                return
             if getattr(provider, "stream", False):
                 reasoning = provider.last_response.reasoning if provider.last_response else ""
                 chat.add_assistant_message(full_text, reasoning)

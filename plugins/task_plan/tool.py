@@ -7,6 +7,7 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
+from provider.factory import create_provider
 from run.tool import register_tool
 from plugins._common import err, truncate
 
@@ -100,6 +101,15 @@ def _check_accept_task(user_name: str) -> str | None:
     return None
 
 
+def _load_user_provider(user_name: str):
+    """从用户配置文件重新构造 provider。"""
+    config_path = _PROJECT_ROOT / "users" / user_name / "config.json"
+    core_config_path = _PROJECT_ROOT / "config" / "config_core.json"
+    user_config = json.loads(config_path.read_text(encoding="utf-8"))
+    core_config = json.loads(core_config_path.read_text(encoding="utf-8"))
+    return create_provider(user_config, core_config)
+
+
 def _get_active_plan_id(user_name: str) -> str | None:
     """获取活跃计划的 plan_id（不含 .json 扩展名）"""
     _, plan_file = _find_active_plan(user_name)
@@ -124,10 +134,14 @@ def task_plan_create(description: str) -> str:
     if err_msg:
         return err(err_msg)
 
-    provider = _get_ctx().get("provider")
     chat = _get_ctx().get("chat")
-    if not provider or not chat:
-        return err("缺少 provider/chat 上下文，请重新进入会话")
+    if not chat:
+        return err("缺少 chat 上下文，请重新进入会话")
+
+    try:
+        provider = _load_user_provider(user_name)
+    except Exception as e:
+        return err(f"加载用户配置中的 provider 失败: {e}")
 
     # 检查是否已有活跃计划
     active, active_file = _find_active_plan(user_name)

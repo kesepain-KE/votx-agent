@@ -75,6 +75,41 @@ def require_session():
     return session_data, None, None
 
 
+def start_active_run(session_data: dict, run_id: str):
+    """Register the currently active run and return its cancel event."""
+    lock = session_data.setdefault("run_lock", threading.RLock())
+    cancel_event = threading.Event()
+    with lock:
+        session_data["run_id"] = run_id
+        session_data["run_cancel_event"] = cancel_event
+    return cancel_event
+
+
+def cancel_active_run(session_data: dict, run_id: str | None = None) -> bool:
+    """Cancel the currently active run if the run_id matches."""
+    lock = session_data.setdefault("run_lock", threading.RLock())
+    with lock:
+        current_run_id = session_data.get("run_id")
+        if run_id and current_run_id != run_id:
+            return False
+        cancel_event = session_data.get("run_cancel_event")
+        if isinstance(cancel_event, threading.Event):
+            cancel_event.set()
+            return True
+        return False
+
+
+def clear_active_run(session_data: dict, run_id: str | None = None) -> None:
+    """Clear the active run state after the turn finishes."""
+    lock = session_data.setdefault("run_lock", threading.RLock())
+    with lock:
+        current_run_id = session_data.get("run_id")
+        if run_id and current_run_id != run_id:
+            return
+        session_data["run_id"] = ""
+        session_data["run_cancel_event"] = threading.Event()
+
+
 def set_active_user(user_name: str):
     """设置当前活跃用户"""
     global _active_user
@@ -145,6 +180,9 @@ def init_user_session(root: str, user_dir: str, user_name: str, user_config: dic
         "tools": tools,
         "tool_runner": tool_runner,
         "system_prompt": system_prompt,
+        "run_lock": threading.RLock(),
+        "run_id": "",
+        "run_cancel_event": threading.Event(),
     }
     with _session_lock:
         _sessions[user_name] = session_data

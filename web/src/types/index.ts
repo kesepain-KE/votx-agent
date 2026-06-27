@@ -201,6 +201,7 @@ export interface AppStore {
   msgId: number
   toastTimer: number | undefined
   abortCtrl: AbortController | null
+  currentRunId: string | null
   running: boolean
   showToolCalls: boolean
   showThinking: boolean

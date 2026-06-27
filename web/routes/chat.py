@@ -3,12 +3,23 @@ import json
 import os
 import threading
 import traceback
+import uuid
 from pathlib import Path
 
 from flask import Response, jsonify, render_template, request, send_file, stream_with_context, session as flask_session
 
 from web.server import app
-from web.session import _root, get_session, get_or_restore_session, require_session, clear_session, init_user_session
+from web.session import (
+    _root,
+    cancel_active_run,
+    clear_session,
+    get_or_restore_session,
+    get_session,
+    init_user_session,
+    require_session,
+    start_active_run,
+    clear_active_run,
+)
 from web.commands import _dispatch
 from run.user_locks import get_user_lock
 
@@ -108,7 +119,7 @@ def _diff_plans(prev: dict, curr: dict) -> list[dict]:
 
 
 def _run_chat_stream(session_data: dict, extra_user_message: str | None = None,
-                     user_message: str | None = None):
+                     user_message: str | None = None, cancel_event=None):
     """公共 SSE 聊天执行流 — 供 /api/chat 和 /api/task-plan/<id>/approve-run 共用
 
     Args:
@@ -173,7 +184,7 @@ def _run_chat_stream(session_data: dict, extra_user_message: str | None = None,
     try:
         # 预检：压缩可能在 run_chat_turn 第一个 event 之前已发生（add_user_message / build_messages）
         yield from _emit_compress_status()
-        for event in run_chat_turn(chat, tool_runner, provider, tools):
+        for event in run_chat_turn(chat, tool_runner, provider, tools, cancel_event=cancel_event):
             yield from _emit_compress_status()
             yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
             # 工具调用后检查计划文件变化
@@ -341,6 +352,7 @@ def api_chat():
 
     data = request.get_json() or {}
     message = data.get("message", "").strip()
+    run_id = str(data.get("run_id") or "").strip() or uuid.uuid4().hex
     if not message:
         return jsonify({"error": "消息不能为空"}), 400
 
@@ -354,7 +366,11 @@ def api_chat():
     def generate():
         """处理 generate 相关逻辑。"""
         with get_user_lock(session_data.get("user_name", "")):
-            yield from _run_chat_stream(session_data, user_message=message)
+            cancel_event = start_active_run(session_data, run_id)
+            try:
+                yield from _run_chat_stream(session_data, user_message=message, cancel_event=cancel_event)
+            finally:
+                clear_active_run(session_data, run_id)
 
     return Response(
         stream_with_context(generate()),
@@ -389,6 +405,19 @@ def api_command():
     return jsonify(result)
 
 
+@app.route("/api/chat/stop", methods=["POST"])
+def api_chat_stop():
+    """Cancel the currently active chat/task-plan run."""
+    session_data, err, code = require_session()
+    if err:
+        return err, code
+
+    data = request.get_json(silent=True) or {}
+    run_id = str(data.get("run_id") or "").strip()
+    stopped = cancel_active_run(session_data, run_id or None)
+    return jsonify({"ok": True, "stopped": stopped})
+
+
 @app.route("/api/task-plan/<plan_id>/approve-run", methods=["POST"])
 def api_task_plan_approve_run(plan_id):
     """批准并执行计划 — SSE 流式端点
@@ -418,6 +447,10 @@ def api_task_plan_approve_run(plan_id):
 
     run_key = f"{session_data.get('user_name', '')}:{os.path.abspath(path)}"
 
+    # run_id is optional for compatibility; the web client always sends it.
+    body = request.get_json(silent=True) or {}
+    run_id = str(body.get("run_id") or "").strip() or uuid.uuid4().hex
+
     def generate():
         """处理 generate 相关逻辑。"""
         with _active_plan_runs_guard:
@@ -429,6 +462,7 @@ def api_task_plan_approve_run(plan_id):
 
         try:
             with get_user_lock(session_data.get("user_name", "")):
+                cancel_event = start_active_run(session_data, run_id)
                 plan = _load_plan(path)
                 if plan is None:
                     yield f"data: {json.dumps({'type': 'error', 'content': '无法读取计划文件'}, ensure_ascii=False)}\n\n"
@@ -458,8 +492,10 @@ def api_task_plan_approve_run(plan_id):
                 yield from _run_chat_stream(
                     session_data,
                     extra_user_message="用户已批准执行计划，请继续执行当前活跃任务计划。",
+                    cancel_event=cancel_event,
                 )
         finally:
+            clear_active_run(session_data, run_id)
             with _active_plan_runs_guard:
                 _active_plan_runs.discard(run_key)
 

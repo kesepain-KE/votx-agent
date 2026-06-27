@@ -1,6 +1,7 @@
 """工具执行 - 注册 / 权限 / 限流 / 日志"""
 import json
 import contextvars
+import threading
 import time as _time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from typing import Any, TYPE_CHECKING
@@ -16,6 +17,10 @@ if TYPE_CHECKING:
 
 # 全局工具注册表  {name: (schema, handler)}
 TOOL_REGISTRY: dict[str, Any] = {}
+
+
+class ToolExecutionCancelled(RuntimeError):
+    """Raised when the current tool run is cancelled by the user."""
 
 
 def register_tool(schema: dict, handler, meta: dict = None):
@@ -129,7 +134,7 @@ class ToolRunner:
             return response.has_tool_calls
         return hasattr(response, "tool_calls") and bool(response.tool_calls)
 
-    def execute(self, response: Any) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    def execute(self, response: Any, cancel_event: threading.Event | None = None) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         """执行所有 tool_calls，返回 (tool result 消息列表, 调用详情列表)"""
         results: list[dict[str, Any]] = []
         details: list[dict[str, Any]] = []
@@ -137,6 +142,8 @@ class ToolRunner:
         sc_ctx_token = sc_set_current_user_dir(self.user_dir)
         try:
             for tc in response.tool_calls:
+                if cancel_event and cancel_event.is_set():
+                    raise ToolExecutionCancelled("tool run cancelled")
                 # 适配 ProviderResponse.ToolCall (统一格式) 和旧 SDK 对象
                 if hasattr(tc, "name"):
                     name = tc.name
@@ -170,22 +177,46 @@ class ToolRunner:
                         executor = ThreadPoolExecutor(max_workers=1)
                         try:
                             future = executor.submit(call_context.run, handler, **args)
-                            try:
-                                result = future.result(timeout=timeout)
-                                output = str(result)
-                                success = not output.startswith("ERROR:")
-                            except FutureTimeoutError:
-                                future.cancel()
-                                output = err(f"工具 {name} 执行超时 ({self.tool_timeout}s)")
-                                success = False
-                                executor.shutdown(wait=False, cancel_futures=True)
-                                executor = None
+                            deadline = None if timeout is None else _time.perf_counter() + timeout
+                            cancelled = False
+                            while True:
+                                if cancel_event and cancel_event.is_set():
+                                    cancelled = True
+                                    future.cancel()
+                                    output = err(f"停止 {name} 执行（用户取消）")
+                                    success = False
+                                    break
+
+                                if deadline is not None:
+                                    remaining = deadline - _time.perf_counter()
+                                    if remaining <= 0:
+                                        future.cancel()
+                                        output = err(f"工具 {name} 执行超时 ({self.tool_timeout}s)")
+                                        success = False
+                                        break
+                                    wait_for = min(0.2, remaining)
+                                else:
+                                    wait_for = 0.2
+
+                                try:
+                                    result = future.result(timeout=wait_for)
+                                    output = str(result)
+                                    success = not output.startswith("ERROR:")
+                                    break
+                                except FutureTimeoutError:
+                                    continue
+
+                            if cancelled:
+                                raise ToolExecutionCancelled("tool run cancelled")
                         finally:
                             if executor is not None:
-                                executor.shutdown(wait=True, cancel_futures=True)
+                                executor.shutdown(wait=False, cancel_futures=True)
+                                executor = None
                     else:
                         output = err(f"工具 {name} 未注册")
                         success = False
+                except ToolExecutionCancelled:
+                    raise
                 except TypeError as e:
                     output = err(f"参数错误: {e}")
                     success = False

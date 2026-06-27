@@ -44,6 +44,7 @@ export const useAppStore = create<AppStore>(() => ({
   msgId: 1,
   toastTimer: undefined,
   abortCtrl: null,
+  currentRunId: null,
   running: false,
   showToolCalls: true,
   showThinking: true,

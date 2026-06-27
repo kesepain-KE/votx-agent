@@ -243,6 +243,14 @@ export function useAppActions() {
     return { _key: nextId(), name, icon: '🔧', param, time: elapsed ? `${elapsed.toFixed(1)}s` : '', success, detail: JSON.stringify(args || {}, null, 2), open: false, log_id }
   }
 
+  function createRunId() {
+    try {
+      return crypto.randomUUID()
+    } catch {
+      return `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    }
+  }
+
   function calcHitRate(cached: number, prompt: number) {
     if (!prompt || prompt <= 0) return '-'
     return `${((cached / prompt) * 100).toFixed(1)}%`
@@ -331,7 +339,7 @@ export function useAppActions() {
           const id = startAssistantMsg()
           patchMessage(id, (msg) => {
             msg.streaming = false
-            if (raw.tool_calls && !get().isPreview) {
+            if (raw.tool_calls) {
               msg.tools = raw.tool_calls.map((tc: NonNullable<RawMessage["tool_calls"]>[number]) => {
                 const name = tc.function?.name || 'unknown'
                 let args = {}
@@ -372,7 +380,7 @@ export function useAppActions() {
         const data = await api<{ error?: string; messages?: RawMessage[]; id?: string }>('/api/conversations/select', { method: 'POST', ...jsonBody({ id: c.id }) })
         if (data.error) { toast(`加载失败: ${data.error}`); return }
         set({ isPreview: true, messages: [] })
-        renderMessages((data.messages || []).map((m) => { if (m.role === 'assistant') { const { tool_calls: _tc, reasoning_content: _r, ...rest } = m; return rest }; return m }))
+        renderMessages(data.messages || [])
         set({ previewConvId: c.id, chatTitle: `${get().profileName || ''} · 预览: ${(c as Conversation).label || data.id || c.id}`, activeConv: c.id })
         pushSysMsg('📋 归档预览（只读），点击"从此对话继续"可恢复为当前对话')
         scrollBottom()
@@ -628,32 +636,48 @@ export function useAppActions() {
   }, [get, set, updateLastAssistant, scrollBottom, pushError, pushWarn, makeToolCard, updatePlanStep, calcHitRate, fmtMs, formatNumber])
 
   const streamChat = useCallback(async (message: string) => {
-    set({ userScrolledUp: false, running: true, abortCtrl: new AbortController() })
+    const runId = createRunId()
+    set({ userScrolledUp: false, running: true, abortCtrl: new AbortController(), currentRunId: runId })
     startAssistantMsg()
     try {
-      await streamEvents('/api/chat', { message })
+      await streamEvents('/api/chat', { message, run_id: runId })
     } catch (error) {
       if ((error as Error).name !== 'AbortError') pushError(`连接错误: ${(error as Error).message}`)
     } finally {
-      set({ running: false, abortCtrl: null })
-      updateLastAssistant((msg) => { msg.streaming = false })
-      scrollBottom(); void refreshOverview()
-      window.requestAnimationFrame(() => textRef.current?.focus())
+      const activeRunId = get().currentRunId
+      if (activeRunId === runId) {
+        set({ running: false, abortCtrl: null, currentRunId: null })
+        updateLastAssistant((msg) => { msg.streaming = false })
+        scrollBottom(); void refreshOverview()
+        window.requestAnimationFrame(() => textRef.current?.focus())
+      } else if (!get().running) {
+        updateLastAssistant((msg) => { msg.streaming = false })
+        scrollBottom(); void refreshOverview()
+        window.requestAnimationFrame(() => textRef.current?.focus())
+      }
     }
   }, [get, set, streamEvents, startAssistantMsg, updateLastAssistant, scrollBottom, pushError])
 
   const streamPlanRun = useCallback(async (planId: string) => {
-    set({ running: true, abortCtrl: new AbortController() })
+    const runId = createRunId()
+    set({ running: true, abortCtrl: new AbortController(), currentRunId: runId })
     startAssistantMsg()
     try {
-      await streamEvents(`/api/task-plan/${encodeURIComponent(planId)}/approve-run`, {})
+      await streamEvents(`/api/task-plan/${encodeURIComponent(planId)}/approve-run`, { run_id: runId })
     } catch (error) {
       if ((error as Error).name !== 'AbortError') pushError(`连接错误: ${(error as Error).message}`)
     } finally {
-      set({ running: false, abortCtrl: null })
-      updateLastAssistant((msg) => { msg.streaming = false })
-      scrollBottom(); void refreshOverview()
-      window.requestAnimationFrame(() => textRef.current?.focus())
+      const activeRunId = get().currentRunId
+      if (activeRunId === runId) {
+        set({ running: false, abortCtrl: null, currentRunId: null })
+        updateLastAssistant((msg) => { msg.streaming = false })
+        scrollBottom(); void refreshOverview()
+        window.requestAnimationFrame(() => textRef.current?.focus())
+      } else if (!get().running) {
+        updateLastAssistant((msg) => { msg.streaming = false })
+        scrollBottom(); void refreshOverview()
+        window.requestAnimationFrame(() => textRef.current?.focus())
+      }
     }
   }, [get, set, streamEvents, startAssistantMsg, updateLastAssistant, scrollBottom, pushError])
 
@@ -669,7 +693,16 @@ export function useAppActions() {
 
   function stopRun() {
     const ctrl = get().abortCtrl
-    if (ctrl) { ctrl.abort(); set({ abortCtrl: null, running: false }); toast('已停止运行') }
+    const runId = get().currentRunId
+    if (ctrl) {
+      ctrl.abort()
+      set({ abortCtrl: null, running: false, currentRunId: null })
+      updateLastAssistant((msg) => { msg.streaming = false })
+      if (runId) {
+        void api('/api/chat/stop', { method: 'POST', ...jsonBody({ run_id: runId }) }).catch(() => undefined)
+      }
+      toast('已停止运行')
+    }
   }
 
   const continueAfterMaxRounds = useCallback(async () => {
