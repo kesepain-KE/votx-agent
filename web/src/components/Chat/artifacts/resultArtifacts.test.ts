@@ -61,7 +61,7 @@ describe('resultArtifacts', () => {
       previewUrl: '/api/files/view/report.md?dir=download',
       downloadUrl: '/api/files/download/report.md?dir=download',
     })
-    expect(formatFileMeta(artifacts[0])).toBe('Markdown 路 12 KB')
+    expect(formatFileMeta(artifacts[0])).toBe('Markdown · 12 KB')
     expect(artifacts[1]).toMatchObject({
       kind: 'image',
       name: 'logo.png',
@@ -71,7 +71,7 @@ describe('resultArtifacts', () => {
       width: 1024,
       height: 1024,
     })
-    expect(formatImageMeta(artifacts[1])).toBe('PNG 图片 路 1024×1024 路 820 KB')
+    expect(formatImageMeta(artifacts[1])).toBe('PNG 图片 · 1024×1024 · 820 KB')
   })
 
   it('parses files fallback and infers image kind from mime type', () => {

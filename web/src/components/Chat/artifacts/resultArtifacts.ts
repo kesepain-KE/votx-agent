@@ -185,7 +185,7 @@ function inferTypeLabelFromMime(mimeType?: string, name?: string) {
 }
 
 export function formatFileMeta(artifact: ResultArtifact) {
-  return [inferTypeLabelFromMime(artifact.mimeType, artifact.name), formatBytes(artifact.size)].filter(Boolean).join(' 路 ')
+  return [inferTypeLabelFromMime(artifact.mimeType, artifact.name), formatBytes(artifact.size)].filter(Boolean).join(' · ')
 }
 
 export function formatImageMeta(artifact: ResultArtifact) {
@@ -193,7 +193,7 @@ export function formatImageMeta(artifact: ResultArtifact) {
   const dims = artifact.width && artifact.height ? `${artifact.width}×${artifact.height}` : ''
   const typeLabel = inferTypeLabelFromMime(artifact.mimeType, artifact.name)
   const imageTypeLabel = typeLabel === '文件' ? '图片' : `${typeLabel} 图片`
-  return [imageTypeLabel, dims, sizeText].filter(Boolean).join(' 路 ')
+  return [imageTypeLabel, dims, sizeText].filter(Boolean).join(' · ')
 }
 
 export function normalizeResultArtifact(raw: unknown): ResultArtifact | null {
