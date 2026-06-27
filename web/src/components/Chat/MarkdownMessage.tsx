@@ -1,13 +1,13 @@
-import { Children, isValidElement, useEffect, useMemo, useState, type ImgHTMLAttributes, type ReactElement, type ReactNode } from 'react'
 import ReactMarkdown, { type Components, type UrlTransform } from 'react-markdown'
 import rehypeKatex from 'rehype-katex'
 import rehypeSanitize, { defaultSchema, type Options as SanitizeOptions } from 'rehype-sanitize'
+import remarkBreaks from 'remark-breaks'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
-import remarkBreaks from 'remark-breaks'
+import { safeMarkdownUrlTransform } from './markdownImage'
 import { ArtifactBlock } from './artifacts/ArtifactBlock'
-import { classifyFencedArtifact } from './artifacts/artifactDetect'
-import { buildMarkdownImageCandidates, safeMarkdownUrlTransform } from './markdownImage'
+import { classifyCodeLabel, classifyFencedArtifact } from './artifacts/artifactDetect'
+import { CodePanel } from './CodePanel'
 import 'katex/dist/katex.min.css'
 
 const markdownSchema: SanitizeOptions = {
@@ -23,32 +23,39 @@ const markdownSchema: SanitizeOptions = {
 
 const safeUrlTransform: UrlTransform = (url) => safeMarkdownUrlTransform(url)
 
-function MarkdownImage({ alt, src, ...props }: ImgHTMLAttributes<HTMLImageElement>) {
-  const candidates = useMemo(() => buildMarkdownImageCandidates(src), [src])
-  const [index, setIndex] = useState(0)
+function extractText(node: unknown): string {
+  if (typeof node === 'string') return node
+  if (!node || typeof node !== 'object') return ''
+  if (Array.isArray(node)) return node.map(extractText).join('')
+  const value = (node as { value?: unknown }).value
+  if (typeof value === 'string') return value
+  const children = (node as { children?: unknown }).children
+  if (children) return extractText(children)
+  return ''
+}
 
-  useEffect(() => {
-    setIndex(0)
-  }, [src])
+function extractCodeLanguage(node: unknown): string {
+  if (!node || typeof node !== 'object') return ''
+  const children = (node as { children?: unknown }).children
+  if (!Array.isArray(children)) return ''
 
-  const currentSrc = candidates[index] || src || ''
-  const hasFallback = index < candidates.length - 1
+  for (const child of children) {
+    if (!child || typeof child !== 'object') continue
+    if ((child as { tagName?: unknown }).tagName !== 'code') continue
 
-  return (
-    <img
-      alt={alt || ''}
-      loading="lazy"
-      {...props}
-      src={currentSrc}
-      onError={
-        hasFallback
-          ? () => {
-              setIndex((current) => Math.min(current + 1, candidates.length - 1))
-            }
-          : undefined
-      }
-    />
-  )
+    const properties = (child as { properties?: { className?: unknown } }).properties
+    const className = properties?.className
+    const classes = Array.isArray(className)
+      ? className
+      : typeof className === 'string'
+        ? className.split(/\s+/)
+        : []
+
+    const languageClass = classes.find((item): item is string => item.startsWith('language-'))
+    if (languageClass) return languageClass.slice('language-'.length)
+  }
+
+  return ''
 }
 
 const markdownComponents: Components = {
@@ -73,15 +80,37 @@ const markdownComponents: Components = {
       </div>
     )
   },
-  code({ node: _node, className, children, ...props }) {
+  pre({ node }) {
+    const content = extractText(node)
+    const language = extractCodeLanguage(node)
+    const info = classifyFencedArtifact(language, content)
+
+    if (info.variant === 'code') {
+      return (
+        <CodePanel
+          label={language ? classifyCodeLabel(language) : '\u4ee3\u7801'}
+          content={info.content}
+          className="markdown-code-panel"
+          copyable
+        />
+      )
+    }
+
     return (
-      <code className={className} {...props}>
-        {children}
-      </code>
+      <ArtifactBlock
+        variant={info.variant}
+        label={info.label}
+        content={info.content}
+        className="markdown-code-panel"
+        copyable
+      />
     )
   },
-  img({ node: _node, alt, src, ...props }) {
-    return <MarkdownImage alt={alt || ''} src={src} {...props} />
+  code({ children }) {
+    return <code>{children}</code>
+  },
+  img() {
+    return null
   },
   input({ node: _node, type, checked, ...props }) {
     if (type === 'checkbox') {
@@ -96,37 +125,12 @@ interface Props {
   streaming?: boolean
   bubble?: boolean
   className?: string
-  copyable?: boolean
 }
 
-function flattenText(node: ReactNode): string {
-  if (node == null || typeof node === 'boolean') return ''
-  if (typeof node === 'string' || typeof node === 'number') return String(node)
-  if (Array.isArray(node)) return node.map((item) => flattenText(item)).join('')
-  if (isValidElement(node)) {
-    const child = node as ReactElement<{ children?: ReactNode }>
-    return flattenText(child.props.children)
-  }
-  return ''
-}
-
-export function MarkdownMessage({ content, streaming = false, bubble = true, className = '', copyable = true }: Props) {
+export function MarkdownMessage({ content, streaming = false, bubble = true, className = '' }: Props) {
   const remarkPlugins = streaming ? [remarkGfm, remarkMath, remarkBreaks] : [remarkGfm, remarkMath]
   const markdownRenderComponents: Components = {
     ...markdownComponents,
-    pre({ children }) {
-      const childArray = Children.toArray(children)
-      if (childArray.length !== 1 || !isValidElement(childArray[0])) {
-        return <pre>{children}</pre>
-      }
-
-      const codeNode = childArray[0] as ReactElement<{ className?: string; children?: ReactNode }>
-      const languageMatch = /language-([^\s]+)/.exec(codeNode.props.className || '')
-      const language = languageMatch?.[1] || ''
-      const rawContent = flattenText(codeNode.props.children).replace(/\n$/, '')
-      const info = classifyFencedArtifact(language, rawContent)
-      return <ArtifactBlock variant={info.variant} label={info.label} content={info.content} copyable={copyable} />
-    },
   }
 
   return (

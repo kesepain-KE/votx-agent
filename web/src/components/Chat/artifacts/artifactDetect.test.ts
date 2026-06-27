@@ -60,6 +60,26 @@ describe('artifactDetect', () => {
     })
   })
 
+  it('does not misclassify markdown content with a fenced diff block as raw diff', () => {
+    const artifact = detectRawArtifact([
+      '## 正文层测试',
+      '',
+      '这里是普通正文。',
+      '',
+      '```diff',
+      '--- a/start.py',
+      '+++ b/start.py',
+      '@@ -1,1 +1,1 @@',
+      '-print("old")',
+      '+print("new")',
+      '```',
+      '',
+      '后面还有普通正文。',
+    ].join('\n'))
+
+    expect(artifact).toBeNull()
+  })
+
   it('detects raw terminal artifact', () => {
     const artifact = detectRawArtifact([
       '$ npm run build',
@@ -96,6 +116,18 @@ describe('artifactDetect', () => {
     expect(artifact).toBeNull()
   })
 
+  it('does not misclassify nested blockquote markdown as terminal', () => {
+    const artifact = detectRawArtifact([
+      '> 引用一',
+      '> > 嵌套引用',
+      '> 引用二',
+      '',
+      '仍然是普通 markdown 内容',
+    ].join('\n'))
+
+    expect(artifact).toBeNull()
+  })
+
   it('detects raw code only when not streaming', () => {
     const code = [
       'import { test } from "vitest"',
@@ -105,7 +137,7 @@ describe('artifactDetect', () => {
 
     expect(detectRawArtifact(code, { streaming: false })).toMatchObject({
       variant: 'code',
-      label: 'Code',
+      label: '代码',
     })
     expect(detectRawArtifact(code, { streaming: true })).toBeNull()
   })
@@ -147,7 +179,7 @@ describe('artifactDetect', () => {
   it('classifies fenced TypeScript as Code artifact', () => {
     expect(classifyFencedArtifact('ts', 'const name: string = "votx-agent"')).toMatchObject({
       variant: 'code',
-      label: 'TypeScript',
+      label: '代码',
       language: 'ts',
     })
   })
@@ -155,7 +187,7 @@ describe('artifactDetect', () => {
   it('classifies unknown fenced language as generic code artifact', () => {
     expect(classifyFencedArtifact('abc', 'some content')).toMatchObject({
       variant: 'code',
-      label: 'ABC',
+      label: '代码',
       language: 'abc',
     })
   })

@@ -69,6 +69,7 @@ export function parseJsonPreview(content: string) {
 }
 
 export function looksLikeDiff(content: string) {
+  if (looksLikeMarkdown(content)) return false
   const lines = content.split('\n')
   let score = 0
   let hasStrongMarker = false
@@ -83,12 +84,13 @@ export function looksLikeDiff(content: string) {
 }
 
 export function looksLikeTerminal(content: string) {
+  if (looksLikeMarkdown(content)) return false
   const lines = content.split('\n').map((line) => line.trim())
   let score = 0
   for (const line of lines) {
     if (!line) continue
     if (/^(PS\s[^>]+>|[A-Za-z]:\\|[~/].*[#>$]|root@|.*[@:~].*[#$>])/.test(line)) score += 2
-    else if (/^(\$|>|#)\s+/.test(line)) score += 1
+    else if (/^\$\s+/.test(line)) score += 1
     else if (/^(cmd>|python>|git |npm |pnpm |yarn |pip |uv |docker |kubectl |opkg |apt |brew )/.test(line)) score += 1
   }
   return score >= 3
@@ -126,7 +128,7 @@ export function looksLikeCode(content: string) {
   return score >= Math.max(3, Math.ceil(useful.length / 2))
 }
 
-function classifyCodeLabel(language: string) {
+export function classifyCodeLabel(language: string) {
   const normalized = language.trim().toLowerCase()
   return CODE_LABELS[normalized] || (normalized ? normalized.toUpperCase() : 'Code')
 }
@@ -147,7 +149,7 @@ export function classifyFencedArtifact(language: string, content: string): Artif
 
   return {
     variant: 'code',
-    label: classifyCodeLabel(lang),
+    label: '代码',
     content: normalizedContent,
     language: normalizedLanguage || undefined,
   }
@@ -160,6 +162,6 @@ export function detectRawArtifact(content: string, options: RawArtifactOptions =
   if (looksLikeDiff(normalized)) return { variant: 'diff', label: 'Diff', content: normalized }
   if (looksLikeTerminal(normalized)) return { variant: 'terminal', label: 'Terminal', content: normalized }
   if (looksLikeYaml(normalized)) return { variant: 'yaml', label: 'YAML', content: normalized }
-  if (!options.streaming && looksLikeCode(normalized)) return { variant: 'code', label: 'Code', content: normalized }
+  if (!options.streaming && looksLikeCode(normalized)) return { variant: 'code', label: '代码', content: normalized }
   return null
 }
