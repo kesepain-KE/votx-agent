@@ -21,6 +21,7 @@ from plugins._common import (
     check_sandbox,
     validate_url,
 )
+from plugins._common.artifacts import make_file_artifact, make_tool_result
 
 _MAX_DIRECT_BYTES = int(os.environ.get("DOWNLOAD_MAX_BYTES", str(1024 * 1024 * 1024)))
 _DEFAULT_YTDLP_FORMAT = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"
@@ -261,6 +262,7 @@ def download_direct_file(
 
     try:
         with _open_url(req, network_scope) as resp:
+            content_type = resp.headers.get("Content-Type", "")
             cl = resp.headers.get("Content-Length")
             if cl:
                 try:
@@ -287,7 +289,13 @@ def download_direct_file(
             "bytes": total,
             "status": "ok",
         })
-        return f"OK: 已下载 {target} ({total} bytes)"
+        artifact = make_file_artifact(
+            target,
+            dir=save_to,
+            mime_type=content_type,
+            size=total,
+        )
+        return make_tool_result(True, "已下载文件", [artifact], url=url)
     except Exception as e:
         return err(f"下载失败: {e}")
 
