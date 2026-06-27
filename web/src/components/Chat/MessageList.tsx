@@ -61,7 +61,7 @@ function ToolCallCard({ tc, message, patchMessage, loadToolResult }: { tc: ToolC
           <>
             <div className="tc-section-label">结果</div>
             <div className="tc-result-rendered">
-              <ArtifactContent content={result} density="compact" surface="plain" markdown={false} copyable={false} />
+              <ArtifactContent content={result} density="compact" surface="plain" markdown={true} copyable={false} />
             </div>
             <button
               type="button"
