@@ -33,6 +33,16 @@ describe('artifactDetect', () => {
     })
   })
 
+  it('detects already pretty raw JSON artifact', () => {
+    const pretty = '{\n  "ok": true\n}'
+
+    expect(detectRawArtifact(pretty)).toMatchObject({
+      variant: 'json',
+      label: 'JSON',
+      content: pretty,
+    })
+  })
+
   it('detects raw diff artifact', () => {
     const artifact = detectRawArtifact([
       'diff --git a/a.ts b/a.ts',
