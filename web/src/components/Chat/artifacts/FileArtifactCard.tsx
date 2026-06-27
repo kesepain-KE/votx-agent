@@ -22,11 +22,6 @@ export function FileArtifactCard({ artifact }: FileArtifactCardProps) {
         <div className="result-card-title">{artifact.name}</div>
         <div className="result-card-meta">{formatFileMeta(artifact)}</div>
         <div className="result-card-actions">
-          {artifact.previewUrl && (
-            <a href={artifact.previewUrl} target="_blank" rel="noreferrer">
-              预览
-            </a>
-          )}
           {artifact.downloadUrl && (
             <a href={artifact.downloadUrl} download>
               下载
