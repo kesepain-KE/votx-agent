@@ -1,4 +1,4 @@
-import { Children, isValidElement, type ReactElement, type ReactNode } from 'react'
+import { Children, isValidElement, useEffect, useMemo, useState, type ImgHTMLAttributes, type ReactElement, type ReactNode } from 'react'
 import ReactMarkdown, { type Components, type UrlTransform } from 'react-markdown'
 import rehypeKatex from 'rehype-katex'
 import rehypeSanitize, { defaultSchema, type Options as SanitizeOptions } from 'rehype-sanitize'
@@ -7,6 +7,7 @@ import remarkMath from 'remark-math'
 import remarkBreaks from 'remark-breaks'
 import { ArtifactBlock } from './artifacts/ArtifactBlock'
 import { classifyFencedArtifact } from './artifacts/artifactDetect'
+import { buildMarkdownImageCandidates, safeMarkdownUrlTransform } from './markdownImage'
 import 'katex/dist/katex.min.css'
 
 const markdownSchema: SanitizeOptions = {
@@ -20,13 +21,34 @@ const markdownSchema: SanitizeOptions = {
   },
 }
 
-const safeUrlTransform: UrlTransform = (url) => {
-  const value = url.trim()
-  if (!value) return ''
-  const hasScheme = /^[a-z][a-z0-9+.-]*:/i.test(value)
-  if (!hasScheme) return value
-  if (/^(https?:|mailto:)/i.test(value)) return value
-  return ''
+const safeUrlTransform: UrlTransform = (url) => safeMarkdownUrlTransform(url)
+
+function MarkdownImage({ alt, src, ...props }: ImgHTMLAttributes<HTMLImageElement>) {
+  const candidates = useMemo(() => buildMarkdownImageCandidates(src), [src])
+  const [index, setIndex] = useState(0)
+
+  useEffect(() => {
+    setIndex(0)
+  }, [src])
+
+  const currentSrc = candidates[index] || src || ''
+  const hasFallback = index < candidates.length - 1
+
+  return (
+    <img
+      alt={alt || ''}
+      loading="lazy"
+      {...props}
+      src={currentSrc}
+      onError={
+        hasFallback
+          ? () => {
+              setIndex((current) => Math.min(current + 1, candidates.length - 1))
+            }
+          : undefined
+      }
+    />
+  )
 }
 
 const markdownComponents: Components = {
@@ -58,8 +80,8 @@ const markdownComponents: Components = {
       </code>
     )
   },
-  img({ node: _node, alt, ...props }) {
-    return <img alt={alt || ''} loading="lazy" {...props} />
+  img({ node: _node, alt, src, ...props }) {
+    return <MarkdownImage alt={alt || ''} src={src} {...props} />
   },
   input({ node: _node, type, checked, ...props }) {
     if (type === 'checkbox') {
