@@ -2044,7 +2044,6 @@ def pdf_ocr(
             language=language,
 
         )
-        return _ok("PDF OCR 完成", [make_file_artifact(out)], ocr_pages=ocr_pages_processed, language=language)
 
     except Exception as e:
 
