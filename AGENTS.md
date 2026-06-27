@@ -245,7 +245,7 @@ skills.disabled_builtin   禁用非核心内置技能
 `set_user.py add` 的模型配置：
 - 先选择 Provider（类型统一 `kemo`）
 - 然后填写 `base_url` 和 `api_key`
-- `base_url` 指向 Kemo 网关时是全血模式；指向任意 OpenAI 兼容接口时是残血模式
+- `base_url` 指向 Kemo 网关时是满血模式；指向任意 OpenAI 兼容接口时是残血模式
 
 脚本仍只负责 `kemo` 这一种 provider 类型，不会自动切换成其他 provider。
 
