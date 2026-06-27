@@ -23,6 +23,7 @@ from plugins._common import (
     get_current_user_dir,
     get_effective_tool_timeout,
 )
+from plugins._common.artifacts import make_file_artifact, make_tool_result
 
 _READ_LIMIT_BYTES = 20 * 1024 * 1024
 _SEARCH_FILE_LIMIT_BYTES = 2 * 1024 * 1024
@@ -218,7 +219,7 @@ def write_file(path: str, content: str, encoding: str = "utf-8") -> str:
             return err(f"路径已存在且是目录，无法覆盖: {resolved}")
         resolved.parent.mkdir(parents=True, exist_ok=True)
         resolved.write_text(content, encoding=encoding)
-        return f"OK: 已写入 {resolved} ({len(content)} 字符)"
+        return make_tool_result(True, "已写入文件", [make_file_artifact(resolved, kind="file")])
     except Exception as e:
         return err(f"写入失败: {e}")
 
@@ -235,7 +236,7 @@ def append_file(path: str, content: str, encoding: str = "utf-8") -> str:
         resolved.parent.mkdir(parents=True, exist_ok=True)
         with resolved.open("a", encoding=encoding) as f:
             f.write(content)
-        return f"OK: 已追加 {resolved} ({len(content)} 字符)"
+        return make_tool_result(True, "已追加到文件", [make_file_artifact(resolved, kind="file")])
     except Exception as e:
         return err(f"追加失败: {e}")
 
@@ -457,7 +458,7 @@ def edit_file(
             bak = resolved.with_suffix(resolved.suffix + ".bak")
             shutil.copy2(resolved, bak)
         resolved.write_text(new_content, encoding=used_encoding or encoding)
-        return f"OK: 已编辑 {resolved} (mode={mode})"
+        return make_tool_result(True, "已编辑文件", [make_file_artifact(resolved, kind="file")])
     except Exception as e:
         return err(f"写入失败: {e}")
 
@@ -497,7 +498,7 @@ def copy_file(src_path: str, dst_path: str, overwrite: bool = False) -> str:
     try:
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst)
-        return f"OK: 已复制 {src} -> {dst}"
+        return make_tool_result(True, "已复制文件", [make_file_artifact(dst)])
     except Exception as e:
         return err(f"复制失败: {e}")
 
@@ -524,7 +525,7 @@ def move_file(src_path: str, dst_path: str, overwrite: bool = False) -> str:
         if dst.exists() and overwrite:
             dst.unlink()
         shutil.move(str(src), str(dst))
-        return f"OK: 已移动 {src} -> {dst}"
+        return make_tool_result(True, "已移动文件", [make_file_artifact(dst)])
     except Exception as e:
         return err(f"移动失败: {e}")
 
