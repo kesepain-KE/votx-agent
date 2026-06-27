@@ -1,4 +1,5 @@
 import { MarkdownMessage } from '../MarkdownMessage'
+import { CodePanel } from '../CodePanel'
 import { ArtifactBlock } from './ArtifactBlock'
 import { detectRawArtifact } from './artifactDetect'
 
@@ -25,6 +26,18 @@ export function ArtifactContent({
   const markdownStreaming = surface === 'plain' ? true : streaming
 
   if (artifact) {
+    if (artifact.variant === 'code') {
+      return (
+        <CodePanel
+          label={artifact.label}
+          content={artifact.content}
+          density={density}
+          className={className}
+          copyable={copyable}
+        />
+      )
+    }
+
     return (
       <ArtifactBlock
         variant={artifact.variant}
@@ -50,7 +63,6 @@ export function ArtifactContent({
       content={content}
       streaming={markdownStreaming}
       bubble={surface === 'bubble'}
-      copyable={copyable}
       className={className}
     />
   )

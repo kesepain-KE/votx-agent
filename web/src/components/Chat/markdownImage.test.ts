@@ -2,19 +2,26 @@ import { describe, expect, it } from 'vitest'
 import { buildMarkdownImageCandidates, safeMarkdownUrlTransform } from './markdownImage'
 
 describe('markdownImage', () => {
-  it('keeps relative paths first and adds api fallback', () => {
+  it('rewrites relative user file paths to api previews first', () => {
     expect(buildMarkdownImageCandidates('users/kesepain/download/logo.png')).toEqual([
-      'users/kesepain/download/logo.png',
       '/api/files/view/logo.png?dir=download',
+      'users/kesepain/download/logo.png',
     ])
   })
 
-  it('keeps windows paths first and adds api fallback', () => {
+  it('rewrites windows paths to api previews first', () => {
     expect(
       buildMarkdownImageCandidates('E:\\code\\votx-agent\\users\\kesepain\\history\\file\\【哲风壁纸】代码-多边形.png'),
     ).toEqual([
-      'E:\\code\\votx-agent\\users\\kesepain\\history\\file\\【哲风壁纸】代码-多边形.png',
       '/api/files/view/%E3%80%90%E5%93%B2%E9%A3%8E%E5%A3%81%E7%BA%B8%E3%80%91%E4%BB%A3%E7%A0%81-%E5%A4%9A%E8%BE%B9%E5%BD%A2.png?dir=file',
+      'E:\\code\\votx-agent\\users\\kesepain\\history\\file\\【哲风壁纸】代码-多边形.png',
+    ])
+  })
+
+  it('rewrites exact history file paths with the same filename', () => {
+    expect(buildMarkdownImageCandidates('users/kesepain/history/file/【哲风壁纸】代码-多边形.png')).toEqual([
+      '/api/files/view/%E3%80%90%E5%93%B2%E9%A3%8E%E5%A3%81%E7%BA%B8%E3%80%91%E4%BB%A3%E7%A0%81-%E5%A4%9A%E8%BE%B9%E5%BD%A2.png?dir=file',
+      'users/kesepain/history/file/【哲风壁纸】代码-多边形.png',
     ])
   })
 
