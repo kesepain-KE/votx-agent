@@ -1403,6 +1403,167 @@
     }
     .tc-copy-btn:hover { border-color: var(--glass-border-hover); color: var(--text-primary); }
 
+    .result-artifact-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .result-card {
+      border: 1px solid var(--glass-border);
+      border-radius: var(--r-sm);
+      background: rgba(255,255,255,0.03);
+      box-shadow: var(--shadow-card), inset 0 1px 0 rgba(255,255,255,0.04);
+      overflow: hidden;
+      padding: 12px;
+      max-width: 100%;
+    }
+
+    .result-card-file {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .result-card-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      background: rgba(148,163,184,0.14);
+      flex-shrink: 0;
+      font-size: 16px;
+    }
+
+    .result-card-main {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .result-card-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .result-card-title {
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.35;
+      word-break: break-word;
+      color: var(--text-primary);
+    }
+
+    .result-card-meta {
+      margin-top: 3px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.45;
+      word-break: break-word;
+    }
+
+    .result-card-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .result-card-actions a,
+    .result-card-actions button {
+      border: 1px solid var(--glass-border);
+      border-radius: var(--r-full);
+      background: var(--glass-bg);
+      color: var(--text-primary);
+      text-decoration: none;
+      cursor: pointer;
+      font: inherit;
+      font-size: 12px;
+      line-height: 1.2;
+      padding: 4px 10px;
+      transition: border-color var(--duration) var(--ease-out), background var(--duration) var(--ease-out), color var(--duration) var(--ease-out);
+      white-space: nowrap;
+    }
+
+    .result-card-actions a:hover,
+    .result-card-actions button:hover {
+      border-color: var(--glass-border-hover);
+      background: var(--glass-bg-hover);
+    }
+
+    .result-image-link {
+      display: block;
+      margin-top: 10px;
+      border: 1px solid var(--glass-border);
+      border-radius: var(--r-sm);
+      overflow: hidden;
+      background-color: rgba(148,163,184,0.10);
+      background-image:
+        linear-gradient(45deg, rgba(255,255,255,0.08) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(255,255,255,0.08) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.08) 75%),
+        linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.08) 75%);
+      background-size: 16px 16px;
+    }
+
+    .result-image-preview {
+      display: block;
+      width: 100%;
+      max-height: 360px;
+      object-fit: contain;
+      background: transparent;
+    }
+
+    .result-image-placeholder {
+      min-height: 160px;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+      color: var(--text-secondary);
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .raw-result-details {
+      margin-top: 10px;
+      border: 1px solid var(--glass-border);
+      border-radius: var(--r-sm);
+      background: rgba(255,255,255,0.02);
+      overflow: hidden;
+    }
+
+    .raw-result-details summary {
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      padding: 8px 12px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .raw-result-details summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .raw-result-details summary::before {
+      content: '▸';
+      font-size: 10px;
+      color: var(--text-tertiary);
+    }
+
+    .raw-result-details[open] summary::before {
+      content: '▾';
+    }
+
+    .raw-result-details > .tc-result-rendered {
+      margin: 0;
+      padding: 0 12px 12px;
+    }
+
     /* Composer */
     .composer {
       padding: 14px 18px;
