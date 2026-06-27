@@ -3,7 +3,7 @@ import { useState } from 'react'
 import type { Message, ToolCard } from '@/types'
 import { useAppStore } from '@/store/useAppStore'
 import { AssistantMessageContent } from './AssistantMessageContent'
-import { ArtifactContent } from './artifacts/ArtifactContent'
+import { ArtifactContent, ResultArtifactList, parseResultArtifacts } from './artifacts'
 
 /** 描述 Props 数据结构。 */
 interface Props {
@@ -32,6 +32,8 @@ function ToolCallCard({ tc, message, patchMessage, loadToolResult }: { tc: ToolC
   const showToolCalls = useAppStore((s) => s.showToolCalls)
   const [result, setResult] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const artifacts = result ? parseResultArtifacts(result) : []
+  const hasArtifacts = artifacts.length > 0
 
   const handleToggle = async () => {
     const willOpen = !tc.open
@@ -60,9 +62,19 @@ function ToolCallCard({ tc, message, patchMessage, loadToolResult }: { tc: ToolC
         {result && (
           <>
             <div className="tc-section-label">结果</div>
-            <div className="tc-result-rendered">
-              <ArtifactContent content={result} density="compact" surface="plain" markdown={true} copyable={false} />
-            </div>
+            {hasArtifacts && <ResultArtifactList artifacts={artifacts} />}
+            {hasArtifacts ? (
+              <details className="raw-result-details">
+                <summary>原始结果</summary>
+                <div className="tc-result-rendered">
+                  <ArtifactContent content={result} density="compact" surface="plain" markdown={true} copyable={false} />
+                </div>
+              </details>
+            ) : (
+              <div className="tc-result-rendered">
+                <ArtifactContent content={result} density="compact" surface="plain" markdown={true} copyable={false} />
+              </div>
+            )}
             <button
               type="button"
               className="tc-copy-btn"
