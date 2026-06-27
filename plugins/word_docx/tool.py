@@ -18,6 +18,7 @@ from pathlib import Path
 
 from run.tool import register_tool
 from plugins._common import err, truncate, safe_path, check_sandbox
+from plugins._common.artifacts import make_file_artifact, make_tool_result
 
 try:
     from docx import Document
@@ -655,6 +656,46 @@ def create_docx(
         doc.save(str(filepath))
     except Exception as e:
         return _ec("SAVE_FAILED", f"保存文档失败: {e}")
+
+    artifacts = [make_file_artifact(filepath)]
+    warnings: list[str] = []
+    extra: dict[str, object] = {}
+
+    if render_check:
+        issues = _render_check(filepath)
+        if issues:
+            warnings.extend(issues)
+            extra["render_check"] = {"passed": False, "issues": issues}
+        else:
+            extra["render_check"] = {"passed": True}
+
+    if export_pdf:
+        pdf_ok = False
+        pdf_path = filepath.with_suffix(".pdf")
+        office_cmd = shutil.which("libreoffice") or shutil.which("soffice")
+        try:
+            if office_cmd:
+                r = subprocess.run(
+                    [office_cmd, "--headless", "--convert-to", "pdf", str(filepath)],
+                    cwd=str(filepath.parent), capture_output=True, timeout=60,
+                )
+                pdf_ok = r.returncode == 0 and pdf_path.exists()
+        except Exception:
+            pass
+        if pdf_ok:
+            artifacts.append(make_file_artifact(pdf_path))
+            extra["export_pdf"] = {"success": True, "path": str(pdf_path)}
+        else:
+            warnings.append(
+                "转 PDF 失败：需要 LibreOffice/soffice。"
+                f" 可手动执行: soffice --headless --convert-to pdf \"{filepath}\""
+            )
+            extra["export_pdf"] = {"success": False}
+
+    if warnings:
+        extra["warnings"] = warnings
+
+    return make_tool_result(True, "文档生成完成", artifacts, **extra)
 
     size = filepath.stat().st_size
     rel_path = str(filepath)
