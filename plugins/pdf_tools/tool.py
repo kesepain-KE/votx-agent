@@ -846,7 +846,6 @@ def pdf_split(
 
         )
 
-        return _ok("PDF ????", [make_file_artifact(p) for p in created], count=len(created), output_dir=str(out_d))
 
     except Exception as e:
 
@@ -867,11 +866,11 @@ def pdf_merge(
     auto_rename: bool = True,
     remove_blank_pages: bool = False,
 ) -> str:
-    """???? PDF???????????????"""
+    """合并 PDF 文件，可选择跳过空白页。"""
     if not HAS_PYPDF:
-        return _ec("DEPENDENCY", "pypdf ???")
+        return _ec("DEPENDENCY", "pypdf 未安装")
     if not file_paths or len(file_paths) < 2:
-        return _ec("INVALID_PATH", "???? 2 ? PDF ??")
+        return _ec("INVALID_PATH", "至少需要 2 个 PDF 文件")
 
     out = _resolve_output(output_path, Path("."), "", overwrite, auto_rename)
     if isinstance(out, str):
@@ -897,13 +896,13 @@ def pdf_merge(
             skipped.append(f"{r.name}: {e}")
 
     if not added:
-        return _ec("SAVE_FAILED", "???????? PDF ??")
+        return _ec("SAVE_FAILED", "没有可合并的 PDF 文件")
 
     try:
         with open(out, "wb") as f:
             writer.write(f)
     except Exception as e:
-        return _ec("SAVE_FAILED", f"????: {e}")
+        return _ec("SAVE_FAILED", f"合并失败: {e}")
 
     extra = {
         "merged": len(added),
@@ -912,8 +911,7 @@ def pdf_merge(
     }
     if skipped:
         extra["warnings"] = skipped[:5]
-
-    return _ok("PDF ????", [make_file_artifact(out)], **extra)
+    return _ok("PDF 合并完成", [make_file_artifact(out)], **extra)
 
 
 def pdf_rotate(
@@ -1013,8 +1011,7 @@ def pdf_rotate(
         with open(out, "wb") as f:
 
             writer.write(f)
-
-        return _ok("PDF ????", [make_file_artifact(out)], rotated=len(rotated), total=total, rotation=rotation)
+        return _ok("PDF 旋转完成", [make_file_artifact(out)], rotated=len(rotated), total=total, rotation=rotation)
 
     except Exception as e:
 
@@ -1229,8 +1226,7 @@ def pdf_stamp_text(
         with open(out, "wb") as f:
 
             writer.write(f)
-
-        return _ok("PDF ????", [make_file_artifact(out)], page=page, x=x, y=y, text=text[:30])
+        return _ok("PDF 盖章完成", [make_file_artifact(out)], page=page, x=x, y=y, text=text[:30])
 
     except Exception as e:
 
@@ -1321,8 +1317,7 @@ def pdf_select_pages(
         with open(out, "wb") as f:
 
             writer.write(f)
-
-        return _ok("PDF ????", [make_file_artifact(out)], selected=len(selected), total=total, pages=selected[:20])
+        return _ok("PDF 选页完成", [make_file_artifact(out)], selected=len(selected), total=total, pages=selected[:20])
 
     except Exception as e:
 
@@ -1423,8 +1418,7 @@ def pdf_delete_pages(
         with open(out, "wb") as f:
 
             writer.write(f)
-
-        return _ok("PDF ?????", [make_file_artifact(out)], deleted=len(page_set), kept=len(kept))
+        return _ok("PDF 删除页完成", [make_file_artifact(out)], deleted=len(page_set), kept=len(kept))
 
     except Exception as e:
 
@@ -1513,8 +1507,7 @@ def pdf_compress(
                 new_size = out.stat().st_size
 
                 ratio = (1 - new_size / orig_size) * 100 if orig_size > 0 else 0
-
-                return _ok("PDF ????", [make_file_artifact(out)], method="ghostscript", orig_size=orig_size, new_size=new_size, ratio=ratio)
+                return _ok("PDF 压缩完成", [make_file_artifact(out)], method="ghostscript", orig_size=orig_size, new_size=new_size, ratio=ratio)
 
         except Exception:
 
@@ -1549,8 +1542,7 @@ def pdf_compress(
         new_size = out.stat().st_size
 
         ratio = (1 - new_size / orig_size) * 100 if orig_size > 0 else 0
-
-        return _ok("PDF ????", [make_file_artifact(out)], method="pypdf", orig_size=orig_size, new_size=new_size, ratio=ratio)
+        return _ok("PDF 压缩完成", [make_file_artifact(out)], method="pypdf", orig_size=orig_size, new_size=new_size, ratio=ratio)
 
     except Exception as e:
 
@@ -1715,8 +1707,7 @@ def pdf_watermark(
             pages=total,
 
         )
-
-        return _ok("PDF ????", [make_file_artifact(out)], text=text, pages=total)
+        return _ok("PDF 水印完成", [make_file_artifact(out)], text=text, pages=total)
 
     except Exception as e:
 
@@ -1817,10 +1808,7 @@ def pdf_render_preview(
             img.save(str(out_path), fmt.upper() if fmt != "jpg" else "JPEG")
 
             created.append(str(out_path))
-
-
-
-        return _ok("PDF ????", [make_image_artifact(p) for p in created], pages=len(created), dpi=dpi, output_dir=str(out_d))
+        return _ok("PDF 预览完成", [make_image_artifact(p) for p in created], pages=len(created), dpi=dpi, output_dir=str(out_d))
 
     except Exception as e:
 
@@ -2057,8 +2045,7 @@ def pdf_ocr(
             language=language,
 
         )
-
-        return _ok("PDF OCR ??", [make_file_artifact(out)], ocr_pages=ocr_pages_processed, language=language)
+        return _ok("PDF OCR 完成", [make_file_artifact(out)], ocr_pages=ocr_pages_processed, language=language)
 
     except Exception as e:
 
@@ -2319,8 +2306,7 @@ def pdf_redact(
             case_sensitive=case_sensitive,
 
         )
-
-        return _ok("PDF ????", [make_file_artifact(out)], redacted=redacted_count, keywords=len(kw_list), rectangles=len(rect_list), regex=regex, case_sensitive=case_sensitive)
+        return _ok("PDF 脱敏完成", [make_file_artifact(out)], redacted=redacted_count, keywords=len(kw_list), rectangles=len(rect_list), regex=regex, case_sensitive=case_sensitive)
 
     except Exception as e:
 
