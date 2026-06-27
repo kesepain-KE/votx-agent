@@ -2304,7 +2304,6 @@ def pdf_redact(
             case_sensitive=case_sensitive,
 
         )
-        return _ok("PDF 脱敏完成", [make_file_artifact(out)], redacted=redacted_count, keywords=len(kw_list), rectangles=len(rect_list), regex=regex, case_sensitive=case_sensitive)
 
     except Exception as e:
 
