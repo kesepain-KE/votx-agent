@@ -104,7 +104,7 @@ The Web server checks the remote version on startup and prints version status in
 
 Provider setup:
 
-- Full-capability mode -> pair with the Kemo LLM Adapter gateway for full multimodal support.
+- Full-capability mode -> pair with the [Kemo LLM Adapter](https://github.com/kesepain-KE/llm-adapter-kemo) gateway for full multimodal support.
 - Reduced-capability mode -> point `base_url` at any OpenAI-compatible API (`base_url` determines the target); some endpoints (such as image generation, video, or parts of ASR routing) may be unavailable.
 
 Switch modes by changing only `base_url` and `api_key`; keep `provider.type` set to `"kemo"`.
