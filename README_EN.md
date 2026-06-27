@@ -111,6 +111,14 @@ Switch modes by changing only `base_url` and `api_key`; keep `provider.type` set
 
 Configure in your user settings:
 
+## Reply Rendering
+
+- Normal Markdown stays in the message body, including fenced code blocks, which stay in the body and render as embedded code panels with no language label or syntax highlighting.
+- Tool results should prefer `artifacts[]`; whole-block JSON / YAML / Diff / Terminal can be promoted to artifacts, but artifacts do not use syntax highlighting. Code blocks stay in the message body and render as embedded code panels instead of standalone code cards.
+- Assistant Markdown images (`![](...)`) are ignored. Only `image_generate` / `image_edit` results may appear as a dedicated image bubble.
+- Image bubbles keep preview, download, and copy-path actions; file artifacts are download-only, and user-uploaded attachment previews stay on the user-side path.
+- See [Reply rendering and artifact display](./knowledge/10-回复渲染与工具产物展示.md) for the full rules.
+
 ```
 users/<username>/config.json
 ```
