@@ -104,8 +104,8 @@ The Web server checks the remote version on startup and prints version status in
 
 Provider setup:
 
-- Full-blood mode: pair with the Kemo LLM Adapter gateway for full multimodal support.
-- Degraded mode: point `base_url` at any OpenAI-compatible API (`base_url` determines the target); some endpoints (such as image generation, video, or parts of ASR routing) may be unavailable.
+- Full-capability mode -> pair with the Kemo LLM Adapter gateway for full multimodal support.
+- Reduced-capability mode -> point `base_url` at any OpenAI-compatible API (`base_url` determines the target); some endpoints (such as image generation, video, or parts of ASR routing) may be unavailable.
 
 Switch modes by changing only `base_url` and `api_key`; keep `provider.type` set to `"kemo"`.
 
@@ -156,7 +156,7 @@ provider/
 └── kemo_adapter.py  # Kemo LLM Adapter Provider — pure urllib HTTP, no OpenAI SDK dependency
 ```
 
-KemoProvider communicates with the configured `base_url` via pure `urllib` HTTP. `type` stays `kemo`, while `base_url` can target either the Kemo LLM Adapter gateway or any OpenAI-compatible API; image generation, video, and some ASR routes may only be available on the Kemo gateway.
+KemoProvider communicates with the configured `base_url` via pure `urllib` HTTP. `type` stays `kemo`, while `base_url` can target either the Kemo LLM Adapter gateway (full-capability mode) or any OpenAI-compatible API (reduced-capability mode); image generation, video, and some ASR routes may only be available on the Kemo gateway.
 
 ## Multimodal Capabilities
 
