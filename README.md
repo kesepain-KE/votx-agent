@@ -1,15 +1,16 @@
-# 项目简介
-
-[![standard-readme compliant](https://img.shields.io/badge/readme%20style-standard-brightgreen.svg?style=flat-square)](https://github.com/RichardLitt/standard-readme)
-
-<p align="center"><img src="votx-agent.png" width="160" alt="votx-agent"></p>
-
 # votx-agent
 
+[![standard-readme compliant](https://img.shields.io/badge/readme%20style-standard-brightgreen.svg?style=flat-square)](https://github.com/RichardLitt/standard-readme)
 [![License](https://img.shields.io/badge/license-MIT-orange)](./LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![Kemo](https://img.shields.io/badge/LLM-Kemo%20LLM%20Adapter-brightgreen)](https://github.com/kesepain-KE/llm-adapter-kemo)
 [![Web](https://img.shields.io/badge/web-Flask%20%2B%20React%20%2B%20TypeScript-lightgrey)](https://flask.palletsprojects.com/)
+
+<p align="center">
+  <img src="votx-agent.png" width="160" alt="votx-agent logo">
+</p>
+
+> 本 README 遵循[中文 README 标准](https://sunyctf.github.io/ChineseREADME/)，并在此基础上扩展了 Provider 配置、多模态、外部消息路由、知识库等框架特有章节。</p>
 
 中文 | [English](./README_EN.md)
 
@@ -17,12 +18,14 @@
 
 - [背景](#背景)
 - [安装](#安装)
+- [用法](#用法)
+- [斜杠命令](#斜杠命令)
 - [Provider 配置](#provider-配置)
 - [多模态能力](#多模态能力)
-- [用法](#用法)
 - [外部消息路由](#外部消息路由)
 - [文件与知识库](#文件与知识库)
 - [Skills / Plugins](#skills--plugins)
+- [回复渲染](#回复渲染)
 - [项目结构](#项目结构)
 - [更新](#更新)
 - [Windows 打包内容](#windows-打包内容)
@@ -35,7 +38,23 @@
 
 ## 背景
 
-votx-agent 是一个本地单用户（多用户数据隔离）AI Agent 框架，支持 Web UI、CLI、工具调用、任务计划、持久记忆、自我改进、外部消息路由和多模态能力。
+votx-agent 是一个本地优先、面向个人部署的 AI Agent 框架，支持多用户数据隔离、Web UI、CLI、工具调用、任务计划、持久记忆、自我改进、外部消息路由和多模态能力。
+
+### 适合场景
+
+- 本地个人 AI Agent 部署
+- 多用户数据隔离
+- Web UI + CLI 共用引擎
+- QQ / Telegram 外部消息接入
+- 私有知识库与工具调用
+- 多模态 Provider 网关统一接入
+
+### 不适合场景
+
+- 高并发 SaaS 服务
+- 企业级权限系统
+- 完全零配置用户
+- 不愿意维护本地 Provider 或 API 网关的用户
 
 ### 架构概览
 
@@ -55,7 +74,7 @@ votx-agent 是一个本地单用户（多用户数据隔离）AI Agent 框架，
 
 ### 特性
 
-- **单 Provider（Kemo LLM Adapter）**：纯 HTTP 本地多模态网关，不依赖 OpenAI SDK，所有模型和能力通过 Kemo 统一路由。
+- **统一 Provider 接口**：provider type 固定为 `kemo`，`base_url` 可指向 Kemo LLM Adapter 网关或任意 OpenAI 兼容 API，不依赖 OpenAI SDK。
 - **多用户数据隔离**：每个用户独立 `config.json`、`self_soul.md`、历史、文件、记忆和知识库。
 - **Web + CLI 共用引擎**：`run/engine.py` 统一处理 system prompt、tool_calls、历史保存。
 - **Skills/Plugins 架构**：`plugins/` 为内置技能，`skills/` 为用户拓展技能。
@@ -66,25 +85,31 @@ votx-agent 是一个本地单用户（多用户数据隔离）AI Agent 框架，
 - **全栈多模态能力**：图像识别、语音识别、图像生成、图像编辑、语音生成、语音生语音、视频生成，按 Provider 能力启用。
 - **全局/用户知识库**：`knowledge/` 全局共享，`users/<name>/knowledge/` 用户私有。
 
-![VOTX Agent Web UI](votx-agent-web-UI.png)
+<p align="center">
+  <img src="votx-agent-web-UI.png" width="720" alt="votx-agent Web UI">
+</p>
+
 
 ## 安装
 
-### 普通 Python 运行
+需要 **Python 3.10+** 和 **git**。
 
 ```bash
 git clone https://github.com/kesepain-KE/votx-agent.git
 cd votx-agent
-python setup.py
-python set_user.py add
-python start_web.py
+python setup.py          # 安装依赖 + 构建前端 + 环境验证，一步到位
+python set_user.py add   # 创建用户，配置模型和 Provider
+python start_web.py      # 启动 Web UI
 ```
 
-访问：
+`setup.py` 会自动完成 pip 依赖安装和前端（React/TypeScript）构建。跳过 `setup.py` 直接 `start_web.py` 会导致前端页面空白。python start_web.py
+```
 
-```
-http://localhost:1478
-```
+访问 `http://localhost:1478`。
+
+首次运行后请在 `users/<用户名>/config.json` 中配置 Provider，或通过 `python set_user.py add` 创建用户并填写模型、base_url 与 api_key。
+
+启动 Web 时自动检测远程版本，终端会打印版本状态（支持 `VOTX_SKIP_VERSION_CHECK=1` 跳过）。
 
 ### Windows 打包
 
@@ -92,38 +117,70 @@ http://localhost:1478
 build_windows.bat
 ```
 
-构建完成后生成：
+构建完成后生成 `dist\votx-agent-windows.zip`。
 
-```
-dist\votx-agent-windows.zip
+## 用法
+
+```bash
+# 启动 Web UI
+python start_web.py
+python start_web.py --port=8080
+python start_web.py --host=0.0.0.0 --port=1478
+
+# CLI 模式
+python start.py
+
+# 单次模式
+python start.py --user <用户名> --prompt "<内容>" --once
 ```
 
-启动 Web 时自动检测远程版本，终端会打印版本状态（支持 `VOTX_SKIP_VERSION_CHECK=1` 跳过）。
+局域网访问：
+
+```env
+VOTX_HOST=0.0.0.0
+PORT=1478
+VOTX_SESSION_COOKIE_NAME=votx_agent_session
+```
+
+启动后同一局域网设备访问 `http://<服务器局域网IP>:1478`。如果同一 IP 下部署多个不同 Web 项目，建议为每个项目配置不同的 `VOTX_SESSION_COOKIE_NAME`，避免浏览器 Cookie 名冲突导致登录态互相挤掉。
+
+## 斜杠命令
+
+Web UI 和 CLI 共用：
+
+| 命令 | 说明 |
+|---|---|
+| `/clear` | 清空当前对话历史及工具日志 |
+| `/archive` | 归档当前对话并生成摘要 |
+| `/new` | 归档当前对话摘要后开启新对话 |
+| `/summarize` | 生成当前对话摘要 |
+| `/retry` | 移除上一条 AI 回复并重新生成 |
+| `/history` 或 `/stats` | 查看当前会话统计 |
+| `/help` | 查看可用命令列表 |
+
+CLI 额外支持：
+
+| 命令 | 说明 |
+|---|---|
+| `/exit` / `/quit` / `/q` | 退出 CLI（自动摘要 + 保存） |
 
 ## Provider 配置
 
-Provider 接入方式：
-- 满血模式 → 搭配 [Kemo LLM Adapter](https://github.com/kesepain-KE/llm-adapter-kemo) 网关，多模态全开。
-- 残血模式 → 直连任意 OpenAI 兼容 API（`base_url` 指向谁就是谁），部分端点（如图生图、视频、部分 ASR 路由）可能不可用。
-配置上改 `base_url` 和 `api_key` 即可切换，provider type 统一填 `"kemo"`。
+### 推荐模式：Kemo LLM Adapter
 
-推荐在用户配置中填写：
+搭配 [Kemo LLM Adapter](https://github.com/kesepain-KE/llm-adapter-kemo) 网关，统一接入聊天、视觉、语音、图像、视频等全部多模态能力。
 
-## 回复渲染
+### 兼容模式：OpenAI 兼容 API
 
-- 正文层按普通 Markdown 渲染，围栏代码块也留在正文里，可与普通文本共存，但会渲染成内嵌代码面板，统一不显示语言名，也不做语言高亮。
-- 工具结果优先通过 `artifacts[]` 提供给前端；JSON / YAML / Diff / Terminal 只在纯块时提升为 artifact，且不做高亮。代码块继续留在正文层，渲染成内嵌代码面板，不升成独立代码卡片。
-- 助手正文里的 Markdown 图片 `![](...)` 不渲染；只有 `image_generate` / `image_edit` 的生图结果会走独立图片气泡。
-- 图片气泡保留预览、下载、复制路径；文件 artifact 只提供下载 / 复制路径，用户上传附件的图片预览不受影响。
-- 详细规则见 [回复渲染与工具产物展示](./knowledge/10-回复渲染与工具产物展示.md)。
+`base_url` 可指向任意 OpenAI 兼容 API。文本对话和部分工具调用可用，图生图、视频、部分 ASR 等能力取决于目标服务是否支持。
 
-```
-users/<用户名>/config.json
-```
+切换模式只改 `base_url` 和 `api_key`，provider type 统一填 `"kemo"`。
 
-创建用户时模型菜单可选 `stepfun-step-3.7-flash`、`deepseek-v4-flash` 等模型，也可手动输入其他模型名。
+### 配置示例
 
-Kemo 配置示例：
+配置文件位于 `users/<用户名>/config.json`。创建用户时模型菜单可选 `stepfun-step-3.7-flash`、`deepseek-v4-flash` 等模型，也可手动输入其他模型名。
+
+Kemo 网关配置示例：
 
 ```json
 {
@@ -138,7 +195,7 @@ Kemo 配置示例：
 }
 ```
 
-环境变量只作为兜底：
+环境变量（仅作为兜底）：
 
 ```env
 KEMO_API_KEY=sk-kemo-your-key-here
@@ -162,7 +219,7 @@ provider/
 └── kemo_adapter.py  # Kemo LLM Adapter Provider — 纯 urllib HTTP 实现，无 OpenAI SDK 依赖
 ```
 
-KemoProvider 通过纯 `urllib` HTTP 直接调用配置的 `base_url`。`type` 固定为 `kemo`，但 `base_url` 可以指向 Kemo LLM Adapter 网关或任意 OpenAI 兼容 API；图生图、视频、部分 ASR 路由等能力可能只在 Kemo 网关可用。
+KemoProvider 通过纯 `urllib` HTTP 直接调用配置的 `base_url`。
 
 ## 多模态能力
 
@@ -220,49 +277,6 @@ video_generation
 | `speech_to_speech` | 语音生语音，默认输出到 `users/<name>/download/` |
 | `video_generate` / `video_status` / `video_download` | 视频生成、查询和下载（需 Kemo 支持） |
 
-## 用法
-
-```bash
-# 启动 Web UI
-python start_web.py
-python start_web.py --port=8080
-python start_web.py --host=0.0.0.0 --port=1478
-
-# CLI 模式
-python start.py
-
-# 单次模式
-python start.py --user <用户名> --prompt "<内容>" --once
-```
-
-局域网访问：
-
-```env
-VOTX_HOST=0.0.0.0
-PORT=1478
-VOTX_SESSION_COOKIE_NAME=votx_agent_session
-```
-
-启动后同一局域网设备访问 `http://<服务器局域网IP>:1478`。如果同一 IP 下部署多个不同 Web 项目，建议为每个项目配置不同的 `VOTX_SESSION_COOKIE_NAME`，避免浏览器 Cookie 名冲突导致登录态互相挤掉。
-
-斜杠命令（Web UI 和 CLI 共用）：
-
-| 命令 | 说明 |
-|---|---|
-| `/clear` | 清空当前对话历史及工具日志 |
-| `/archive` | 归档当前对话并生成摘要 |
-| `/new` | 归档当前对话摘要后开启新对话 |
-| `/summarize` | 生成当前对话摘要 |
-| `/retry` | 移除上一条 AI 回复并重新生成 |
-| `/history` 或 `/stats` | 查看当前会话统计 |
-| `/help` | 查看可用命令列表 |
-
-CLI 额外支持：
-
-| 命令 | 说明 |
-|---|---|
-| `/exit` / `/quit` / `/q` | 退出 CLI（自动摘要 + 保存） |
-
 ## 外部消息路由
 
 配置文件优先级：
@@ -311,17 +325,7 @@ Telegram 示例：
 }
 ```
 
-外部附件统一保存到：
-
-```
-users/<用户名>/history/file/
-```
-
-附件日志：
-
-```
-users/<用户名>/history/log/external_attachments.jsonl
-```
+外部附件统一保存到 `users/<用户名>/history/file/`，附件日志位于 `users/<用户名>/history/log/external_attachments.jsonl`。
 
 支持：
 
@@ -330,6 +334,8 @@ users/<用户名>/history/log/external_attachments.jsonl
 - 外部命令：`/cron list|add|update|delete`、`/plan list|view|approve|abort`
 
 ## 文件与知识库
+
+用户视角的目录用途（开发者视角的完整项目结构见下方[项目结构](#项目结构)）：
 
 | 路径 | 用途 |
 |---|---|
@@ -415,7 +421,13 @@ HTTP_VERIFY_SSL=0
 
 `network_scope` 支持 `public` / `local` / `private` / `all`。云元数据地址始终被拦截。
 
+## 回复渲染
+
+正文渲染、工具产物展示和 artifacts 的详细规则见 [回复渲染与工具产物展示](./knowledge/10-回复渲染与工具产物展示.md)。
+
 ## 项目结构
+
+开发者视角的完整目录树：
 
 ```text
 votx-agent/
@@ -461,8 +473,8 @@ python update.py --dry-run
 
 1. 比对本地与 GitHub main 的 `version.json`
 2. 浅克隆最新源码到临时目录
-3. 备份当前项目（`users/`、`skills/`、`.env` 等不备份）
-4. 同步框架代码，跳过排除列表中的用户数据和构建产物
+3. 备份当前框架代码
+4. 同步新版框架代码，跳过 `users/`、`skills/`、`.env` 等用户数据、私有配置和构建产物
 5. 交互处理 `config/` 和 `knowledge/`（覆盖 / 保持 / 合并）
 6. 补齐用户目录骨架
 7. 刷新依赖（`python setup.py --skip-env`）
