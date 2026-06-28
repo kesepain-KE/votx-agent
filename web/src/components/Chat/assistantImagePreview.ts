@@ -1,6 +1,6 @@
 import type { ResultArtifact } from './artifacts'
 
-export const INLINE_ASSISTANT_IMAGE_TOOLS = new Set(['image_generate', 'image_edit'])
+export const INLINE_ASSISTANT_IMAGE_TOOLS = new Set(['image_generate', 'image_edit', 'image_generation'])
 
 export function isInlineAssistantImageTool(name?: string) {
   return typeof name === 'string' && INLINE_ASSISTANT_IMAGE_TOOLS.has(name)

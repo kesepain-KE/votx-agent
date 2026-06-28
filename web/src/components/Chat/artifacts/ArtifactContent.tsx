@@ -2,6 +2,8 @@ import { MarkdownMessage } from '../MarkdownMessage'
 import { CodePanel } from '../CodePanel'
 import { ArtifactBlock } from './ArtifactBlock'
 import { detectRawArtifact } from './artifactDetect'
+import { parseResultArtifacts } from './resultArtifacts'
+import { ResultArtifactList } from './ResultArtifactList'
 
 interface ArtifactContentProps {
   content: string
@@ -26,6 +28,14 @@ export function ArtifactContent({
   const markdownStreaming = surface === 'plain' ? true : streaming
 
   if (artifact) {
+    // 如果是 JSON artifact，尝试解析 artifacts 数组渲染文件/媒体卡片
+    if (artifact.variant === 'json') {
+      const parsed = parseResultArtifacts(content)
+      if (parsed.length > 0) {
+        return <ResultArtifactList artifacts={parsed} />
+      }
+    }
+
     if (artifact.variant === 'code') {
       return (
         <CodePanel
