@@ -185,6 +185,12 @@ export interface PluginVersion {
   version: string
 }
 
+/** 描述上下文窗口用量。 */
+export interface ContextWindow {
+  used: number
+  max: number
+}
+
 /** 描述 AppStore 数据结构。 */
 export interface AppStore {
   users: UserInfo[]
@@ -219,6 +225,7 @@ export interface AppStore {
   config: UserConfig
   lastSavedConfig: Partial<UserConfig>
   stats: { messages: string; tools: string; size: string }
+  contextWindow: ContextWindow | null
   frameworkVersion: string
   pluginVersions: PluginVersion[]
   profileName: string

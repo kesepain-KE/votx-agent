@@ -2,6 +2,7 @@
 import { useAppStore } from '@/store/useAppStore'
 import type { KeyboardEvent, ChangeEvent, ClipboardEvent } from 'react'
 import { COMMANDS, planStepIcon } from '@/hooks/useAppActions'
+import { ContextUsageBar } from './ContextUsageBar'
 
 /** 描述 Props 数据结构。 */
 interface Props {
@@ -43,6 +44,7 @@ export function Composer({ sendCommand, sendMessage, stopRun, continueConversati
         {COMMANDS.map((cmd) => (
           <button className="chip" key={cmd} onClick={() => sendCommand(cmd)}>{cmd}</button>
         ))}
+        <ContextUsageBar />
       </div>
 
       {isPreview && (

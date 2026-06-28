@@ -3,6 +3,7 @@ import { useState } from 'react'
 import type { Message, ToolCard } from '@/types'
 import { useAppStore } from '@/store/useAppStore'
 import { AssistantImagePreviewRail } from './AssistantImagePreviewRail'
+import { AssistantMediaPreviewRail } from './AssistantMediaPreviewRail'
 import { AssistantMessageContent } from './AssistantMessageContent'
 import { ArtifactContent, ResultArtifactList, parseResultArtifacts } from './artifacts'
 
@@ -120,6 +121,7 @@ function AssistantMessage({ message, patchMessage, copyMsg, loadToolResult }: Pr
         <ToolCallCard key={tc._key} tc={tc} message={message} patchMessage={patchMessage} loadToolResult={loadToolResult} />
       ))}
       <AssistantImagePreviewRail message={message} loadToolResult={loadToolResult} />
+      <AssistantMediaPreviewRail message={message} loadToolResult={loadToolResult} />
       <AssistantMessageContent content={assistantContent} streaming={Boolean(message.streaming)} />
       {message.usage ? (
         <div className="msg-footer">

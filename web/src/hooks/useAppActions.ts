@@ -310,8 +310,13 @@ export function useAppActions() {
   const updateStats = useCallback(async () => {
     if (!get().userActive) return
     try {
-      const d = await api<{ error?: string; msg_count?: number; tool_count?: number; file_size?: number }>('/api/stats')
-      if (!d.error) set({ stats: { messages: `${d.msg_count || 0} 条`, tools: `${d.tool_count || 0} 次`, size: fmtSize(d.file_size || 0) } })
+      const d = await api<{ error?: string; msg_count?: number; tool_count?: number; file_size?: number; context_window?: { used: number; max: number } }>('/api/stats')
+      if (!d.error) {
+        set({ stats: { messages: `${d.msg_count || 0} 条`, tools: `${d.tool_count || 0} 次`, size: fmtSize(d.file_size || 0) } })
+        if (d.context_window) {
+          set({ contextWindow: d.context_window })
+        }
+      }
     } catch { /* ignore */ }
   }, [set, get])
 

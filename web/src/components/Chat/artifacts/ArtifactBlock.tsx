@@ -1,3 +1,4 @@
+import { useState, useEffect, useCallback } from 'react'
 import type { ArtifactVariant } from './artifactDetect'
 
 interface ArtifactBlockProps {
@@ -25,13 +26,22 @@ export function ArtifactBlock({
   className = '',
   copyable = true,
 }: ArtifactBlockProps) {
-  const handleCopy = async () => {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(content)
+      setCopied(true)
     } catch {
       // Ignore clipboard errors in non-secure contexts.
     }
-  }
+  }, [content])
+
+  useEffect(() => {
+    if (!copied) return
+    const timer = setTimeout(() => setCopied(false), 2000)
+    return () => clearTimeout(timer)
+  }, [copied])
 
   return (
     <div className={`artifact artifact-${variant} artifact-${density}${className ? ` ${className}` : ''}`}>
@@ -43,12 +53,13 @@ export function ArtifactBlock({
         {copyable && (
           <button
             type="button"
-            className="artifact-copy-btn"
+            className={`artifact-copy-btn${copied ? ' copied' : ''}`}
             onClick={handleCopy}
-            aria-label={`复制 ${label}`}
-            title={`复制 ${label}`}
+            disabled={copied}
+            aria-label={copied ? '已复制' : `复制 ${label}`}
+            title={copied ? '已复制' : `复制 ${label}`}
           >
-            ⧉
+            {copied ? '✓' : '⧉'}
           </button>
         )}
       </div>

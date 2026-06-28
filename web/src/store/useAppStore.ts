@@ -78,6 +78,7 @@ export const useAppStore = create<AppStore>(() => ({
   },
   lastSavedConfig: {},
   stats: { messages: '-', tools: '-', size: '-' },
+  contextWindow: null,
   frameworkVersion: '-',
   pluginVersions: [],
   profileName: '未连接',

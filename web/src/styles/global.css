@@ -1175,6 +1175,11 @@
       color: var(--text-primary);
       background: var(--glass-bg-hover);
     }
+    .artifact-copy-btn.copied {
+      color: #10b981;
+      border-color: rgba(16,185,129,0.3);
+      background: rgba(16,185,129,0.1);
+    }
     .artifact-shell {
       border: 1px solid rgba(255,255,255,0.05);
       border-radius: 16px;
@@ -1308,6 +1313,11 @@
       border-color: var(--glass-border-hover);
       color: var(--text-primary);
       background: var(--glass-bg-hover);
+    }
+    .code-panel-copy.copied {
+      color: #10b981;
+      border-color: rgba(16,185,129,0.3);
+      background: rgba(16,185,129,0.1);
     }
     .code-panel-body,
     .bubble .code-panel-body {
@@ -1837,7 +1847,65 @@
 
     body[data-color-scheme="light"] .composer { box-shadow: 0 -16px 48px rgba(0,0,0,0.05); }
 
-    .quick { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 10px; }
+    .quick { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+
+    .context-usage-bar {
+      margin-left: auto;
+      height: 34px;
+      min-width: 260px;
+      padding: 0 16px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      border-radius: 999px;
+      border: 1px solid var(--glass-border);
+      background: var(--glass-bg);
+      box-shadow: 0 6px 18px rgba(0,0,0,0.04), inset 0 1px 0 var(--glass-shine);
+      color: var(--text-secondary);
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1;
+      white-space: nowrap;
+      user-select: none;
+      flex-shrink: 0;
+    }
+    .context-usage-text {
+      min-width: 96px;
+      color: var(--text-secondary);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+    .context-usage-separator {
+      color: var(--text-tertiary);
+      font-weight: 500;
+    }
+    .context-usage-track {
+      width: 96px;
+      height: 8px;
+      position: relative;
+      overflow: hidden;
+      border-radius: 999px;
+      background: var(--glass-border);
+    }
+    .context-usage-fill {
+      height: 100%;
+      border-radius: inherit;
+      background: var(--text-secondary);
+      transition: width 0.25s ease;
+    }
+    .context-usage-percent {
+      min-width: 32px;
+      text-align: right;
+      color: var(--text-tertiary);
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
 
     .chip {
       border: 1px solid var(--glass-border);
