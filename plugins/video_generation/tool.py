@@ -7,6 +7,7 @@ import mimetypes
 import os
 
 from plugins._common import err, safe_path, check_sandbox, get_current_user_dir, get_multimodal_context
+from plugins._common.artifacts import make_file_artifact, make_tool_result
 from run.tool import register_tool
 
 
@@ -114,7 +115,8 @@ def video_download(job_id: str, output_dir: str = "", filename: str = "") -> str
         return err(f"输出目录不在允许范围内: {output_dir}")
 
     try:
-        return provider.download_video(job_id=job_id, output_dir=str(sandboxed_output), filename=filename)
+        filepath = provider.download_video(job_id=job_id, output_dir=str(sandboxed_output), filename=filename)
+        return make_tool_result(True, "视频下载完成", [make_file_artifact(filepath)])
     except NotImplementedError as e:
         return err(str(e))
     except Exception as e:

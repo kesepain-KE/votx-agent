@@ -5,6 +5,7 @@ import os
 import uuid
 
 from plugins._common import err, safe_path, check_sandbox, get_current_user_dir, get_multimodal_context
+from plugins._common.artifacts import make_file_artifact, make_tool_result
 from run.tool import register_tool
 
 
@@ -49,7 +50,7 @@ def speech_to_speech(
         return err(f"输出目录不在允许范围内: {output_dir}")
 
     try:
-        return provider.speech_to_speech(
+        filepath = provider.speech_to_speech(
             audio_path=str(sandboxed_audio),
             prompt=prompt,
             instruction=instruction,
@@ -58,6 +59,7 @@ def speech_to_speech(
             output_dir=str(sandboxed_output),
             filename=f"speech_to_speech_{uuid.uuid4().hex[:8]}.{format}",
         )
+        return make_tool_result(True, "语音转换完成", [make_file_artifact(filepath)])
     except NotImplementedError as e:
         return err(str(e))
     except Exception as e:

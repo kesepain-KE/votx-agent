@@ -9,6 +9,7 @@ import os
 import uuid
 
 from plugins._common import err, safe_path, check_sandbox, get_current_user_dir, get_multimodal_context
+from plugins._common.artifacts import make_file_artifact, make_tool_result
 from run.tool import register_tool
 
 
@@ -66,7 +67,7 @@ def speech_generate(
             output_dir=str(sandboxed),
             filename=f"speech_{uuid.uuid4().hex[:8]}.{format}",
         )
-        return filepath
+        return make_tool_result(True, "语音生成完成", [make_file_artifact(filepath)])
     except NotImplementedError as e:
         return err(str(e))
     except Exception as e:
