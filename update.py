@@ -3,7 +3,7 @@
 
 比对本地 version.json 与 GitHub main 分支上的 version.json，
 将最新源码克隆到临时目录，备份当前应用，同步框架文件，保留用户数据，
-然后刷新运行环境。
+随后强制构建 web 前端并刷新运行环境。
 
 全平台通用（Linux / macOS / Windows），不依赖 rsync。
 """
@@ -35,6 +35,7 @@ VERSION_URL_TEMPLATE = (
 BACKUP_KEEP = 2
 
 ROOT = Path(__file__).resolve().parent
+WEB_DIR = ROOT / "web"
 
 # ── 排除规则 ─────────────────────────────────────────────────────
 # 规则:
@@ -567,6 +568,27 @@ def migrate_user_skeletons(*, dry_run: bool) -> None:
         print(yellow(f"用户目录补齐跳过: {exc}"))
 
 
+def build_web_frontend(*, dry_run: bool) -> None:
+    """强制构建 Web 前端产物。"""
+    package_json = WEB_DIR / "package.json"
+    if not package_json.is_file():
+        raise UpdateError(f"未找到前端构建配置: {package_json}")
+
+    print(green("正在构建 Web 前端..."))
+    if dry_run:
+        print(f"[dry-run] 将在 {WEB_DIR} 执行 npm install && npm run build")
+        return
+
+    require_commands(["npm"])
+    run(["npm", "install"], cwd=WEB_DIR)
+    run(["npm", "run", "build"], cwd=WEB_DIR)
+
+    dist_dir = WEB_DIR / "dist"
+    if not dist_dir.is_dir() or not any(dist_dir.iterdir()):
+        raise UpdateError("Web 前端构建失败：web/dist 为空")
+    print(green("Web 前端已构建"))
+
+
 def detect_mode(args: argparse.Namespace) -> str:
     if args.docker:
         return "docker"
@@ -670,7 +692,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument(
         "--skip-post-update",
         action="store_true",
-        help="跳过安装依赖/重建 Docker 等后处理",
+        help="跳过安装依赖/重建 Docker 等后处理（不影响 Web 构建）",
     )
     parser.add_argument("--docker", action="store_true", help="使用 Docker 后更新命令")
     parser.add_argument("--native", action="store_true", help="使用原生后更新命令")
@@ -732,8 +754,9 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         # ── 环境检查 ──────────────────────────────────────────────
-        # 需要 git 来克隆远程仓库；不再需要 rsync
-        require_commands(["git"])
+        # 需要 git 来克隆远程仓库，npm 用于前端构建；不再需要 rsync
+        if not args.dry_run:
+            require_commands(["git", "npm"])
 
         mode = detect_mode(args)
         print(f"后更新模式: {mode}")
@@ -746,6 +769,7 @@ def main(argv: list[str] | None = None) -> int:
             handle_config(source, assume_yes=args.yes, dry_run=args.dry_run)
             handle_knowledge(source, assume_yes=args.yes, dry_run=args.dry_run)
             migrate_user_skeletons(dry_run=args.dry_run)
+            build_web_frontend(dry_run=args.dry_run)
 
         # ── 后处理 ────────────────────────────────────────────────
         post_update(
