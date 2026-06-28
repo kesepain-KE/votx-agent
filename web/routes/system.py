@@ -288,11 +288,27 @@ def api_stats():
     # 累计 Token 统计
     token_stats = getattr(chat, 'token_stats', {})
 
+    # 上下文窗口用量
+    context_used = 0
+    context_max = 0
+    try:
+        est_tokens = sum(chat._msg_tokens(m) for m in chat.messages)
+        sys_tokens = chat._estimate_tokens(chat.system_prompt) if chat.system_prompt else 0
+        safe_budget = int(chat.context_max * chat.context_safe_ratio)
+        context_used = est_tokens + sys_tokens
+        context_max = safe_budget
+    except Exception:
+        pass
+
     return jsonify({
         "msg_count": len(chat.messages),
         "tool_count": tool_count,
         "file_size": file_size,
         "token_stats": token_stats,
+        "context_window": {
+            "used": context_used,
+            "max": context_max,
+        },
     })
 
 

@@ -180,6 +180,10 @@ def api_file_view(filename):
         ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
         ".gif": "image/gif", ".webp": "image/webp",
         ".bmp": "image/bmp", ".ico": "image/x-icon",
+        ".mp3": "audio/mpeg", ".wav": "audio/wav",
+        ".opus": "audio/ogg", ".aac": "audio/aac", ".flac": "audio/flac",
+        ".mp4": "video/mp4", ".webm": "video/webm",
+        ".avi": "video/x-msvideo", ".mov": "video/quicktime",
     }
     # .svg 已移除 — 仅通过 /download 端点以 attachment 方式下载
     mime = mime_map.get(ext, "application/octet-stream")
