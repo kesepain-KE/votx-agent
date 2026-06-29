@@ -417,16 +417,21 @@ class KemoProvider(BaseProvider):
             or DEFAULT_IMAGE_EDIT_MODEL
         )
         response_format = kwargs.get("response_format", "url")
+        size = kwargs.get("size")
         filename = image_file.name
         content_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
         image_bytes = image_file.read_bytes()
 
+        fields = {
+            "model": model,
+            "prompt": prompt,
+            "response_format": response_format,
+        }
+        if size:
+            fields["size"] = size
+
         body, multipart_type = _multipart_body(
-            fields={
-                "model": model,
-                "prompt": prompt,
-                "response_format": response_format,
-            },
+            fields=fields,
             files=[
                 ("image", filename, image_bytes, content_type),
                 ("image_file", filename, image_bytes, content_type),

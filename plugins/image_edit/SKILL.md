@@ -28,6 +28,7 @@ tags: ["multimodal", "image", "edit"]
 | `image` | string | 是 | - | 本地图片路径 |
 | `prompt` | string | 是 | - | 编辑要求 |
 | `response_format` | string | 否 | `"url"` | `url` 或 `b64_json` |
+| `size` | string | 否 | `""` | 可选，目标尺寸，格式为 宽x高，如 `1920x1080` |
 | `output_dir` | string | 否 | `users/<user>/download/` | 输出目录 |
 | `filename` | string | 否 | 自动生成 | 文件名前缀 |
 

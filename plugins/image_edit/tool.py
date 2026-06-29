@@ -19,6 +19,7 @@ def image_edit(
     image: str,
     prompt: str,
     response_format: str = "url",
+    size: str = "",
     output_dir: str = "",
     filename: str = "",
 ) -> str:
@@ -28,6 +29,7 @@ def image_edit(
         image:           本地图片路径（必填）
         prompt:          编辑要求（必填）
         response_format: 返回格式 url / b64_json
+        size:            可选，目标尺寸 宽x高，如 1920x1080。留空使用 API 默认
         output_dir:      输出目录（默认 users/<user>/download/）
         filename:        自定义文件名前缀（自动追加序号和 .png）
     """
@@ -71,10 +73,13 @@ def image_edit(
     os.makedirs(str(sandboxed_output), exist_ok=True)
 
     try:
+        edit_kwargs = {"response_format": response_format}
+        if size:
+            edit_kwargs["size"] = size
         results = provider.edit_image(
             image_path=str(sandboxed_image),
             prompt=prompt,
-            response_format=response_format,
+            **edit_kwargs,
         )
     except NotImplementedError as e:
         return err(str(e))
@@ -138,6 +143,10 @@ SCHEMA = {
                     "type": "string",
                     "enum": ["url", "b64_json"],
                     "description": "返回格式，默认 url"
+                },
+                "size": {
+                    "type": "string",
+                    "description": "可选，目标尺寸 宽x高，如 1920x1080。留空使用 API 默认"
                 },
                 "output_dir": {
                     "type": "string",
