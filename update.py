@@ -783,13 +783,12 @@ def main(argv: list[str] | None = None) -> int:
         # 不再阻止非 Linux 平台，但 Windows 需要 git
         _print_platform_warning()
 
-        # ── 版本比对 ──────────────────────────────────────────────
-        remote_url = args.remote_version_url or VERSION_URL_TEMPLATE.format(
-            branch=args.branch
-        )
-        local_version, remote_version = load_versions(remote_url)
-
         if args.check:
+            # ── 版本比对 ──────────────────────────────────────────
+            remote_url = args.remote_version_url or VERSION_URL_TEMPLATE.format(
+                branch=args.branch
+            )
+            local_version, remote_version = load_versions(remote_url)
             cmp_result = compare_versions(local_version, remote_version)
             if cmp_result == 0:
                 print(green(f"已是最新: {local_version}"))
@@ -799,6 +798,27 @@ def main(argv: list[str] | None = None) -> int:
                 print(yellow(f"本地版本更新于远程: {local_version} > {remote_version}"))
             return 0
 
+        update_scope = choose_update_scope(args)
+        print(f"update scope: {update_scope}")
+
+        if update_scope == UPDATE_SCOPE_PLUGINS:
+            if not args.dry_run:
+                require_commands(["git"])
+
+            with tempfile.TemporaryDirectory(prefix="votx-agent-update-") as tmp:
+                source = clone_latest(args.repo_url, args.branch, Path(tmp))
+                make_backup(args.dry_run, scope=update_scope)
+                sync_plugins_source(source, dry_run=args.dry_run)
+            print(green("plugins update complete"))
+            return 0
+
+        # ── 版本比对 ──────────────────────────────────────────────
+        print(green("正在检查版本..."))
+        remote_url = args.remote_version_url or VERSION_URL_TEMPLATE.format(
+            branch=args.branch
+        )
+        local_version, remote_version = load_versions(remote_url)
+
         if not should_update(
             local_version, remote_version, force=args.force, assume_yes=args.yes
         ):
@@ -807,22 +827,11 @@ def main(argv: list[str] | None = None) -> int:
 
         # ── 环境检查 ──────────────────────────────────────────────
         # 需要 git 来克隆远程仓库，npm 用于前端构建；不再需要 rsync
-        update_scope = choose_update_scope(args)
-        print(f"update scope: {update_scope}")
-
         if not args.dry_run:
             required = ["git"]
             if update_scope == UPDATE_SCOPE_FULL:
                 required.append("npm")
             require_commands(required)
-
-        if update_scope == UPDATE_SCOPE_PLUGINS:
-            with tempfile.TemporaryDirectory(prefix="votx-agent-update-") as tmp:
-                source = clone_latest(args.repo_url, args.branch, Path(tmp))
-                make_backup(args.dry_run, scope=update_scope)
-                sync_plugins_source(source, dry_run=args.dry_run)
-            print(green("plugins update complete"))
-            return 0
 
         mode = detect_mode(args)
         print(f"update mode: {mode}")
