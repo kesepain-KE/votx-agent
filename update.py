@@ -91,6 +91,10 @@ BACKUP_EXCLUDES = [
     "message/push_queue/",
 ]
 
+UPDATE_SCOPE_FULL = "full"
+UPDATE_SCOPE_PLUGINS = "plugins"
+UPDATE_SCOPES = (UPDATE_SCOPE_FULL, UPDATE_SCOPE_PLUGINS)
+
 
 # ═══════════════════════════════════════════════════════════════════
 # 工具函数
@@ -434,19 +438,44 @@ def sync_directory(
 # ═══════════════════════════════════════════════════════════════════
 
 
-def make_backup(dry_run: bool) -> Path | None:
-    """创建当前项目完整备份（跳过 BACKUP_EXCLUDES 中的内容）。"""
+def make_backup(dry_run: bool, *, scope: str) -> Path | None:
+    """创建更新前备份。
+
+    full 备份整个项目；plugins 只备份 plugins/。
+    """
     timestamp = time.strftime("%Y%m%d-%H%M%S")
-    backup_dir = ROOT / ".backups" / f"update-{timestamp}"
+    backup_dir = ROOT / ".backups" / f"update-{scope}-{timestamp}"
     if dry_run:
-        print(f"[dry-run] 将创建备份: {backup_dir}")
+        if scope == UPDATE_SCOPE_PLUGINS:
+            print(f"[dry-run] 将创建 plugins 备份: {backup_dir / 'plugins'}")
+        else:
+            print(f"[dry-run] 将创建备份: {backup_dir}")
         return None
 
     backup_dir.mkdir(parents=True, exist_ok=False)
-    sync_directory(ROOT, backup_dir, delete=False, excludes=BACKUP_EXCLUDES)
+    if scope == UPDATE_SCOPE_PLUGINS:
+        plugins_dir = ROOT / "plugins"
+        if not plugins_dir.is_dir():
+            raise UpdateError(f"未找到插件目录: {plugins_dir}")
+        sync_directory(plugins_dir, backup_dir / "plugins", delete=False, excludes=BACKUP_EXCLUDES)
+        print(green(f"plugins/ 备份已创建: {backup_dir / 'plugins'}"))
+    else:
+        sync_directory(ROOT, backup_dir, delete=False, excludes=BACKUP_EXCLUDES)
+        print(green(f"备份已创建: {backup_dir}"))
+
     prune_backups()
-    print(green(f"备份已创建: {backup_dir}"))
     return backup_dir
+
+
+def sync_plugins_source(source: Path, *, dry_run: bool) -> None:
+    """同步远端源码中的 plugins/ 到本地。"""
+    new_plugins = source / "plugins"
+    local_plugins = ROOT / "plugins"
+    if not new_plugins.is_dir():
+        raise UpdateError(f"远端仓库缺少插件目录: {new_plugins}")
+
+    print(green("正在更新 plugins/ 目录..."))
+    sync_directory(new_plugins, local_plugins, delete=False, dry_run=dry_run)
 
 
 def prune_backups() -> None:
@@ -683,6 +712,23 @@ def should_update(
     return ask_yes_no("是否继续？", default=False, assume_yes=assume_yes)
 
 
+def choose_update_scope(args: argparse.Namespace) -> str:
+    scope = str(getattr(args, "scope", "") or "").strip().lower()
+    if scope in UPDATE_SCOPES:
+        return scope
+
+    choice = ask_choice(
+        "请选择更新范围:",
+        {
+            "1": "全量更新（同步整个仓库）",
+            "2": "仅更新 plugins/（保留本地额外文件）",
+        },
+        default="1",
+        assume_yes=args.yes,
+    )
+    return UPDATE_SCOPE_PLUGINS if choice == "2" else UPDATE_SCOPE_FULL
+
+
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="更新 votx-agent（全平台）")
     parser.add_argument("--check", action="store_true", help="仅检查本地和远程版本")
@@ -702,6 +748,12 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "--remote-version-url",
         default="",
         help="远程 version.json URL 覆盖",
+    )
+    parser.add_argument(
+        "--scope",
+        choices=list(UPDATE_SCOPES),
+        default="",
+        help="更新范围：full=全量更新，plugins=仅更新 plugins/",
     )
     args = parser.parse_args(argv)
     if args.docker and args.native:
@@ -755,28 +807,40 @@ def main(argv: list[str] | None = None) -> int:
 
         # ── 环境检查 ──────────────────────────────────────────────
         # 需要 git 来克隆远程仓库，npm 用于前端构建；不再需要 rsync
+        update_scope = choose_update_scope(args)
+        print(f"update scope: {update_scope}")
+
         if not args.dry_run:
-            require_commands(["git", "npm"])
+            required = ["git"]
+            if update_scope == UPDATE_SCOPE_FULL:
+                required.append("npm")
+            require_commands(required)
+
+        if update_scope == UPDATE_SCOPE_PLUGINS:
+            with tempfile.TemporaryDirectory(prefix="votx-agent-update-") as tmp:
+                source = clone_latest(args.repo_url, args.branch, Path(tmp))
+                make_backup(args.dry_run, scope=update_scope)
+                sync_plugins_source(source, dry_run=args.dry_run)
+            print(green("plugins update complete"))
+            return 0
 
         mode = detect_mode(args)
-        print(f"后更新模式: {mode}")
+        print(f"update mode: {mode}")
 
-        # ── 执行更新 ──────────────────────────────────────────────
         with tempfile.TemporaryDirectory(prefix="votx-agent-update-") as tmp:
             source = clone_latest(args.repo_url, args.branch, Path(tmp))
-            make_backup(args.dry_run)
+            make_backup(args.dry_run, scope=update_scope)
             sync_main_source(source, dry_run=args.dry_run)
             handle_config(source, assume_yes=args.yes, dry_run=args.dry_run)
             handle_knowledge(source, assume_yes=args.yes, dry_run=args.dry_run)
             migrate_user_skeletons(dry_run=args.dry_run)
             build_web_frontend(dry_run=args.dry_run)
 
-        # ── 后处理 ────────────────────────────────────────────────
         post_update(
             mode, dry_run=args.dry_run, skip_post_update=args.skip_post_update
         )
 
-        print(green("更新完成"))
+        print(green("update complete"))
         return 0
 
     except subprocess.CalledProcessError as exc:
