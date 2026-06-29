@@ -27,7 +27,7 @@ def image_generate(
 
     Args:
         prompt:     图片描述（必填）
-        size:       图片尺寸 1024x1024 / 1792x1024 / 1024x1792
+        size:       图片尺寸，格式为 宽x高（如 1024x1024、1920x1080、2048x2048），默认 1024x1024
         quality:    图片质量 standard / hd
         n:          生成数量 1-4
         output_dir: 输出目录（默认 users/<user>/download/）
@@ -114,8 +114,7 @@ SCHEMA = {
                 },
                 "size": {
                     "type": "string",
-                    "enum": ["1024x1024", "1792x1024", "1024x1792"],
-                    "description": "图片尺寸，默认 1024x1024"
+                    "description": "图片尺寸，格式为 宽x高（如 1024x1024、1920x1080、2048x2048），默认 1024x1024"
                 },
                 "quality": {
                     "type": "string",

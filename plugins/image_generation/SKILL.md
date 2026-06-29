@@ -33,7 +33,7 @@ tags: ["multimodal", "image", "generation"]
 | 参数 | 类型 | 必需 | 默认值 | 说明 |
 |------|------|------|--------|------|
 | `prompt` | string | 是 | — | 图片描述 |
-| `size` | string | 否 | `"1024x1024"` | 图片尺寸 |
+| `size` | string | 否 | `"1024x1024"` | 图片尺寸，格式为 宽x高，如 `1024x1024`、`1920x1080`、`2048x2048` |
 | `quality` | string | 否 | `"standard"` | `standard` 标准 / `hd` 高清（仅 DALL-E 3） |
 | `n` | integer | 否 | 1 | 生成数量 1-4 |
 | `output_dir` | string | 否 | `users/<user>/generated/images/` | 输出目录 |
