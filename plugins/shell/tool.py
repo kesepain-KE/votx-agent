@@ -108,10 +108,16 @@ def _merge_environment(session_env: dict | None = None, call_env: dict | None = 
     return env
 
 
-def _resolve_call_working_dir(working_dir: str = "") -> tuple[str | None, str | None]:
+def _resolve_call_working_dir(
+    working_dir: str = "",
+    *,
+    default_to_user_dir: bool = True,
+) -> tuple[str | None, str | None]:
     """解析调用级工作目录。"""
     text = (working_dir or "").strip()
     if not text:
+        if not default_to_user_dir:
+            return None, None
         current = get_current_user_dir()
         if current:
             try:
@@ -779,10 +785,13 @@ def run_command(
         timeout_value = _normalize_timeout(timeout) or get_effective_tool_timeout(120)
         stdin_text = "" if stdin is None else str(stdin)
         call_env = _normalize_env_updates(env)
-        resolved_cwd, cwd_err = _resolve_call_working_dir(working_dir)
+        session_key = _normalize_session_id(session_id)
+        resolved_cwd, cwd_err = _resolve_call_working_dir(
+            working_dir,
+            default_to_user_dir=not bool(session_key),
+        )
         if cwd_err:
             return err(cwd_err)
-        session_key = _normalize_session_id(session_id)
     except ValueError as e:
         return err(str(e))
 

@@ -51,6 +51,24 @@ def test_session_cd_and_cd_dash(shell_tool, tmp_path):
     assert out2 == str(workspace)
 
 
+def test_session_cwd_persists_across_calls(shell_tool, tmp_path):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    nested = workspace / "nested"
+    nested.mkdir()
+
+    out1 = shell_tool.run_command(
+        command=f'cd /d "{nested}"',
+        working_dir=str(workspace),
+        session_id="dev",
+        reset_session=True,
+    )
+    assert out1 == str(nested)
+
+    out2 = shell_tool.run_command(command="pwd", session_id="dev")
+    assert out2 == str(nested)
+
+
 def test_session_export_with_spaces(shell_tool, tmp_path):
     workspace = tmp_path / "workspace"
     workspace.mkdir()
