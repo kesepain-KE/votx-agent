@@ -104,8 +104,8 @@ class ToolRunner:
     def __init__(self, core_config: dict[str, Any], user_config: dict[str, Any] = None, user_dir: str | None = None, disabled_skills: set | None = None):
         """执行 init 内部辅助逻辑。"""
         tool_cfg = core_config.get("tool", {})
-        self.max_total = tool_cfg.get("tool_max_per_type", 80)     # 单轮总上限
-        self.max_per_tool = tool_cfg.get("tool_max_per_tool", 80)  # 单工具上限
+        self.max_total = tool_cfg.get("tool_max_per_type", 0)     # 0 = 不限制
+        self.max_per_tool = tool_cfg.get("tool_max_per_tool", 0)  # 0 = 不限制
         self.call_count = 0
         self.per_tool_count: dict[str, int] = {}
         self.user_dir = user_dir
@@ -116,7 +116,7 @@ class ToolRunner:
         self.tool_timeout = (
             _positive_int(user_tool_cfg.get("tool_timeout"))
             or _positive_int(tool_cfg.get("tool_timeout"))
-            or 120
+            or 300
         )
 
         # 权限：从用户配置读取（deny 优先）
@@ -130,7 +130,7 @@ class ToolRunner:
     # ---- 限流 ----
 
     def _check_limit(self, name: str) -> str | None:
-        """返回错误字符串或 None"""
+        """返回错误字符串或 None。仅保留配置级权限检查，移除硬编码限流。"""
         if name in self._deny:
             return err(f"工具 {name} 已被管理员禁用")
         enabled = self._enabled.get(name)
@@ -143,11 +143,6 @@ class ToolRunner:
             skill_key = tsm.get(name, "")
             if skill_key and skill_key in self._disabled_skills:
                 return err(f"工具 {name} 所属技能已被用户禁用")
-        if self.call_count >= self.max_total:
-            return err(f"全局调用上限已达 ({self.max_total})")
-        pc = self.per_tool_count.get(name, 0)
-        if pc >= self.max_per_tool:
-            return err(f"工具 {name} 单轮调用上限已达 ({self.max_per_tool})")
         return None
 
     def _count(self, name: str):
