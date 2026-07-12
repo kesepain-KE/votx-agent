@@ -62,7 +62,7 @@ export function planStepIcon(status?: string) {
 
 /* ── 常量 ── */
 
-export const COMMANDS = ['/clear', '/retry', '/help', '/stats']
+export const COMMANDS = ['/clear', '/retry', '/help', '/stats', '/compress']
 /** 导出 TABS 常量配置。 */
 export const TABS = [
   { id: 'overview', label: '概览' },
@@ -238,9 +238,9 @@ export function useAppActions() {
     return id
   }
 
-  function makeToolCard(name: string, args: unknown, elapsed?: number, success = true, log_id?: string): ToolCard {
+  function makeToolCard(name: string, args: unknown, elapsed?: number, success = true, log_id?: string, pending?: boolean, startTs?: number, toolCallId?: string, icon?: string): ToolCard {
     const param = JSON.stringify(args || {}).slice(0, 80)
-    return { _key: nextId(), name, icon: '🔧', param, time: elapsed ? `${elapsed.toFixed(1)}s` : '', success, detail: JSON.stringify(args || {}, null, 2), open: false, log_id }
+    return { _key: nextId(), name, icon: icon || '🔧', param, time: elapsed ? `${elapsed.toFixed(1)}s` : '', success, detail: JSON.stringify(args || {}, null, 2), open: false, log_id, pending, startTs, toolCallId }
   }
 
   function createRunId() {
@@ -497,7 +497,9 @@ export function useAppActions() {
 
   const sendCommand = useCallback(async (cmd: string) => {
     if (!get().userActive) { toast('请先选择用户'); return }
-    if (get().running) { toast('请先停止当前运行'); return }
+    if (get().running || get().topStatusKind) { toast('请等待当前操作完成'); return }
+    const isCompress = cmd === '/compress'
+    if (isCompress) set({ topStatusText: '正在压缩上下文...', topStatusKind: 'compress' })
     try {
       const d = await api<{ error?: string; retry?: boolean; content?: string }>('/api/command', { method: 'POST', ...jsonBody({ command: cmd }) })
       if (d.error) { toast(d.error); return }
@@ -507,6 +509,9 @@ export function useAppActions() {
       pushSysMsg(d.content || '命令已执行')
       scrollBottom()
     } catch (error) { toast(`命令失败: ${(error as Error).message}`) }
+    finally {
+      if (isCompress) window.setTimeout(() => set({ topStatusText: '', topStatusKind: '' }), 500)
+    }
   }, [get, set, removeLastAIReply])
 
   const sendMessage = useCallback(async () => {
@@ -576,8 +581,33 @@ export function useAppActions() {
         let ev: SSEEvent
         try { ev = JSON.parse(data) } catch { continue }
         switch (ev.type) {
+          case 'tool_call_start':
+            updateLastAssistant((msg) => {
+              const card = makeToolCard(ev.name, ev.args, undefined, true, undefined, true, Date.now(), ev.tool_call_id, (ev as any).icon)
+              msg.tools = [...(msg.tools || []), card]
+            })
+            break
           case 'tool_call':
-            updateLastAssistant((msg) => { msg.tools = [...(msg.tools || []), makeToolCard(ev.name, ev.args, ev.elapsed, ev.success, (ev as any).log_id)] })
+            updateLastAssistant((msg) => {
+              const tcId = (ev as any).tool_call_id
+              const tools = [...(msg.tools || [])]
+              if (tcId) {
+                const idx = tools.findIndex((t) => t.toolCallId === tcId && t.pending)
+                if (idx >= 0) {
+                  tools[idx] = {
+                    ...tools[idx],
+                    pending: false,
+                    success: ev.success,
+                    time: ev.elapsed ? `${ev.elapsed.toFixed(1)}s` : '',
+                    log_id: (ev as any).log_id,
+                    detail: JSON.stringify(ev.args || {}, null, 2),
+                  }
+                  msg.tools = tools
+                  return
+                }
+              }
+              msg.tools = [...tools, makeToolCard(ev.name, ev.args, ev.elapsed, ev.success, (ev as any).log_id, false, undefined, tcId, (ev as any).icon)]
+            })
             break
           case 'text_chunk':
             updateLastAssistant((msg) => { msg._raw = (msg._raw || '') + (ev.content || '') })
@@ -1074,7 +1104,7 @@ export function useAppActions() {
         activePlan: null,
         planPhase: null,
       })
-      toast(detail?.error || '会话已失效，请重新选择用户')
+      toast(detail?.error || '访问令牌已失效，请通过 ?token=xxx URL 重新访问')
     }
     document.addEventListener('click', closeMenus)
     window.addEventListener('votx-session-expired', onSessionExpired)

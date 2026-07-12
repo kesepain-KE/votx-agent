@@ -1,4 +1,5 @@
 /** web/src/App.tsx 模块。 */
+import { useEffect } from 'react'
 import { useAppActions } from '@/hooks/useAppActions'
 import { Sidebar } from '@/components/Sidebar/Sidebar'
 import { MainChat } from '@/components/Chat/MainChat'
@@ -10,6 +11,15 @@ import { ErrorBoundary } from '@/components/Shared/ErrorBoundary'
 /** 渲染 App 组件。 */
 export default function App() {
   const a = useAppActions()
+
+  // 页面加载后清除 URL 中的 token 参数（避免泄露到地址栏/历史记录）
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.has('token')) {
+      const cleanUrl = window.location.pathname + window.location.hash
+      window.history.replaceState({}, '', cleanUrl)
+    }
+  }, [])
 
   return (
     <>

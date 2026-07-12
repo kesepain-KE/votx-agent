@@ -312,13 +312,6 @@ def api_select_user():
     if "/" in user_name or "\\" in user_name or ".." in user_name:
         return jsonify({"error": "非法用户名"}), 400
 
-    # 可选的访问口令鉴权
-    access_token = os.environ.get("VOTX_ACCESS_TOKEN", "")
-    if access_token:
-        token = data.get("token", "")
-        if token != access_token:
-            return jsonify({"error": "访问口令错误"}), 401
-
     user_dir = os.path.realpath(os.path.join(_root, "users", user_name))
     users_root = os.path.realpath(os.path.join(_root, "users"))
     # 路径 containment 双重保障
