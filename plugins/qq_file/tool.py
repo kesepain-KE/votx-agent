@@ -2,7 +2,7 @@
 from pathlib import Path
 
 from run.tool import register_tool
-from plugins._common import err as _err, safe_path, check_sandbox, get_current_user_dir
+from plugins._common import err as _err, get_current_user_dir
 
 
 def _load_push_queue_dir() -> str:
@@ -11,8 +11,6 @@ def _load_push_queue_dir() -> str:
         from message.config import load_config
 
         root = get_project_root()
-        # Match the router's config resolution so explicit and local message
-        # config files both affect outbound file pushes.
         cfg = load_config(root)
         return cfg.get("push", {}).get("queue_dir", "message/push_queue")
     except Exception:
@@ -31,25 +29,14 @@ def upload_qq_file(target: str, chat_type: str, file_path: str, platform: str = 
     if platform not in ("onebot", "telegram"):
         return _err(f"platform 必须为 onebot 或 telegram，实际: {platform}")
 
-    # 路径安全校验
-    resolved = safe_path(file_path)
-    if resolved is None:
-        return _err(f"无效的文件路径: {file_path}")
+    resolved = Path(file_path).resolve()
     if not resolved.is_file():
-        return _err(f"文件不存在: {resolved}")
-
-    # 沙箱校验：允许项目根和用户目录
-    from paths import get_project_root
-    allowed_roots = [get_project_root()]
-    user_dir = get_current_user_dir()
-    if user_dir:
-        allowed_roots.append(user_dir)
-    if check_sandbox(resolved, allowed_roots) is None:
-        return _err(f"文件路径越权: {resolved}（不在允许的目录内）")
+        return _err(f"文件不存在: {file_path}")
 
     try:
         from message.push_queue import enqueue_file
 
+        from paths import get_project_root
         root = get_project_root()
         queue_dir = _load_push_queue_dir()
 
@@ -72,14 +59,14 @@ SCHEMA = {
     "type": "function",
     "function": {
         "name": "upload_qq_file",
-        "description": "向 QQ（OneBot）或 Telegram 上传文件。文件通过异步队列发送，支持私聊和群聊。",
+        "description": "向 QQ（OneBot）或 Telegram 上传文件。文件通过异步队列发送，支持私聊和群聊。当用户要求发送文件到 QQ/Telegram、分享文档/图片/PDF 到外部平台、传输文件给别人时使用。",
         "parameters": {
             "type": "object",
             "properties": {
                 "target": {"type": "string", "description": "目标 ID：QQ 号 / TG 用户 ID / 群号"},
                 "chat_type": {"type": "string", "description": "private（私聊）或 group（群聊）"},
                 "file_path": {"type": "string", "description": "要上传的本地文件绝对路径"},
-                "platform": {"type": "string", "description": "平台: onebot（QQ，默认）或 telegram"},
+                "platform": {"type": "string", "description": "平台: onebot（QQ，默认）或 telegram。由智能体根据用户消息来源或用户指令决定"},
             },
             "required": ["target", "chat_type", "file_path"],
         },

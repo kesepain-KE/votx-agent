@@ -27,7 +27,7 @@ _EXTRACT_DEPTHS = {"basic", "advanced"}
 _FORMATS = {"markdown", "text"}
 _MODELS = {"mini", "pro", "auto"}
 _CITATION_FORMATS = {"numbered", "mla", "apa", "chicago"}
-_RESULT_TRUNCATE = int(os.environ.get("TAVILY_RESULT_TRUNCATE", "6000"))
+_RESULT_TRUNCATE = int(os.environ.get("TAVILY_RESULT_TRUNCATE", "0"))
 
 
 def _tool_timeout(default: int) -> int:
@@ -83,7 +83,7 @@ def tavily_search(
     # 构建参数
     kwargs: dict = {
         "query": query,
-        "max_results": max(1, min(int(max_results), 20)),
+        "max_results": max(1, int(max_results)),
         "include_images": bool(include_images),
         "timeout": float(_tool_timeout(60)),
     }
@@ -199,7 +199,7 @@ def tavily_search(
         if url:
             lines.append(f"   🔗 {url}")
         if content:
-            lines.append(f"   {content[:400]}")
+            lines.append(f"   {content[:2000]}")
 
     # token 用量
     usage = result.get("usage")
@@ -274,7 +274,7 @@ def tavily_extract(
         content_len = len(raw_content) if raw_content else 0
         lines.append(f"\n── {title} ({content_len} 字符) ──")
         if raw_content:
-            lines.append(raw_content[:3000])
+            lines.append(raw_content[:10000])
 
     for f in failed:
         lines.append(f"\n❌ 失败: {f.get('url', '?')} — {f.get('error', '未知错误')}")
@@ -388,7 +388,7 @@ def tavily_crawl(
         lines.append(f"\n── {title} ({content_len} 字符)")
         lines.append(f"   🔗 {source}")
         if raw_content:
-            lines.append(raw_content[:2000])
+            lines.append(raw_content[:10000])
 
     for f in failed:
         lines.append(f"\n❌ 失败: {f.get('url', '?')} — {f.get('error', '未知错误')}")
@@ -630,7 +630,7 @@ SCHEMAS = [
             "description": (
                 "使用 Tavily API 搜索网络，返回结构化结果（标题、URL、摘要、AI 回答、相关度评分）。"
                 "支持话题过滤、时间范围、域名白名单/黑名单、图片搜索等。"
-                "适合查找最新新闻、实时数据、事实核查。"
+                "当需要搜索最新新闻、实时数据、事实核查、查找资料、技术调研、查最新信息、获取网页结果时使用。"
             ),
             "parameters": {
                 "type": "object",
@@ -654,7 +654,7 @@ SCHEMAS = [
                     "start_date": {"type": "string", "description": "起始日期 YYYY-MM-DD（需与 end_date 配合）"},
                     "end_date": {"type": "string", "description": "结束日期 YYYY-MM-DD（需与 start_date 配合）"},
                     "days": {"type": "integer", "description": "搜索最近 N 天的内容"},
-                    "max_results": {"type": "integer", "description": "最多返回条数（1-20，默认 5）"},
+                    "max_results": {"type": "integer", "description": "最多返回条数（默认 5）"},
                     "chunks_per_source": {
                         "type": "integer",
                         "description": "每源内容片段数（1-3，仅 advanced 深度可用，每段 ≤500 字符）。0=不使用",
@@ -707,7 +707,7 @@ SCHEMAS = [
             "description": (
                 "从指定 URL 提取正文内容，返回 Markdown 或纯文本。"
                 "支持单 URL 或多 URL（逗号/换行分隔）。"
-                "适合读取网页/文档全文，获取完整内容而非摘要。"
+                "当需要读取网页全文、获取文章完整内容、提取文档正文、读取在线文档时使用。"
             ),
             "parameters": {
                 "type": "object",
@@ -754,7 +754,7 @@ SCHEMAS = [
             "description": (
                 "对指定网站进行深度爬取，沿链接自动发现并提取所有匹配页面的正文。"
                 "支持路径过滤、深度/数量限制、自定义指令。"
-                "适合抓取文档站、知识库、博客等整站内容。"
+                "当需要抓取整个文档站、知识库、博客、教程系列等整站内容时使用。"
             ),
             "parameters": {
                 "type": "object",
@@ -830,8 +830,8 @@ SCHEMAS = [
             "description": (
                 "发现并列出网站所有可访问的页面 URL。"
                 "支持路径过滤和深度限制。"
-                "适合「先看看这个网站有哪些页面，再决定抓哪些」的信息侦察场景。"
-                "通常先 map 再 extract/crawl。"
+                "当需要先了解一个网站有哪些页面、做信息侦察、规划爬取策略时使用。"
+                "通常先 map 发现 URL，再 extract/crawl 抓取内容。"
             ),
             "parameters": {
                 "type": "object",
@@ -888,7 +888,8 @@ SCHEMAS = [
             "name": "tavily_research",
             "description": (
                 "AI 深度研究：提交一个研究课题，Tavily 自动收集多源资料、分析综合、生成带完整引用的报告。"
-                "这是一个异步任务，可能需要 30-180 秒。适合需要多源交叉验证、竞品分析、行业调研等深度问题。"
+                "这是一个异步任务，可能需要 30-180 秒。"
+                "当需要多源交叉验证、竞品分析、行业调研、深度对比、综合分析等复杂研究时使用。"
                 "支持结构化输出（output_schema），可要求返回 JSON 格式的结构化数据。"
                 "不要用于简单搜索——简单搜索请用 tavily_search。"
             ),

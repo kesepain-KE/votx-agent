@@ -54,14 +54,14 @@ SCHEMA = {
     "type": "function",
     "function": {
         "name": "send_qq_message",
-        "description": "向 QQ（OneBot）或 Telegram 发送文本消息。消息通过异步队列发送，支持私聊和群聊。",
+        "description": "向 QQ（OneBot）或 Telegram 发送文本消息。消息通过异步队列发送，支持私聊和群聊。当用户要求发消息、通知某人、推送通知到 QQ/Telegram、提醒群消息、发送文本到外部平台时使用。",
         "parameters": {
             "type": "object",
             "properties": {
                 "target": {"type": "string", "description": "目标 ID：QQ 号 / TG 用户 ID / 群号"},
                 "chat_type": {"type": "string", "description": "private（私聊）或 group（群聊）"},
                 "message": {"type": "string", "description": "要发送的文本内容"},
-                "platform": {"type": "string", "description": "平台: onebot（QQ，默认）或 telegram"},
+                "platform": {"type": "string", "description": "平台: onebot（QQ，默认）或 telegram。由智能体根据用户消息来源或用户指令决定"},
             },
             "required": ["target", "chat_type", "message"],
         },
