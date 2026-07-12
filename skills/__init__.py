@@ -285,8 +285,10 @@ def register_all(force_reload: bool = False, clear_registry: bool = True) -> lis
         list[dict]: [{"name", "description", "body", "origin", "summary", "override", ...}, ...]
     """
     global _last_skills_info, _origin_tools, _tool_skill_map
-    skills_dir = Path(__file__).parent
-    project_root = skills_dir.parent
+    from paths import get_project_root
+
+    project_root = Path(get_project_root())
+    skills_dir = project_root / "skills"
     plugins_dir = project_root / "plugins"
 
     if clear_registry:

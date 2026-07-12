@@ -283,7 +283,7 @@ def add_user(name: str = "") -> str | None:
             "log": f"{name}_chat_log.json",
         },
         "tool": {"tool_timeout": 120, "enabled": {}, "deny": []},
-        "task_plan": {"accept_task": True},
+        "task_plan": {"accept_task": False},
     }
     _write_config(user_dir, config)
 

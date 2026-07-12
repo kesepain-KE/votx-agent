@@ -43,6 +43,7 @@ _load_dotenv()
 def main_cli():
     """CLI 模式：列出用户 → 选择 → 子进程 main.py"""
     users_dir = os.path.join(root, "users")
+    os.makedirs(users_dir, exist_ok=True)
     from set_user import ensure_user_skeleton
     user_list = []
     for name in sorted(os.listdir(users_dir)):

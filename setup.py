@@ -237,8 +237,9 @@ def main():
     check_git()
     if not py_ok:
         sys.exit(1)
-    if not check_only:
-        deps_ok = check_deps()
+    deps_ok = check_deps()
+    if check_only and not deps_ok:
+        sys.exit(1)
 
     # 2. 依赖安装
     if not check_only:
@@ -262,7 +263,8 @@ def main():
     # 5. 前端构建（web/dist/ — 构建产物，不跟踪在 Git 中）
     if not check_only:
         print("\n[5] 前端构建")
-        build_frontend()
+        if not build_frontend():
+            sys.exit(1)
 
     # 6. 用户状态
     print("\n[6] 用户状态")
