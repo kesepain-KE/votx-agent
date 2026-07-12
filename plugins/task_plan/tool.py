@@ -3,7 +3,6 @@
 
 import json
 import os
-import re
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -12,7 +11,6 @@ from run.tool import register_tool
 from plugins._common import err, truncate
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-_VALID_PLAN_FILE = re.compile(r'^plan_\w+\.json$')
 
 # 共享上下文：因 register_all() 用 importlib 重载本模块，可能产生多个模块实例。
 # 通过 skills._task_plan_ctx ContextVar 确保每个并发会话有独立的上下文副本。
@@ -52,18 +50,21 @@ def _load_plan(user_name: str, plan_id: str) -> dict | None:
         return None
 
 
-def _save_plan(user_name: str, plan_id: str, plan: dict):
-    """执行 save_plan 内部辅助逻辑。"""
+def _atomic_save_plan(user_name: str, plan_id: str, plan: dict):
+    """原子写入 plan 文件 — 先写临时文件再 rename，防止写一半被读到。
+
+    同时保留 aborted 防覆写逻辑。
+    """
     d = _plans_dir(user_name)
     d.mkdir(parents=True, exist_ok=True)
     plan_path = d / plan_id
-    # 防止路径穿越（plan_id 可能包含 ../）
+    # 路径穿越校验
     real_dir = os.path.realpath(str(d))
     real_path = os.path.realpath(str(plan_path))
     if not real_path.startswith(real_dir + os.sep) and real_path != real_dir:
         print(f"[task_plan] 路径越权被阻止: {plan_id}", flush=True)
         return
-    # 防竞态：如果用户已中止此计划，不再覆写（避免 SSE 流中的旧操作覆盖中止状态）
+    # 防竞态：如果磁盘上已是 aborted，不覆写
     if plan_path.exists():
         try:
             current = json.loads(plan_path.read_text(encoding="utf-8"))
@@ -71,7 +72,40 @@ def _save_plan(user_name: str, plan_id: str, plan: dict):
                 return
         except Exception:
             pass
-    plan_path.write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
+    # 先写临时文件，再原子重命名
+    tmp_path = d / f".{plan_id}.tmp"
+    tmp_path.write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp_path.replace(plan_path)  # POSIX 原子 rename
+
+
+# 兼容旧的调用名
+_save_plan = _atomic_save_plan
+
+
+def validate_plan_filepath(plans_dir: str, plan_id: str) -> tuple[str | None, str | None]:
+    """统一校验 plan_id 并解析为绝对路径，返回 (resolved_path, error)。
+
+    tool 层和 web 层共用此函数，确保校验逻辑一致。
+    接受 plan_abc 或 plan_abc.json 两种格式。
+    不检查文件是否存在 — 由调用方按需判断。
+    """
+    import re as _re
+    _PLAN_PATTERN = _re.compile(r'^plan_\w+\.json$')
+
+    clean_id = plan_id
+    if clean_id.endswith('.json'):
+        clean_id = clean_id[:-5]
+    clean_id = clean_id + '.json'
+
+    if not _PLAN_PATTERN.match(clean_id):
+        return None, f"非法计划 ID: {plan_id}"
+
+    plans_dir = str(Path(plans_dir).resolve())
+    plan_path = os.path.realpath(os.path.join(plans_dir, clean_id))
+
+    if not plan_path.startswith(plans_dir + os.sep) and plan_path != plans_dir:
+        return None, "路径越权"
+    return plan_path, None
 
 
 def _find_active_plan(user_name: str) -> tuple[dict | None, str | None]:
@@ -86,19 +120,21 @@ def _find_active_plan(user_name: str) -> tuple[dict | None, str | None]:
     return None, None
 
 
-def _check_accept_task(user_name: str) -> str | None:
-    """检查用户是否启用任务计划。返回错误信息或 None（通过）"""
+def _check_accept_task(user_name: str) -> tuple[str | None, bool]:
+    """检查用户是否启用任务计划。返回 (error_msg, accept_task)。
+
+    accept_task 为 True 表示用户启用了自动批准模式。
+    """
     config_path = _PROJECT_ROOT / "users" / user_name / "config.json"
     if not config_path.exists():
-        return "用户配置不存在"
+        return "用户配置不存在", False
     try:
         config = json.loads(config_path.read_text(encoding="utf-8"))
         tp = config.get("task_plan", {})
-        if not tp.get("accept_task", False):
-            return "用户未启用任务计划功能（task_plan.accept_task=false）"
+        accept = tp.get("accept_task", False)
+        return None, accept
     except Exception as e:
-        return f"读取用户配置失败: {e}"
-    return None
+        return f"读取用户配置失败: {e}", False
 
 
 def _load_user_provider(user_name: str):
@@ -130,7 +166,7 @@ def task_plan_create(description: str) -> str:
     if not user_name:
         return err("缺少用户上下文，请重新进入会话")
 
-    err_msg = _check_accept_task(user_name)
+    err_msg, accept_task = _check_accept_task(user_name)
     if err_msg:
         return err(err_msg)
 
@@ -174,38 +210,96 @@ def task_plan_create(description: str) -> str:
     except Exception:
         max_steps = 10
 
-    try:
+    # 检测流式上下文（Web UI SSE）vs 同步上下文（CLI/定时任务）
+    from run.tool import current_tool_call_id as _tc_id_ctx, get_tool_event_queue as _get_q
+    tc_id = _tc_id_ctx.get()
+    event_q = _get_q(tc_id) if tc_id else None
+
+    if event_q:
+        # ── 流式路径：逐 chunk 推送到事件队列 ──
+        from agents.task_plan.agent import generate_plan_stream
+        plan = None
+        stream_error = None
+        try:
+            for event in generate_plan_stream(
+                provider, messages, tools_schemas, skills_info,
+                system_prompt, system_info, max_steps,
+            ):
+                if event.get("type") == "plan_chunk":
+                    event_q.put({
+                        "type": "tool_chunk",
+                        "name": "task_plan_create",
+                        "content": event["content"],
+                    })
+                elif event.get("type") == "plan_done":
+                    plan = event.get("plan")
+                    stream_error = event.get("error")
+        except Exception as e:
+            return err(f"计划生成失败: {e}")
+
+        if stream_error:
+            return err(stream_error)
+        if plan is None:
+            return "无需计划 — 当前请求足够简单，直接处理即可"
+    else:
+        # ── 同步路径（CLI / cron）──
         from agents.task_plan.agent import generate_plan
-        result = generate_plan(
-            provider, messages, tools_schemas, skills_info,
-            system_prompt, system_info, max_steps,
-        )
-    except Exception as e:
-        return err(f"计划生成失败: {e}")
+        try:
+            result = generate_plan(
+                provider, messages, tools_schemas, skills_info,
+                system_prompt, system_info, max_steps,
+            )
+        except Exception as e:
+            return err(f"计划生成失败: {e}")
 
-    if result.get("error"):
-        return err(result["error"])
+        if result.get("error"):
+            return err(result["error"])
 
-    plan = result.get("plan")
-    if plan is None:
-        return "无需计划 — 当前请求足够简单，直接处理即可"
+        plan = result.get("plan")
+        if plan is None:
+            return "无需计划 — 当前请求足够简单，直接处理即可"
 
     # 保存计划
     plan_id = plan.get("id", "plan_unknown")
+    plans_dir = str(_plans_dir(user_name))
+    _, path_err = validate_plan_filepath(plans_dir, plan_id)
+    if path_err:
+        return err(path_err)
+
     plan_file = f"{plan_id}.json"
-    if not _VALID_PLAN_FILE.match(plan_file):
-        return err(f"非法计划 ID: {plan_id}")
+
+    if accept_task:
+        plan["status"] = "in_progress"
+        if plan.get("steps"):
+            plan["steps"][0]["status"] = "in_progress"
     _save_plan(user_name, plan_file, plan)
 
+    # ── 强制刷新 system prompt，使计划信息立即注入 LLM 上下文 ──
+    chat = _get_ctx().get("chat")
+    if chat:
+        from run.prompt_cache import build_cached_system_prompt
+        root = str(_PROJECT_ROOT)
+        user_dir = str(_PROJECT_ROOT / "users" / user_name)
+        new_prompt = build_cached_system_prompt(root, user_dir, force=True)
+        chat.set_system_prompt(new_prompt)
+
     steps_count = len(plan.get("steps", []))
+    if accept_task:
+        return (
+            f"OK: 已自动批准计划 [{plan.get('title', '?')}] ({plan_id})\n"
+            f"共 {steps_count} 个步骤，开始自动执行……\n" +
+            "\n".join(
+                f"  {i+1}. [{s.get('status', '?')}] {s.get('description', '?')}"
+                for i, s in enumerate(plan.get("steps", []))
+            )
+        )
     return (
         f"OK: 已创建计划 [{plan.get('title', '?')}] ({plan_id})\n"
         f"共 {steps_count} 个步骤:\n" +
         "\n".join(
             f"  {i+1}. [{s.get('status', '?')}] {s.get('description', '?')}"
             for i, s in enumerate(plan.get("steps", []))
-        ) +
-        "\n\n⚠ 请告知用户点击「批准」按钮后才会开始执行步骤。不要立即调用 task_plan_step_done。"
+        )
     )
 
 
@@ -257,9 +351,10 @@ def task_plan_view(plan_id: str | None = None) -> str:
         if not plan_id:
             return "（无活跃计划）"
 
-    # 安全校验
-    if not _VALID_PLAN_FILE.match(f"{plan_id}.json"):
-        return err(f"非法计划 ID: {plan_id}")
+    plans_dir = str(_plans_dir(user_name))
+    _, err_str = validate_plan_filepath(plans_dir, plan_id)
+    if err_str:
+        return err(err_str)
 
     plan = _load_plan(user_name, f"{plan_id}.json")
     if plan is None:
@@ -300,8 +395,10 @@ def task_plan_step_done(plan_id: str, step_id: str, result: str = "") -> str:
     if not user_name:
         return err("缺少用户上下文")
 
-    if not _VALID_PLAN_FILE.match(f"{plan_id}.json"):
-        return err(f"非法计划 ID: {plan_id}")
+    plans_dir = str(_plans_dir(user_name))
+    _, err_str = validate_plan_filepath(plans_dir, plan_id)
+    if err_str:
+        return err(err_str)
 
     plan = _load_plan(user_name, f"{plan_id}.json")
     if plan is None:
@@ -351,8 +448,10 @@ def task_plan_step_fail(plan_id: str, step_id: str, error: str) -> str:
     if not user_name:
         return err("缺少用户上下文")
 
-    if not _VALID_PLAN_FILE.match(f"{plan_id}.json"):
-        return err(f"非法计划 ID: {plan_id}")
+    plans_dir = str(_plans_dir(user_name))
+    _, err_str = validate_plan_filepath(plans_dir, plan_id)
+    if err_str:
+        return err(err_str)
 
     plan = _load_plan(user_name, f"{plan_id}.json")
     if plan is None:
@@ -391,8 +490,10 @@ def task_plan_abort(plan_id: str | None = None) -> str:
         if not plan_id:
             return "（无活跃计划）"
 
-    if not _VALID_PLAN_FILE.match(f"{plan_id}.json"):
-        return err(f"非法计划 ID: {plan_id}")
+    plans_dir = str(_plans_dir(user_name))
+    _, err_str = validate_plan_filepath(plans_dir, plan_id)
+    if err_str:
+        return err(err_str)
 
     plan = _load_plan(user_name, f"{plan_id}.json")
     if plan is None:
@@ -422,8 +523,10 @@ def task_plan_edit(plan_id: str, step_id: str | None = None,
     if not user_name:
         return err("缺少用户上下文")
 
-    if not _VALID_PLAN_FILE.match(f"{plan_id}.json"):
-        return err(f"非法计划 ID: {plan_id}")
+    plans_dir = str(_plans_dir(user_name))
+    _, err_str = validate_plan_filepath(plans_dir, plan_id)
+    if err_str:
+        return err(err_str)
 
     plan = _load_plan(user_name, f"{plan_id}.json")
     if plan is None:

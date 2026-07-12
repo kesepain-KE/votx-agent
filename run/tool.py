@@ -1,6 +1,7 @@
 """工具执行 - 注册 / 权限 / 限流 / 日志"""
 import json
 import contextvars
+import queue as _queue
 import threading
 import time as _time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
@@ -21,6 +22,34 @@ TOOL_REGISTRY: dict[str, Any] = {}
 
 class ToolExecutionCancelled(RuntimeError):
     """Raised when the current tool run is cancelled by the user."""
+
+
+# ---- 工具中间事件流式推送 ----
+
+# tool_call_id -> Queue，用于工具在子线程中推送中间事件
+_tool_event_queues: dict[str, _queue.Queue] = {}
+
+# 当前正在执行的 tool_call_id（ContextVar，供工具 handler 读取自己的 ID）
+current_tool_call_id: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "current_tool_call_id", default=""
+)
+
+
+def register_tool_event_queue(tool_call_id: str) -> _queue.Queue:
+    """为指定 tool_call 注册事件队列，返回队列引用"""
+    q = _queue.Queue()
+    _tool_event_queues[tool_call_id] = q
+    return q
+
+
+def get_tool_event_queue(tool_call_id: str) -> _queue.Queue | None:
+    """获取指定 tool_call 的事件队列（供工具 handler 使用）"""
+    return _tool_event_queues.get(tool_call_id)
+
+
+def unregister_tool_event_queue(tool_call_id: str):
+    """工具执行完毕后清理队列"""
+    _tool_event_queues.pop(tool_call_id, None)
 
 
 def register_tool(schema: dict, handler, meta: dict = None):
@@ -134,10 +163,11 @@ class ToolRunner:
             return response.has_tool_calls
         return hasattr(response, "tool_calls") and bool(response.tool_calls)
 
-    def execute(self, response: Any, cancel_event: threading.Event | None = None) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-        """执行所有 tool_calls，返回 (tool result 消息列表, 调用详情列表)"""
+    def execute(self, response: Any, cancel_event: threading.Event | None = None) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+        """执行所有 tool_calls，返回 (tool result 消息列表, 调用详情列表, 中间事件列表)"""
         results: list[dict[str, Any]] = []
         details: list[dict[str, Any]] = []
+        all_intermediate_events: list[dict[str, Any]] = []
         ctx_token = set_current_user_dir(self.user_dir)
         sc_ctx_token = sc_set_current_user_dir(self.user_dir)
         try:
@@ -165,65 +195,87 @@ class ToolRunner:
                     details.append({"name": name, "args": {}, "elapsed": 0, "success": False, "log_id": log_id, "tool_call_id": tc_id})
                     continue
 
-                # 执行（带全局超时）
-                t0 = _time.perf_counter()
-                try:
-                    if name in TOOL_REGISTRY:
-                        entry = TOOL_REGISTRY[name]
-                        handler = entry[1]  # handler 始终是第二个元素
-                        meta = entry[2] if len(entry) > 2 else {}
-                        timeout = None if meta.get("skip_tool_timeout") else self.tool_timeout
-                        call_context = contextvars.copy_context()
-                        executor = ThreadPoolExecutor(max_workers=1)
-                        try:
-                            future = executor.submit(call_context.run, handler, **args)
-                            deadline = None if timeout is None else _time.perf_counter() + timeout
-                            cancelled = False
-                            while True:
-                                if cancel_event and cancel_event.is_set():
-                                    cancelled = True
-                                    future.cancel()
-                                    output = err(f"停止 {name} 执行（用户取消）")
-                                    success = False
-                                    break
+                # ── 中间事件流：注册队列 + 注入 tool_call_id 到 handler 上下文 ──
+                event_q = register_tool_event_queue(tc_id) if tc_id else None
+                tc_token = current_tool_call_id.set(tc_id) if tc_id else None
+                intermediate_events: list[dict[str, Any]] = []
 
-                                if deadline is not None:
-                                    remaining = deadline - _time.perf_counter()
-                                    if remaining <= 0:
+                try:
+                    # 执行（带全局超时）
+                    t0 = _time.perf_counter()
+                    try:
+                        if name in TOOL_REGISTRY:
+                            entry = TOOL_REGISTRY[name]
+                            handler = entry[1]  # handler 始终是第二个元素
+                            meta = entry[2] if len(entry) > 2 else {}
+                            timeout = None if meta.get("skip_tool_timeout") else self.tool_timeout
+                            call_context = contextvars.copy_context()
+                            executor = ThreadPoolExecutor(max_workers=1)
+                            try:
+                                future = executor.submit(call_context.run, handler, **args)
+                                deadline = None if timeout is None else _time.perf_counter() + timeout
+                                cancelled = False
+                                while True:
+                                    if cancel_event and cancel_event.is_set():
+                                        cancelled = True
                                         future.cancel()
-                                        output = err(f"工具 {name} 执行超时 ({self.tool_timeout}s)")
+                                        output = err(f"停止 {name} 执行（用户取消）")
                                         success = False
                                         break
-                                    wait_for = min(0.2, remaining)
-                                else:
-                                    wait_for = 0.2
 
-                                try:
-                                    result = future.result(timeout=wait_for)
-                                    output = str(result)
-                                    success = not output.startswith("ERROR:")
-                                    break
-                                except FutureTimeoutError:
-                                    continue
+                                    if deadline is not None:
+                                        remaining = deadline - _time.perf_counter()
+                                        if remaining <= 0:
+                                            future.cancel()
+                                            output = err(f"工具 {name} 执行超时 ({self.tool_timeout}s)")
+                                            success = False
+                                            break
+                                        wait_for = min(0.2, remaining)
+                                    else:
+                                        wait_for = 0.2
 
-                            if cancelled:
-                                raise ToolExecutionCancelled("tool run cancelled")
-                        finally:
-                            if executor is not None:
-                                executor.shutdown(wait=False, cancel_futures=True)
-                                executor = None
-                    else:
-                        output = err(f"工具 {name} 未注册")
+                                    try:
+                                        result = future.result(timeout=wait_for)
+                                        output = str(result)
+                                        success = not output.startswith("ERROR:")
+                                        break
+                                    except FutureTimeoutError:
+                                        # ── 收集中间事件 ──
+                                        if event_q:
+                                            while not event_q.empty():
+                                                try:
+                                                    intermediate_events.append(event_q.get_nowait())
+                                                except _queue.Empty:
+                                                    break
+                                        continue
+
+                                if cancelled:
+                                    raise ToolExecutionCancelled("tool run cancelled")
+                            finally:
+                                if executor is not None:
+                                    executor.shutdown(wait=False, cancel_futures=True)
+                                    executor = None
+                        else:
+                            output = err(f"工具 {name} 未注册")
+                            success = False
+                    except ToolExecutionCancelled:
+                        raise
+                    except TypeError as e:
+                        output = err(f"参数错误: {e}")
                         success = False
-                except ToolExecutionCancelled:
-                    raise
-                except TypeError as e:
-                    output = err(f"参数错误: {e}")
-                    success = False
-                except Exception as e:
-                    output = err(f"执行异常: {e}")
-                    success = False
-                elapsed = _time.perf_counter() - t0
+                    except Exception as e:
+                        output = err(f"执行异常: {e}")
+                        success = False
+                    elapsed = _time.perf_counter() - t0
+                finally:
+                    # ── 中间事件流清理 ──
+                    if tc_token is not None:
+                        current_tool_call_id.reset(tc_token)
+                    if event_q is not None:
+                        unregister_tool_event_queue(tc_id)
+                        for ev in intermediate_events:
+                            ev.setdefault("tool_call_id", tc_id)
+                        all_intermediate_events.extend(intermediate_events)
 
                 self._count(name)
                 results.append(_tool_msg(tc_id, output))
@@ -233,7 +285,7 @@ class ToolRunner:
             reset_current_user_dir(ctx_token)
             sc_reset_current_user_dir(sc_ctx_token)
 
-        return results, details
+        return results, details, all_intermediate_events
 
     def reset_count(self):
         """处理 reset_count 相关逻辑。"""
