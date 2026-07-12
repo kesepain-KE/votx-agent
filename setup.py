@@ -91,8 +91,9 @@ def check_deps() -> bool:
     deps = {
         "yt_dlp": "yt-dlp",
         "tavily": "tavily-python",
-        "docx": "python-docx",
         "yaml": "pyyaml",
+        "PIL": "pillow",
+        "pdf2image": "pdf2image",
         "flask": "flask",
         "websockets": "websockets",
     }

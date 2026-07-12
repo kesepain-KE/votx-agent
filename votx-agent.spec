@@ -52,21 +52,16 @@ hiddenimports = [
     "provider.schema",
     # Skill tool.py 公共依赖
     "plugins._common",
-    # 可选工具包
+    # 内置工具依赖（部分工具通过动态加载发现）
     "yaml",
-    "docx",
     "yt_dlp",
     "tavily",
     "PIL",
-    "pypdf",
-    "reportlab",
-    "pdfplumber",
-    "markitdown",
+    "pdf2image",
     # Web 框架内部
     "flask",
     "flask.app",
-    "openai",
-    "anthropic",
+    "werkzeug",
 ]
 
 a = Analysis(

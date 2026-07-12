@@ -1,16 +1,20 @@
 # ═══════════════════════════════════════════════════════════════════════
-# votx-agent 依赖清单（不含 skills/ 用户技能）
-# 安装: pip install -r requirements.txt
+# votx-agent Python 依赖清单（不含 skills/ 用户拓展技能）
+# 安装: python -m pip install -r requirements.txt
+# 运行要求: Python >= 3.10
 # ═══════════════════════════════════════════════════════════════════════
 
-# ── 核心运行时 (必装) ────────────────────────────────────────────────
-flask>=3.0                  # web/ — Flask 后端 + SSE 流式传输
-websockets>=12.0            # message/ — OneBot/NapCat 正向 WebSocket 连接
+# ── 核心运行时（必装）────────────────────────────────────────────────
+flask>=3.0                  # web/ — Flask 后端、Session 与 SSE
+werkzeug>=3.0               # web/ — 源码直接使用安全文件名与中间件能力
+websockets>=12.0            # message/ — OneBot/NapCat 正向 WebSocket
 
-# ── 内置技能 (plugins/) ─────────────────────────────────────────────
-yt-dlp>=2024.0              # plugins/download_anything — 视频/音频下载
-tavily-python>=0.7.0        # plugins/tavily_search — 网络搜索/提取/爬取/深度研究
-pyyaml>=6.0                 # plugins/skill_creator — SKILL.md YAML frontmatter 验证
+# ── 内置技能（plugins/）──────────────────────────────────────────────
+yt-dlp>=2024.0              # download_anything — 视频/音频下载；转换/合并需系统 FFmpeg
+tavily-python>=0.7.0        # tavily_search — 搜索、提取、爬取与深度研究
+pyyaml>=6.0                 # Skill YAML frontmatter 解析与校验
+pillow>=10.0                # artifacts/kb_retriever — 图片元数据与 PDF 页面图像处理
+pdf2image>=1.17.0           # kb_retriever PDF 转图片脚本；运行时另需系统 Poppler
 
-# ── 测试 ─────────────────────────────────────────────────────────────
-pytest>=7.0.0               # tests/ — 单元测试与集成测试框架
+# ── 开发与内置测试脚本 ───────────────────────────────────────────────
+pytest>=7.0.0               # plugins/shell/test_tool.py
