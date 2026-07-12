@@ -373,6 +373,28 @@ def run_chat_turn(chat, tool_runner, provider, tools: list[dict], cancel_event=N
                 return
             reasoning = response.reasoning
             chat.add_tool_call_message(response.tool_calls, reasoning)
+
+            # ── 先 yield tool_call_start 事件，让前端立即显示 pending 卡片 ──
+            for tc in response.tool_calls:
+                if hasattr(tc, "name"):
+                    tc_name = tc.name
+                    tc_args = tc.input
+                    tc_id = tc.id
+                else:
+                    tc_name = tc.function.name
+                    try:
+                        tc_args = json.loads(tc.function.arguments)
+                    except json.JSONDecodeError:
+                        tc_args = {}
+                    tc_id = tc.id
+                yield {
+                    "type": "tool_call_start",
+                    "name": tc_name,
+                    "icon": _TOOL_ICONS.get(tc_name, "🔧"),
+                    "args": tc_args,
+                    "tool_call_id": tc_id,
+                }
+
             try:
                 results, details, intermediate_events = tool_runner.execute(response, cancel_event=cancel_event)
             except ToolExecutionCancelled:
@@ -395,6 +417,7 @@ def run_chat_turn(chat, tool_runner, provider, tools: list[dict], cancel_event=N
                     "success": d["success"],
                     "line": line,
                     "log_id": d.get("log_id", ""),
+                    "tool_call_id": d.get("tool_call_id", ""),
                 }
 
                 # 死循环检测：同一命令连续失败 3 次就警告
