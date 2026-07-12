@@ -168,12 +168,7 @@ async def save_url_attachment(
     proxy 可选：传入代理地址（如 "http://127.0.0.1:7890"），或通过环境变量
     HTTPS_PROXY/http_proxy 自动检测。 Telegram 等需要代理的网络可传入。
     """
-    # SSRF 防护
-    from plugins._common import validate_url as _validate_url
-    err_msg = _validate_url(url)
-    if err_msg:
-        print(f"[attachments] URL 校验失败 {url}: {err_msg}")
-        return None
+    # attach 下载
 
     dest_dir = _user_file_dir(root, username)
     ext = _ext_from_url(url)
@@ -186,9 +181,6 @@ async def save_url_attachment(
     def _dl():
         class _SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
             def redirect_request(self, req, fp, code, msg, headers, newurl):
-                err2 = _validate_url(newurl)
-                if err2:
-                    raise urllib.request.HTTPError(newurl, 403, f"重定向目标被拒绝: {err2}", headers, None)
                 return urllib.request.HTTPRedirectHandler.redirect_request(self, req, fp, code, msg, headers, newurl)
 
         try:
