@@ -69,7 +69,7 @@ set "PIP=%VENV_DIR%\Scripts\pip.exe"
 echo   Virtual environment: %VENV_DIR%   [OK]
 
 REM 升级 pip
-"%PYTHON%" -m pip install --upgrade pip --quiet
+"%PYTHON%" -m pip install --upgrade pip
 if %ERRORLEVEL% NEQ 0 (
     echo [ERROR] pip upgrade failed.
     pause
