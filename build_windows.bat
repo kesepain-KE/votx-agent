@@ -70,6 +70,11 @@ echo   Virtual environment: %VENV_DIR%   [OK]
 
 REM 升级 pip
 "%PYTHON%" -m pip install --upgrade pip --quiet
+if %ERRORLEVEL% NEQ 0 (
+    echo [ERROR] pip upgrade failed.
+    pause
+    exit /b 1
+)
 
 REM 安装依赖
 echo [INSTALL] Installing Python dependencies...
@@ -114,7 +119,7 @@ if %ERRORLEVEL% NEQ 0 (
 
 echo.
 echo ============================================================
-echo   [SUCCESS] votx-agent.exe built!
+echo   [SUCCESS] votx-agent-web.exe and votx-agent-cli.exe built!
 echo ============================================================
 echo.
 
@@ -142,6 +147,12 @@ copy /Y paths.py dist\votx-agent\ >nul
 del /s /q dist\votx-agent\*.bak 2>nul
 copy /Y AGENTS.md dist\votx-agent\ >nul
 copy /Y set_user.py dist\votx-agent\ >nul
+copy /Y start.py dist\votx-agent\ >nul
+copy /Y start_web.py dist\votx-agent\ >nul
+copy /Y main.py dist\votx-agent\ >nul
+copy /Y update.py dist\votx-agent\ >nul
+copy /Y setup.py dist\votx-agent\ >nul
+copy /Y requirements.txt dist\votx-agent\ >nul
 copy /Y version.json dist\votx-agent\ >nul
 if exist ".env.example" copy /Y .env.example dist\votx-agent\ >nul
 
@@ -157,9 +168,9 @@ if %ERRORLEVEL% GEQ 8 (
 REM ---- 构建前端 ----
 echo [FRONTEND] Building React frontend...
 pushd dist\votx-agent\web
-call npm install
+call npm ci
 if %ERRORLEVEL% NEQ 0 (
-    echo [ERROR] npm install failed
+    echo [ERROR] npm ci failed
     popd
     pause
     exit /b 1
@@ -179,7 +190,22 @@ rmdir /s /q dist\votx-agent\web\node_modules 2>nul
 REM ---- 打包 ----
 echo [PACKAGE] Zipping into dist\votx-agent-windows.zip...
 timeout /t 2 /nobreak >nul
-powershell -Command "Compress-Archive -Path dist\votx-agent -DestinationPath dist\votx-agent-windows.zip -Force"
+powershell -NoProfile -Command "Compress-Archive -Path dist\votx-agent -DestinationPath dist\votx-agent-windows.zip -Force"
+if %ERRORLEVEL% NEQ 0 (
+    echo [ERROR] ZIP package creation failed. Keeping dist\votx-agent for inspection.
+    pause
+    exit /b 1
+)
+if not exist "dist\votx-agent-windows.zip" (
+    echo [ERROR] ZIP package was not created. Keeping dist\votx-agent for inspection.
+    pause
+    exit /b 1
+)
+for %%Z in ("dist\votx-agent-windows.zip") do if %%~zZ LEQ 0 (
+    echo [ERROR] ZIP package is empty. Keeping dist\votx-agent for inspection.
+    pause
+    exit /b 1
+)
 
 echo [CLEANUP] Removing unzipped output folder...
 rmdir /s /q dist\votx-agent 2>nul
