@@ -11,9 +11,9 @@
 
 import json
 import os
-import re
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Generator
 
 
 # ──── 内部辅助 ────
@@ -128,22 +128,51 @@ def _build_agent_messages(
 
 
 def _parse_response(response_text: str) -> dict | None:
-    """从 LLM 响应中提取 JSON 对象"""
+    """从 LLM 响应中提取 JSON 对象（多策略容错）"""
+    text = response_text.strip()
+
+    # 策略1：从 ```json 代码块中提取
+    if "```json" in text:
+        start = text.find("```json") + 7
+        end = text.find("```", start)
+        if end > start:
+            try:
+                return json.loads(text[start:end].strip())
+            except json.JSONDecodeError:
+                pass
+
+    # 策略2：从任意 ``` 代码块中提取
+    if "```" in text:
+        start = text.find("```") + 3
+        end = text.find("```", start)
+        if end > start:
+            try:
+                return json.loads(text[start:end].strip())
+            except json.JSONDecodeError:
+                pass
+
+    # 策略3：尝试解析全文
     try:
-        text = response_text.strip()
-        if "```json" in text:
-            start = text.find("```json") + 7
-            end = text.find("```", start)
-            if end > start:
-                text = text[start:end]
-        elif "```" in text:
-            start = text.find("```") + 3
-            end = text.find("```", start)
-            if end > start:
-                text = text[start:end]
         return json.loads(text)
     except json.JSONDecodeError:
-        return None
+        pass
+
+    # 策略4：通过 { } 括号匹配提取 JSON 对象（兜底）
+    first_brace = text.find("{")
+    if first_brace >= 0:
+        depth = 0
+        for i in range(first_brace, len(text)):
+            if text[i] == "{":
+                depth += 1
+            elif text[i] == "}":
+                depth -= 1
+                if depth == 0:
+                    try:
+                        return json.loads(text[first_brace:i + 1])
+                    except json.JSONDecodeError:
+                        break
+
+    return None
 
 
 def _validate_plan(plan: dict, tools_schemas: list[dict], max_steps: int) -> str | None:
@@ -199,6 +228,8 @@ def _validate_plan(plan: dict, tools_schemas: list[dict], max_steps: int) -> str
                 return f"步骤 {sid} tool_call[{j}] 缺少 action"
             if action not in valid_names:
                 return f"步骤 {sid} 使用了未注册的工具: {action}"
+            if action.startswith("task_plan_"):
+                return f"步骤 {sid} 禁止引用任务计划管理工具: {action}"
 
     return None
 
@@ -283,3 +314,85 @@ def generate_plan(
         step.setdefault("critical", False)
 
     return {"plan": plan, "error": None}
+
+
+def generate_plan_stream(
+    provider,
+    messages: list[dict],
+    tools_schemas: list[dict],
+    skills_info: list[dict],
+    system_prompt: str,
+    system_info: dict,
+    max_steps: int = 10,
+) -> Generator[dict, None, None]:
+    """流式版 generate_plan — 逐 chunk yield 思考过程。
+
+    yield 事件:
+        {"type": "plan_chunk", "content": str}        — 文本片段
+        {"type": "plan_done", "plan": dict | None, "error": str | None}  — 最终结果
+    """
+    conv_text = _extract_conversation_text(messages)
+
+    # 简单任务检测（与同步版一致）
+    user_msgs = [m for m in messages if m.get("role") == "user"]
+    tool_msgs = [m for m in messages if m.get("role") == "tool"]
+    if len(user_msgs) <= 1 and len(tool_msgs) == 0:
+        last_content = user_msgs[-1].get("content", "") if user_msgs else ""
+        simple_patterns = ["你好", "hi", "hello", "帮助", "help", "? ", "？"]
+        if len(last_content) < 50 or any(p in last_content.lower() for p in simple_patterns):
+            yield {"type": "plan_done", "plan": None, "error": None}
+            return
+
+    tools_text = _build_tools_text(tools_schemas)
+    skills_text = _build_skills_text(skills_info)
+    agent_messages = _build_agent_messages(
+        conv_text, tools_text, skills_text,
+        system_prompt, system_info, max_steps,
+    )
+
+    # 流式调用：full_text 只积累 text_chunk（供 JSON 解析），thinking_chunk 仅推送前端
+    full_text = ""
+    try:
+        for event in provider.respond_stream(agent_messages, tools=None):
+            if event.get("type") == "text_chunk":
+                chunk = event.get("content", "")
+                full_text += chunk
+                yield {"type": "plan_chunk", "content": chunk}
+            elif event.get("type") == "thinking_chunk":
+                yield {"type": "plan_chunk", "content": event.get("content", "")}
+    except Exception as e:
+        yield {"type": "plan_done", "plan": None, "error": f"LLM 调用失败: {e}"}
+        return
+
+    # 解析和校验
+    parsed = _parse_response(full_text)
+    if parsed is None:
+        yield {"type": "plan_done", "plan": None, "error": "无法解析子代理响应为 JSON"}
+        return
+
+    if isinstance(parsed, dict) and parsed.get("plan") is None:
+        yield {"type": "plan_done", "plan": None, "error": None}
+        return
+
+    plan = parsed.get("plan") if isinstance(parsed, dict) else parsed
+
+    err = _validate_plan(plan, tools_schemas, max_steps)
+    if err:
+        yield {"type": "plan_done", "plan": None, "error": f"计划校验失败: {err}"}
+        return
+
+    # 补齐标准化字段
+    import uuid
+    plan.setdefault("id", "plan_" + uuid.uuid4().hex[:8])
+    plan.setdefault("description", "")
+    plan.setdefault("created_at", datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
+    plan.setdefault("status", "pending")
+    plan.setdefault("current_step", 0)
+    for i, step in enumerate(plan.get("steps", [])):
+        step.setdefault("id", f"step_{i+1}")
+        step.setdefault("status", "pending")
+        step.setdefault("result", None)
+        step.setdefault("error", None)
+        step.setdefault("critical", False)
+
+    yield {"type": "plan_done", "plan": plan, "error": None}

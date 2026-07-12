@@ -1,7 +1,6 @@
 """核心聊天路由 — index, users, session, chat SSE, command, disconnect"""
 import json
 import os
-import threading
 import traceback
 import uuid
 from pathlib import Path
@@ -23,8 +22,26 @@ from web.session import (
 from web.commands import _dispatch
 from run.user_locks import get_user_lock
 
-_active_plan_runs_guard = threading.Lock()
-_active_plan_runs: set[str] = set()
+
+# ---- 启动时清理残留的 .running flag 文件 ----
+def _cleanup_stale_running_flags():
+    """扫描所有用户的 task-plan 目录，删除残留的 .plan_*.json.running 文件。"""
+    users_root = os.path.join(_root, "users")
+    if not os.path.isdir(users_root):
+        return
+    for user_name in os.listdir(users_root):
+        plans_dir = os.path.join(users_root, user_name, "task-plan")
+        if not os.path.isdir(plans_dir):
+            continue
+        for name in os.listdir(plans_dir):
+            if name.startswith(".plan_") and name.endswith(".json.running"):
+                try:
+                    os.remove(os.path.join(plans_dir, name))
+                except Exception:
+                    pass
+
+
+_cleanup_stale_running_flags()
 
 
 def _snapshot_plans(user_dir: str) -> dict[str, dict]:
@@ -51,6 +68,7 @@ def _auto_resume_paused_plans(user_dir: str):
     plans_dir = _os.path.join(user_dir, "task-plan")
     if not _os.path.isdir(plans_dir):
         return
+    modified = False
     for name in sorted(_os.listdir(plans_dir)):
         if not name.endswith(".json"):
             continue
@@ -62,8 +80,12 @@ def _auto_resume_paused_plans(user_dir: str):
                 plan["status"] = "in_progress"
                 with open(plan_path, "w", encoding="utf-8") as f:
                     _json.dump(plan, f, ensure_ascii=False, indent=2)
+                modified = True
         except Exception:
             pass
+    if modified:
+        from run.prompt_cache import invalidate_prompt_cache
+        invalidate_prompt_cache(user_dir)
 
 
 def _diff_plans(prev: dict, curr: dict) -> list[dict]:
@@ -366,6 +388,7 @@ def api_chat():
     def generate():
         """处理 generate 相关逻辑。"""
         with get_user_lock(session_data.get("user_name", "")):
+            _auto_resume_paused_plans(session_data.get("user_dir", ""))
             cancel_event = start_active_run(session_data, run_id)
             try:
                 yield from _run_chat_stream(session_data, user_message=message, cancel_event=cancel_event)
@@ -416,97 +439,6 @@ def api_chat_stop():
     run_id = str(data.get("run_id") or "").strip()
     stopped = cancel_active_run(session_data, run_id or None)
     return jsonify({"ok": True, "stopped": stopped})
-
-
-@app.route("/api/task-plan/<plan_id>/approve-run", methods=["POST"])
-def api_task_plan_approve_run(plan_id):
-    """批准并执行计划 — SSE 流式端点
-
-    幂等容错: pending/paused → in_progress; 已 in_progress → 直接执行; completed/aborted → 拒绝。
-    """
-    from web.routes.task_plan import _validate_plan_id, _load_plan, _save_plan
-
-    session_data, err, code = require_session()
-    if err:
-        return err, code
-
-    user_dir = session_data["user_dir"]
-    path, plan_err = _validate_plan_id(user_dir, plan_id)
-    if plan_err:
-        return jsonify({"error": plan_err}), 400
-
-    initial_plan = _load_plan(path)
-    if initial_plan is None:
-        return jsonify({"error": "无法读取计划文件"}), 500
-
-    current_status = initial_plan.get("status", "pending")
-
-    # 幂等容错
-    if current_status in ("completed", "aborted"):
-        return jsonify({"error": f"计划已完成/已中止，无法执行 (status={current_status})"}), 400
-
-    run_key = f"{session_data.get('user_name', '')}:{os.path.abspath(path)}"
-
-    # run_id is optional for compatibility; the web client always sends it.
-    body = request.get_json(silent=True) or {}
-    run_id = str(body.get("run_id") or "").strip() or uuid.uuid4().hex
-
-    def generate():
-        """处理 generate 相关逻辑。"""
-        with _active_plan_runs_guard:
-            if run_key in _active_plan_runs:
-                yield f"data: {json.dumps({'type': 'error', 'content': '计划正在执行中，请勿重复启动'}, ensure_ascii=False)}\n\n"
-                yield f"data: {json.dumps({'type': 'done'})}\n\n"
-                return
-            _active_plan_runs.add(run_key)
-
-        try:
-            with get_user_lock(session_data.get("user_name", "")):
-                cancel_event = start_active_run(session_data, run_id)
-                plan = _load_plan(path)
-                if plan is None:
-                    yield f"data: {json.dumps({'type': 'error', 'content': '无法读取计划文件'}, ensure_ascii=False)}\n\n"
-                    yield f"data: {json.dumps({'type': 'done'})}\n\n"
-                    return
-
-                current_status = plan.get("status", "pending")
-                if current_status in ("completed", "aborted"):
-                    yield f"data: {json.dumps({'type': 'error', 'content': f'计划已完成/已中止，无法执行 (status={current_status})'}, ensure_ascii=False)}\n\n"
-                    yield f"data: {json.dumps({'type': 'done'})}\n\n"
-                    return
-
-                if current_status in ("pending", "paused"):
-                    plan["status"] = "in_progress"
-                    # 第一个 pending step → in_progress
-                    for step in plan.get("steps", []):
-                        if step.get("status") == "pending":
-                            step["status"] = "in_progress"
-                            break
-                    _save_plan(path, plan)
-
-                from run.prompt_cache import invalidate_prompt_cache
-                invalidate_prompt_cache(user_dir)
-
-                # 立即推送 plan_started，不依赖文件 diff
-                yield f"data: {json.dumps({'type': 'plan_started', 'plan_id': plan.get('id', plan_id.replace('.json', '')), 'plan': plan}, ensure_ascii=False)}\n\n"
-                yield from _run_chat_stream(
-                    session_data,
-                    extra_user_message="用户已批准执行计划，请继续执行当前活跃任务计划。",
-                    cancel_event=cancel_event,
-                )
-        finally:
-            clear_active_run(session_data, run_id)
-            with _active_plan_runs_guard:
-                _active_plan_runs.discard(run_key)
-
-    return Response(
-        stream_with_context(generate()),
-        mimetype="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",
-        },
-    )
 
 
 @app.route("/api/disconnect", methods=["POST"])

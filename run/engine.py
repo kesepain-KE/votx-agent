@@ -266,7 +266,11 @@ def build_system_prompt(root: str, user_dir: str) -> str:
                     "\n**请连续执行所有待完成的步骤，不要中断。完成每步后立即调用 "
                     "task_plan_step_done(plan_id, step_id, result) 并接着执行下一步，"
                     "直到全部步骤完成（计划自动标记为 completed）。"
-                    "如遇失败调用 task_plan_step_fail。不要在步骤之间停下来询问用户。**\n"
+                    "如遇失败调用 task_plan_step_fail。不要在步骤之间停下来询问用户。"
+                    "执行工具时，优先使用计划步骤中 tool_calls 定义的 params 作为参数值。"
+                    "仅在参数指向的资源不存在、参数类型不匹配或用户明确要求修改时，"
+                    "才可以自行调整。自行调整后应在调用 task_plan_step_done 时注明修改了"
+                    "哪些参数及原因。**\n"
                 )
             elif status == "pending":
                 system_prompt += (
@@ -370,11 +374,15 @@ def run_chat_turn(chat, tool_runner, provider, tools: list[dict], cancel_event=N
             reasoning = response.reasoning
             chat.add_tool_call_message(response.tool_calls, reasoning)
             try:
-                results, details = tool_runner.execute(response, cancel_event=cancel_event)
+                results, details, intermediate_events = tool_runner.execute(response, cancel_event=cancel_event)
             except ToolExecutionCancelled:
                 return
             chat.add_tool_results(results)
             tool_round += 1
+
+            # ── 先 yield 中间流式事件（如计划生成进度）──
+            for ev in intermediate_events:
+                yield ev
 
             for d in details:
                 line = _fmt_tool_line(d["name"], d["args"], d["elapsed"], d["success"])
