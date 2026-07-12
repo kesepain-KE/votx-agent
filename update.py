@@ -303,10 +303,13 @@ def _is_excluded(
     # 根文件名/目录名精确匹配
     if rel in file_patterns:
         return True
-    # 任意层目录名匹配
+    # 单段模式匹配任意层目录名；多段模式匹配该相对目录及其子路径。
     parts = rel.split("/")
     for pattern in dir_patterns:
-        if pattern in parts:
+        if "/" in pattern:
+            if rel == pattern or rel.startswith(pattern + "/"):
+                return True
+        elif pattern in parts:
             return True
     return False
 
@@ -475,7 +478,7 @@ def sync_plugins_source(source: Path, *, dry_run: bool) -> None:
         raise UpdateError(f"远端仓库缺少插件目录: {new_plugins}")
 
     print(green("正在更新 plugins/ 目录..."))
-    sync_directory(new_plugins, local_plugins, delete=False, dry_run=dry_run)
+    sync_directory(new_plugins, local_plugins, delete=True, dry_run=dry_run)
 
 
 def prune_backups() -> None:
