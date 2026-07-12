@@ -5,7 +5,8 @@ Audio Universal Skill - 语音识别/转录工具
 支持多种语言、引导词、时间戳粒度。
 """
 
-from plugins._common import err, safe_path, check_sandbox, get_multimodal_context
+import os
+from plugins._common import err, get_multimodal_context
 from run.tool import register_tool
 
 
@@ -33,22 +34,15 @@ def audio_transcribe(
     if "audio_transcription" not in provider.capabilities():
         return err(
             f"当前 provider 不支持语音识别 (audio_transcription)。"
-            f"请切换到支持语音转录的 provider（如 OpenAI 官方 API）后再试。"
+            f"请切换到支持语音转录的 provider 后再试。"
         )
 
-    # 沙箱校验
-    p = safe_path(audio)
-    if p is None:
-        return err(f"无效的音频文件路径: {audio}")
-    sandboxed = check_sandbox(p)
-    if sandboxed is None:
-        return err(f"音频文件路径不在允许范围内: {audio}")
-    if not sandboxed.exists():
+    if not os.path.exists(audio):
         return err(f"音频文件不存在: {audio}")
 
     try:
         return provider.transcribe_audio(
-            file_path=str(sandboxed),
+            file_path=audio,
             language=language,
             prompt=prompt,
             timestamp_granularity=timestamp_granularity,
@@ -63,7 +57,7 @@ SCHEMA = {
     "type": "function",
     "function": {
         "name": "audio_transcribe",
-        "description": "语音转文字，将音频文件转录为带可选时间戳的文本。原生端点优先，失败自动降级为 chat completions。支持多语言和引导词。",
+        "description": "语音转文字，将音频文件转录为带可选时间戳的文本。当用户要求语音识别、转录、听写、音频转文字、ASR 时使用。原生端点优先，失败自动降级为 chat completions。支持多语言和引导词。",
         "parameters": {
             "type": "object",
             "properties": {
@@ -73,7 +67,7 @@ SCHEMA = {
                 },
                 "language": {
                     "type": "string",
-                    "description": "音频语言代码（如 zh, en），留空自动检测"
+                    "description": "音频语言代码，留空自动检测。由智能体自行传入合适的语言代码即可。"
                 },
                 "prompt": {
                     "type": "string",

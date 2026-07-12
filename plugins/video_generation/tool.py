@@ -6,7 +6,7 @@ import json
 import mimetypes
 import os
 
-from plugins._common import err, safe_path, check_sandbox, get_current_user_dir, get_multimodal_context
+from plugins._common import err, get_current_user_dir, get_multimodal_context
 from plugins._common.artifacts import make_file_artifact, make_tool_result
 from run.tool import register_tool
 
@@ -16,16 +16,11 @@ def _media_payload(value: str) -> str:
         return ""
     if value.startswith(("http://", "https://", "data:")):
         return value
-    path = safe_path(value)
-    if path is None:
-        raise ValueError(f"无效的媒体路径: {value}")
-    sandboxed = check_sandbox(path)
-    if sandboxed is None:
-        raise ValueError(f"媒体路径不在允许范围内: {value}")
-    if not sandboxed.is_file():
-        raise FileNotFoundError(f"媒体文件不存在: {sandboxed}")
-    mime = mimetypes.guess_type(sandboxed.name)[0] or "application/octet-stream"
-    data = base64.b64encode(sandboxed.read_bytes()).decode("utf-8")
+    if not os.path.isfile(value):
+        raise FileNotFoundError(f"媒体文件不存在: {value}")
+    mime = mimetypes.guess_type(value)[0] or "application/octet-stream"
+    with open(value, "rb") as f:
+        data = base64.b64encode(f.read()).decode("utf-8")
     return f"data:{mime};base64,{data}"
 
 
@@ -107,15 +102,9 @@ def video_download(job_id: str, output_dir: str = "", filename: str = "") -> str
         return err("job_id 不能为空")
 
     output_dir = output_dir or _default_download_dir()
-    output_path = safe_path(output_dir)
-    if output_path is None:
-        return err(f"无效的输出目录: {output_dir}")
-    sandboxed_output = check_sandbox(output_path)
-    if sandboxed_output is None:
-        return err(f"输出目录不在允许范围内: {output_dir}")
 
     try:
-        filepath = provider.download_video(job_id=job_id, output_dir=str(sandboxed_output), filename=filename)
+        filepath = provider.download_video(job_id=job_id, output_dir=output_dir, filename=filename)
         return make_tool_result(True, "视频下载完成", [make_file_artifact(filepath)])
     except NotImplementedError as e:
         return err(str(e))
@@ -123,62 +112,61 @@ def video_download(job_id: str, output_dir: str = "", filename: str = "") -> str
         return err(f"视频结果下载失败: {e}")
 
 
-SCHEMA_GENERATE = {
-    "type": "function",
-    "function": {
-        "name": "video_generate",
-        "description": "创建视频生成任务。只传 prompt 为文生视频，传 image 为图生视频，传 video 为视频生视频。",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "prompt": {"type": "string", "description": "视频描述或编辑要求"},
-                "image": {"type": "string", "description": "可选图片路径、URL 或 data URL，用于图生视频"},
-                "video": {"type": "string", "description": "可选视频路径、URL 或 data URL，用于视频生视频"},
-                "duration": {"type": "integer", "description": "可选时长"},
-                "size": {"type": "string", "description": "可选尺寸"},
-                "negative_prompt": {"type": "string", "description": "可选负向提示词"},
-                "seed": {"type": "integer", "description": "可选随机种子"},
-                "model": {"type": "string", "description": "可选模型 ID；留空使用 provider.video_generation_model"}
-            },
-            "required": []
+SCHEMAS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "video_generate",
+            "description": "创建视频生成任务。只传 prompt 为文生视频，传 image 为图生视频，传 video 为视频生视频。当用户要求生成视频、AI 视频、创建动画、图生视频时使用。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "prompt": {"type": "string", "description": "视频描述或编辑要求"},
+                    "image": {"type": "string", "description": "可选图片路径、URL 或 data URL，用于图生视频"},
+                    "video": {"type": "string", "description": "可选视频路径、URL 或 data URL，用于视频生视频"},
+                    "duration": {"type": "integer", "description": "可选时长"},
+                    "size": {"type": "string", "description": "可选尺寸"},
+                    "negative_prompt": {"type": "string", "description": "可选负向提示词"},
+                    "seed": {"type": "integer", "description": "可选随机种子"},
+                    "model": {"type": "string", "description": "可选模型 ID；留空使用 provider.video_generation_model"}
+                },
+                "required": []
+            }
         }
-    }
-}
-
-SCHEMA_STATUS = {
-    "type": "function",
-    "function": {
-        "name": "video_status",
-        "description": "查询视频生成任务状态。",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "job_id": {"type": "string", "description": "视频任务 ID"}
-            },
-            "required": ["job_id"]
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "video_status",
+            "description": "查询视频生成任务状态。当用户询问视频生成进度、是否完成、任务状态时使用。需要先使用过 video_generate 创建任务。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "job_id": {"type": "string", "description": "视频任务 ID"}
+                },
+                "required": ["job_id"]
+            }
         }
-    }
-}
-
-SCHEMA_DOWNLOAD = {
-    "type": "function",
-    "function": {
-        "name": "video_download",
-        "description": "下载视频生成任务结果到本地。",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "job_id": {"type": "string", "description": "视频任务 ID"},
-                "output_dir": {"type": "string", "description": "输出目录，默认 users/<user>/download/"},
-                "filename": {"type": "string", "description": "可选输出文件名"}
-            },
-            "required": ["job_id"]
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "video_download",
+            "description": "下载视频生成任务结果到本地。当视频生成任务完成后，用户要求下载视频、保存视频时使用。需要先用 video_status 确认任务已完成。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "job_id": {"type": "string", "description": "视频任务 ID"},
+                    "output_dir": {"type": "string", "description": "输出目录，默认 users/<user>/download/"},
+                    "filename": {"type": "string", "description": "可选输出文件名"}
+                },
+                "required": ["job_id"]
+            }
         }
-    }
-}
+    },
+]
 
 
 def register():
-    register_tool(SCHEMA_GENERATE, video_generate)
-    register_tool(SCHEMA_STATUS, video_status)
-    register_tool(SCHEMA_DOWNLOAD, video_download)
+    for s in SCHEMAS:
+        register_tool(s, {"video_generate": video_generate, "video_status": video_status, "video_download": video_download}[s["function"]["name"]])

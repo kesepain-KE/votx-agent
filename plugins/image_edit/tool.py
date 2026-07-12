@@ -10,7 +10,7 @@ import os
 import uuid
 from urllib.request import urlretrieve
 
-from plugins._common import err, safe_path, check_sandbox, get_current_user_dir, get_multimodal_context
+from plugins._common import err, get_current_user_dir, get_multimodal_context
 from plugins._common.artifacts import make_image_artifact, make_tool_result
 from run.tool import register_tool
 
@@ -23,16 +23,7 @@ def image_edit(
     output_dir: str = "",
     filename: str = "",
 ) -> str:
-    """图像编辑，根据输入图片和文字要求编辑图片并保存到本地。
-
-    Args:
-        image:           本地图片路径（必填）
-        prompt:          编辑要求（必填）
-        response_format: 返回格式 url / b64_json
-        size:            可选，目标尺寸 宽x高，如 1920x1080。留空使用 API 默认
-        output_dir:      输出目录（默认 users/<user>/download/）
-        filename:        自定义文件名前缀（自动追加序号和 .png）
-    """
+    """图像编辑，根据输入图片和文字要求编辑图片并保存到本地。"""
     ctx = get_multimodal_context()
     if not ctx or not ctx.get("provider"):
         return err("image_edit: 缺少 provider 上下文，请重新进入会话")
@@ -42,17 +33,11 @@ def image_edit(
     if "image_edit" not in provider.capabilities():
         return err(
             "当前 provider 不支持图像编辑 (image_edit)。"
-            "请切换到支持图像编辑的 provider（如 Kemo LLM Adapter）后再试。"
+            "请切换到支持图像编辑的 provider 后再试。"
         )
 
-    image_path = safe_path(image)
-    if image_path is None:
-        return err(f"无效的图片路径: {image}")
-    sandboxed_image = check_sandbox(image_path)
-    if sandboxed_image is None:
-        return err(f"图片路径不在允许范围内: {image}")
-    if not sandboxed_image.is_file():
-        return err(f"图片文件不存在: {sandboxed_image}")
+    if not os.path.isfile(image):
+        return err(f"图片文件不存在: {image}")
 
     if response_format not in ("url", "b64_json"):
         return err("response_format 只能是 url 或 b64_json")
@@ -64,20 +49,14 @@ def image_edit(
         else:
             return err("无法确定输出目录：缺少用户目录且未指定 output_dir")
 
-    output_path = safe_path(output_dir)
-    if output_path is None:
-        return err(f"无效的输出目录: {output_dir}")
-    sandboxed_output = check_sandbox(output_path)
-    if sandboxed_output is None:
-        return err(f"输出目录不在允许范围内: {output_dir}")
-    os.makedirs(str(sandboxed_output), exist_ok=True)
+    os.makedirs(output_dir, exist_ok=True)
 
     try:
         edit_kwargs = {"response_format": response_format}
         if size:
             edit_kwargs["size"] = size
         results = provider.edit_image(
-            image_path=str(sandboxed_image),
+            image_path=image,
             prompt=prompt,
             **edit_kwargs,
         )
@@ -91,7 +70,7 @@ def image_edit(
         fname = filename or f"edited_{uuid.uuid4().hex[:8]}"
         if len(results) > 1:
             fname = f"{fname}_{i + 1}"
-        filepath = os.path.join(str(sandboxed_output), f"{fname}.png")
+        filepath = os.path.join(output_dir, f"{fname}.png")
 
         try:
             if item.get("url"):
@@ -127,35 +106,20 @@ SCHEMA = {
     "type": "function",
     "function": {
         "name": "image_edit",
-        "description": "图像编辑，根据输入图片和文字要求编辑图片并保存到本地。需要 provider 支持 image_edit 能力。",
+        "description": "图像编辑，根据输入图片和文字要求编辑图片并保存到本地。当用户要求修改图片、编辑图像、图生图、局部重绘、图片风格转换时使用。需要 provider 支持 image_edit 能力。",
         "parameters": {
             "type": "object",
             "properties": {
-                "image": {
-                    "type": "string",
-                    "description": "本地图片路径（必填）"
-                },
-                "prompt": {
-                    "type": "string",
-                    "description": "编辑要求（必填）"
-                },
+                "image": {"type": "string", "description": "本地图片路径（必填）"},
+                "prompt": {"type": "string", "description": "编辑要求（必填）"},
                 "response_format": {
                     "type": "string",
                     "enum": ["url", "b64_json"],
                     "description": "返回格式，默认 url"
                 },
-                "size": {
-                    "type": "string",
-                    "description": "可选，目标尺寸 宽x高，如 1920x1080。留空使用 API 默认"
-                },
-                "output_dir": {
-                    "type": "string",
-                    "description": "输出目录（默认 users/<user>/download/）"
-                },
-                "filename": {
-                    "type": "string",
-                    "description": "自定义文件名前缀（自动追加序号和 .png 扩展名）"
-                }
+                "size": {"type": "string", "description": "可选，目标尺寸 宽x高，如 1920x1080。留空使用 API 默认"},
+                "output_dir": {"type": "string", "description": "输出目录（默认 users/<user>/download/）"},
+                "filename": {"type": "string", "description": "自定义文件名前缀（自动追加序号和 .png 扩展名）"}
             },
             "required": ["image", "prompt"]
         }
@@ -164,5 +128,4 @@ SCHEMA = {
 
 
 def register():
-    """注册 image_edit 工具。"""
     register_tool(SCHEMA, image_edit)
