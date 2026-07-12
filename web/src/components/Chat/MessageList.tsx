@@ -1,5 +1,5 @@
 /** 描述 Props 数据结构。 */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Message, ToolCard } from '@/types'
 import { useAppStore } from '@/store/useAppStore'
 import { AssistantImagePreviewRail } from './AssistantImagePreviewRail'
@@ -34,10 +34,22 @@ function ToolCallCard({ tc, message, patchMessage, loadToolResult }: { tc: ToolC
   const showToolCalls = useAppStore((s) => s.showToolCalls)
   const [result, setResult] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [elapsed, setElapsed] = useState(0)
   const artifacts = result ? parseResultArtifacts(result) : []
   const hasArtifacts = artifacts.length > 0
+  const isPending = Boolean(tc.pending)
+
+  useEffect(() => {
+    if (!isPending || !tc.startTs) return
+    setElapsed(0)
+    const timer = setInterval(() => {
+      setElapsed((Date.now() - (tc.startTs || 0)) / 1000)
+    }, 100)
+    return () => clearInterval(timer)
+  }, [isPending, tc.startTs])
 
   const handleToggle = async () => {
+    if (isPending) return
     const willOpen = !tc.open
     patchMessage(message.id, (msg) => { msg.tools = (msg.tools || []).map((t) => (t._key === tc._key ? { ...t, open: !t.open } : t)); return msg })
     if (willOpen && result === null && tc.log_id) {
@@ -46,6 +58,20 @@ function ToolCallCard({ tc, message, patchMessage, loadToolResult }: { tc: ToolC
       catch { setResult('加载失败') }
       finally { setLoading(false) }
     }
+  }
+
+  if (isPending) {
+    return (
+      <div key={tc._key} className="tool-call pending" style={{ display: showToolCalls ? undefined : 'none' }}>
+        <div className="tc-header">
+          <span className="tc-spinner" />
+          <span>{tc.icon}</span>
+          <span className="tc-name">{tc.name}</span>
+          <span className="tc-param">{tc.param}</span>
+          <span className="tc-time">{elapsed.toFixed(1)}s</span>
+        </div>
+      </div>
+    )
   }
 
   return (

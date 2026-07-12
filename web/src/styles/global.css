@@ -1518,6 +1518,34 @@
 
     .tool-call.open .tc-detail { display: block; }
 
+    .tool-call.pending .tc-header {
+      cursor: default;
+      opacity: 0.75;
+    }
+    .tool-call.pending .tc-header:hover {
+      background: transparent;
+    }
+    body[data-color-scheme="light"] .tool-call.pending .tc-header:hover {
+      background: transparent;
+    }
+
+    .tc-spinner {
+      width: 12px; height: 12px;
+      border: 2px solid rgba(255,255,255,0.15);
+      border-top-color: var(--accent, #6cb6ff);
+      border-radius: 50%;
+      display: inline-block;
+      animation: tc-spin 0.6s linear infinite;
+      flex-shrink: 0;
+    }
+    body[data-color-scheme="light"] .tc-spinner {
+      border-color: rgba(0,0,0,0.12);
+      border-top-color: var(--accent, #3b82f6);
+    }
+    @keyframes tc-spin {
+      to { transform: rotate(360deg); }
+    }
+
     .tc-section-label {
       font-size: 10px; color: var(--text-tertiary);
       text-transform: uppercase; letter-spacing: 0.05em;

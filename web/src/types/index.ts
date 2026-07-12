@@ -43,6 +43,9 @@ export interface ToolCard {
   detail: string
   open: boolean
   log_id?: string
+  pending?: boolean
+  startTs?: number
+  toolCallId?: string
 }
 
 /** 描述 UsageInfo 数据结构。 */
@@ -273,7 +276,8 @@ export interface RawMessage {
 
 /** 描述 SSE 流事件的联合类型。 */
 export type SSEEvent =
-  | { type: 'tool_call'; name: string; args: unknown; elapsed: number; success: boolean }
+  | { type: 'tool_call'; name: string; args: unknown; elapsed: number; success: boolean; tool_call_id?: string }
+  | { type: 'tool_call_start'; name: string; args: unknown; tool_call_id: string }
   | { type: 'text_chunk' | 'thinking_chunk'; content: string }
   | { type: 'text_done' | 'thinking_done' | 'done' | 'deadlock_warning' | 'max_rounds' }
   | { type: 'text' | 'thinking' | 'error'; content: string }
