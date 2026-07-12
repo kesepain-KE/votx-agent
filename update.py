@@ -246,6 +246,19 @@ def ask_choice(
         print("请选择: " + ", ".join(choices))
 
 
+def _resolve_npm_command() -> str | None:
+    """Windows 下 npm 可能只有 .cmd 无 .exe，subprocess.run 找不到。
+    返回完整路径或 None。"""
+    resolved = shutil.which("npm")
+    if not resolved:
+        return None
+    # Windows 上优先用 .cmd 后缀的路径（CreateProcess 直接支持）
+    if os.name == "nt" and not resolved.lower().endswith(".exe"):
+        cmd_path = resolved + ".cmd"
+        if os.path.isfile(cmd_path):
+            return cmd_path
+    return resolved
+
 def tree_digest(path: Path) -> str:
     """计算目录/文件的 SHA256 摘要，用于判断是否有实质性差异。"""
     if not path.exists():
@@ -611,9 +624,14 @@ def build_web_frontend(*, dry_run: bool) -> None:
         print(f"[dry-run] 将在 {WEB_DIR} 执行 npm install && npm run build")
         return
 
-    require_commands(["npm"])
-    run(["npm", "install"], cwd=WEB_DIR)
-    run(["npm", "run", "build"], cwd=WEB_DIR)
+    npm_cmd = _resolve_npm_command()
+    if not npm_cmd:
+        raise UpdateError(
+            "未找到 npm。请安装 Node.js（https://nodejs.org/），"
+            "或者手动执行: cd web && npm install && npm run build"
+        )
+    run([npm_cmd, "install"], cwd=WEB_DIR)
+    run([npm_cmd, "run", "build"], cwd=WEB_DIR)
 
     dist_dir = WEB_DIR / "dist"
     if not dist_dir.is_dir() or not any(dist_dir.iterdir()):
