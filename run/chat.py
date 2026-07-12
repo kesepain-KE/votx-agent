@@ -436,33 +436,38 @@ class ChatManager:
         half = max_items // 2
         return lines[:half] + ["  ..."] + lines[-half:]
 
-    def _trim_if_needed(self):
-        """超过最大条数时裁剪；确保不切断 tool_calls/tool_result 配对。
+    def _trim_if_needed(self, force: bool = False) -> int:
+        """按普通历史超限机制压缩消息，返回被压缩的消息数。
 
-        裁剪后触发 auto_improve 子代理提取临时记忆，
-        并插入摘要消息到历史开头。
+        自动模式仅在消息数达到 ``max_history`` 时执行；手动模式由
+        ``compress_history`` 调用，强制压缩当前历史的前半段。两种模式
+        共用安全切点、摘要、auto_improve 和历史结构修复逻辑。
         """
-        if len(self.messages) < self.max_history:
-            return
+        message_count = len(self.messages)
+        if not force and message_count < self.max_history:
+            return 0
+        # 过短对话压缩收益很低，还可能丢失最近一轮的必要上下文。
+        if message_count < 4:
+            return 0
 
-        self._compress_occurred = True  # 通知 SSE 层发送 ui_status
-        keep = self.max_history // 2
-        cut = len(self.messages) - keep
+        self._compress_occurred = True
+        keep = max(2, message_count // 2) if force else max(2, self.max_history // 2)
+        cut = message_count - keep
+        if cut <= 0:
+            return 0
 
-        # 向后扫描到安全切点：不在 tool_calls/tool 配对中间截断
+        # 向后扫描到安全切点：不在 tool_calls/tool 配对中间截断。
         safe = cut
-        for i in range(cut, len(self.messages)):
-            role = self.messages[i].get("role", "")
-            if role != "tool":
+        for i in range(cut, message_count):
+            if self.messages[i].get("role", "") != "tool":
                 safe = i
                 break
-        else:
-            safe = cut  # fallback
+        if safe <= 0:
+            return 0
 
         trimmed = self.messages[:safe]
         self.messages = self.messages[safe:]
 
-        # 生成摘要并插入历史开头
         digest = self._extract_digest(trimmed)
         if digest:
             ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
@@ -476,7 +481,7 @@ class ChatManager:
                 "content": "\n".join(lines),
             })
 
-        # 触发 auto_improve 子代理提取临时记忆
+        # 保持与自动历史超限压缩完全相同的被动记忆提取行为。
         if self.provider and self.user_dir and trimmed:
             try:
                 from agents.auto_improve.agent import run_auto_improve
@@ -484,7 +489,14 @@ class ChatManager:
                 if result.get("summary"):
                     print(f"[auto_improve] {result['summary']}")
             except Exception:
-                pass  # 记忆提取失败不影响主流程
+                pass  # 记忆提取失败不影响主压缩流程
+
+        self._repair_tool_chain()
+        return len(trimmed)
+
+    def compress_history(self) -> int:
+        """手动触发普通历史超限压缩，返回被压缩的消息数。"""
+        return self._trim_if_needed(force=True)
 
 
 

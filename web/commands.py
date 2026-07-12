@@ -130,6 +130,34 @@ def _dispatch(cmd: str, session_data=None) -> dict | None:
     if cmd in ("/summarize", "/summary", "/总结"):
         summary = _web_summarize(session_data)
         return {"type": "command_result", "content": f"对话摘要: {summary}"}
+    if cmd == "/compress":
+        before = len(chat.messages)
+        try:
+            compressed = chat.compress_history()
+            if compressed <= 0:
+                return {
+                    "type": "command_result",
+                    "content": "当前对话过短，没有可压缩的历史（至少需要 4 条消息）。",
+                    "compressed": 0,
+                    "before": before,
+                    "after": before,
+                }
+            chat.save_history()
+        except Exception as exc:
+            return {
+                "type": "error",
+                "error": f"对话压缩失败: {exc}",
+                "content": f"对话压缩失败: {exc}",
+            }
+        after = len(chat.messages)
+        chat._compress_occurred = False
+        return {
+            "type": "command_result",
+            "content": f"对话压缩完成：已压缩 {compressed} 条历史消息，当前保留 {after} 条。",
+            "compressed": compressed,
+            "before": before,
+            "after": after,
+        }
     if cmd == "/retry":
         if not chat.messages:
             return {"type": "command_result", "content": "没有可重试的消息", "retry": False}
@@ -148,7 +176,7 @@ def _dispatch(cmd: str, session_data=None) -> dict | None:
         return {"type": "command_result", "content": (
             "可用命令:\n"
             "  /clear — 清除当前对话历史及工具日志\n"
-
+            "  /compress — 手动触发普通历史超限压缩，保留近期对话并将较早内容压缩为摘要\n"
             "  /stats — 查看当前会话统计\n"
             "  /retry — 移除上一条 AI 回复并重新生成\n"
             "  /help — 显示本帮助信息"
