@@ -927,7 +927,7 @@ export function useAppActions() {
     if (!get().userActive) { toast('请先选择用户'); return }
     const prop = key === 'accept_task' ? 'acceptTask' : key; const current = get().config[prop]
     set((s) => ({ config: { ...s.config, [prop]: !current } }))
-    try { await api('/api/config', { method: 'POST', ...jsonBody({ [key]: !current }) }); toast(`${!current ? '已开启' : '已关闭'}${key === 'accept_task' ? '任务计划' : '流式输出'}`) } catch { set((s) => ({ config: { ...s.config, [prop]: current } })); toast('保存失败') }
+    try { await api('/api/config', { method: 'POST', ...jsonBody({ [key]: !current }) }); toast(`${!current ? '已开启' : '已关闭'}${key === 'accept_task' ? '自动执行任务计划' : '流式输出'}`) } catch { set((s) => ({ config: { ...s.config, [prop]: current } })); toast('保存失败') }
   }, [get, set])
 
   const saveAllConfig = useCallback(async () => {

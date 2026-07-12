@@ -110,7 +110,7 @@ export function RightPanel(props: Props) {
               <div className={`switch ${showThinking ? 'on' : ''}`} onClick={() => set({ showThinking: !showThinking })} />
             </div>
             <div className="toggle-card">
-              <div><b>任务计划</b><p style={{ color: 'var(--text-secondary)', fontSize: 11, marginTop: 2 }}>AI 自动分解复杂任务为步骤计划</p></div>
+              <div><b>自动执行任务计划</b><p style={{ color: 'var(--text-secondary)', fontSize: 11, marginTop: 2 }}>开启后计划创建完自动执行，关闭后需手动批准</p></div>
               <div className={`switch ${config.acceptTask ? 'on' : ''}`} onClick={() => props.toggleConfigSwitch('accept_task')} />
             </div>
 
