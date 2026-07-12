@@ -111,7 +111,7 @@ skills/<name>/SKILL.md
 1. 先判断请求是否命中某个 Skill。
 2. 命中后先读对应 `SKILL.md`，再调用工具。
 3. 多个 Skill 可用时，优先选择最专用的那个。（相似技能过多可以询问用户使用什么 Skill）
-4. 文件处理优先用 `file` / `markdown_converter` / `pdf_tools` / `word_docx`，不要用 shell 硬读写。
+4. 文件处理优先用 `file`，不要用 shell 硬读写。
 5. 生成图像、语音、视频、下载媒体时，优先使用对应生成/下载 Skill。
 6. 工具失败后先读错误信息和 Skill 文档，不要立刻换成更粗暴的 shell 命令。
 7. 知识库检索和维护优先用 `kb_retriever` 的流程，不直接用 shell 全库乱扫。
@@ -360,7 +360,7 @@ message/config.json
 ```text
 image -> vision_analyze
 voice/audio -> audio_transcribe
-file/pdf/docx/xlsx -> read_file 或 markdown_converter
+file/pdf/docx/xlsx -> read_file
 ```
 
 ### 身份映射优先级
@@ -516,7 +516,7 @@ message/push_queue/
 
 双层结构、检索优先级、索引维护规则详见本文「[MUST] 知识库双层检索规则」章节。
 
-处理 PDF/Office/二进制文档时，先使用 `markdown_converter` 或对应文档工具转换/提取，不要直接用纯文本读取。
+处理二进制文档时，先尝试使用 `convert_to_markdown` 工具或 `read_file` 读取，不要直接用 shell 硬读。
 
 ---
 
