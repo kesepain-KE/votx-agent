@@ -197,7 +197,7 @@ api_key:  config.json provider.api_key > KEMO_API_KEY
 base_url: config.json provider.base_url > KEMO_BASE_URL > http://127.0.0.1:8741/v1
 ```
 
-`VOTX_PROVIDER` 只负责覆盖类型（仍然是 `kemo`），不会替你切换 `base_url`。
+Provider 类型保持 `kemo`；常规配置直接写入用户 `config.json`，不再推荐使用 `VOTX_PROVIDER` 覆盖。
 
 ## 多模态能力配置
 

@@ -178,7 +178,7 @@ Telegram: photo, document, voice, audio, video
 
 - 图片：调用 `vision_analyze`。
 - 语音：调用 `audio_transcribe`。
-- 文档/PDF/Office：调用 `markdown_converter` 或文件读取相关工具。
+- 文档/PDF/Office：当前内置插件不提供专用转换工具；可先保存附件，再使用用户安装的 Skill、外部程序或独立文档服务处理。
 - 普通文本文件：调用 `read_file`。
 
 附件日志位置：

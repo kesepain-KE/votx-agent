@@ -1,27 +1,36 @@
-# 使用手册-AI 目录
+# votx-agent AI 使用手册
 
-VOTX Agent AI 助手专用使用手册，包含系统内部架构和执行原理的完整分析。
+更新时间：2026-07-12
 
-## 文件列表
+本目录不再维护 `knowledge/` 的逐文件副本。重复文档过去经常出现两边内容不同步、已删除插件仍被引用的问题，因此已收口为单一入口。
 
-| 文件 | 说明 |
-|------|------|
-| `01-system-prompt拼接架构.md` | System Prompt 七层拼接顺序、注入规则、可见性分类、缓存机制 |
-| `02-对话历史保留与压缩原理.md` | ChatManager 消息模型、20 轮保留策略、LLM 摘要压缩、JSONL 日志存储 |
-| `03-工具调用原理.md` | Skill 注册体系、ToolRunner 执行流程、run_chat_turn 循环、上下文绑定 |
-| `04-memory生命周期执行原理.md` | 三层数据模型、永久层与临时层、被动触发与主动审阅、清理机制 |
-| `05-临时记忆生命周期执行原理.md` | 临时记忆创建、system prompt 注入、过期清理、临时→永久转化 |
-| `06-定时任务执行位置.md` | CLI/Web 两种执行模式、cron 调度循环、并发安全、结果推送 |
-| `07-消息路由编号原理.md` | 四层编号体系、身份映射、OneBot/Telegram 路由、推送队列 |
-| `08-任务计划实际执行原理.md` | 无专用引擎设计、子代理生成、审批流程、system prompt 驱动执行 |
-| `09-智能体工作规范.md` | Skill 优先、默认输出目录、临时文件、上传文件、知识库索引维护、插件收口状态 |
+## 权威文档
 
-| `10-回复渲染与工具产物展示.md` | 回复渲染边界、正文层与 artifact 层规则、内嵌代码面板、图片气泡、文件下载、用户附件预览 |
-| `deployment.md` | 普通 Python 启动、环境变量、外部访问/局域网访问、Windows 打包与手动源码更新说明 |
-| `message-config.md` | 外部消息路由配置说明（同 knowledge/message-config.md） |
-| `users-config.md` | 用户配置文件说明：目录结构、默认输出/上传目录、工具超时、技能禁用、用户知识库索引维护 |
+| 主题 | 文件 |
+|---|---|
+| 项目概览与安装 | `../README.md` |
+| 英文说明 | `../README_EN.md` |
+| 智能体操作规则 | `../AGENTS.md` |
+| 全局知识库索引 | `../knowledge/data_structure.md` |
+| 部署和环境变量 | `../knowledge/deployment.md` |
+| 用户配置 | `../knowledge/users-config.md` |
+| QQ/Telegram 路由 | `../knowledge/message-config.md` |
+| System Prompt | `../knowledge/01-system-prompt拼接架构.md` |
+| 历史与压缩 | `../knowledge/02-对话历史保留与压缩原理.md` |
+| 工具调用 | `../knowledge/03-工具调用原理.md` |
+| 记忆生命周期 | `../knowledge/04-memory生命周期执行原理.md`、`05-临时记忆生命周期执行原理.md` |
+| 定时任务 | `../knowledge/06-定时任务执行位置.md` |
+| 消息路由 | `../knowledge/07-消息路由编号原理.md` |
+| 任务计划 | `../knowledge/08-任务计划实际执行原理.md` |
+| 工作规范与限制现状 | `../knowledge/09-智能体工作规范.md` |
+| 回复渲染 | `../knowledge/10-回复渲染与工具产物展示.md` |
 
-## 与全局知识库的关系
+## 当前关键口径
 
-本目录为 AI 助手的详细分析手册，内容比全局知识库更详尽。
-全局知识库 `knowledge/` 中的 01~09 系列文件为本目录的精简版或同步版。
+- 运行配置主要由 `config/config_core.json` 与 `users/<name>/config.json` 控制。
+- `.env` 仅保留启动级参数和兼容兜底。
+- 当前没有 旧版内置文档转换、PDF 与 DOCX 插件 内置插件。
+- file/shell/network/download 的旧沙箱和 network_scope 开关已不再生效。
+- ToolRunner 仍服从两层 JSON 中的工具开关、deny、禁用 Skill 和执行超时。
+
+后续只更新权威文件，不再把整套文档复制到本目录。

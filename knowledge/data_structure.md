@@ -1,47 +1,44 @@
 # knowledge/ 目录结构
 
-VOTX Agent 全局知识库，存放所有用户共享的参考资料和系统说明。源码更新前应备份本目录中的本地改动。
+VOTX Agent 全局知识库索引。此目录存放所有用户共享的框架说明；用户私有资料应放入 `users/<name>/knowledge/`。
 
-## 文件列表
+更新时间：2026-07-12
 
-### 系统部署与配置
+## 配置与部署
 
-| 文件 | 说明 |
-|------|------|
-| `data_structure.md` | 全局知识库索引（本文件） |
-| `deployment.md` | 普通 Python 启动、环境变量、局域网访问、外部消息配置、Windows 打包和手动源码更新说明 |
-| `message-config.md` | 外部消息路由配置说明，覆盖 OneBot/NapCat、Telegram、群聊控制、账号绑定、附件接收、主动推送 |
-| `users-config.md` | 用户配置文件说明，覆盖目录结构、默认输出/上传目录、用户头像、`config.json` 完整字段（含 `provider.timeout`/`api_style`/`vision_model`/`max_tokens`/`thinking`）、工具超时、技能禁用、用户知识库索引维护 |
+| 文件 | 用途 | 检索关键词 |
+|---|---|---|
+| `data_structure.md` | 全局知识库索引（本文件） | 索引、知识库 |
+| `deployment.md` | 安装、启动、Web host/port、环境变量、消息配置、打包、update.py | 部署、环境变量、更新 |
+| `message-config.md` | OneBot/NapCat、Telegram、账号绑定、附件、推送队列 | QQ、Telegram、附件 |
+| `users-config.md` | 用户目录、`config.json`、Provider、多模态、历史、工具权限、技能禁用 | 用户配置、Provider、tool |
 
-### 架构原理（内部机制分析）
+## 架构原理
 
-| 文件 | 说明 |
-|------|------|
-| `01-system-prompt拼接架构.md` | System Prompt 七层拼接顺序、注入规则、两种可见性分类、缓存机制、前端渲染分离 |
-| `02-对话历史保留与压缩原理.md` | ChatManager 消息模型、20 轮保留策略、LLM 摘要压缩、JSONL 日志存储、外部消息历史共享 |
-| `03-工具调用原理.md` | 工具型/指令型 Skill 注册、ToolRunner 执行流程、run_chat_turn 循环、上下文绑定、内置工具清单 |
-| `04-memory生命周期执行原理.md` | 三层数据模型（memory/self-improving/ontology）、永久层与临时层、被动触发与主动审阅、清理机制 |
-| `05-临时记忆生命周期执行原理.md` | 临时记忆创建、system prompt 注入格式、mtime 过期判断、cron 清理、临时→永久转化流程 |
-| `06-定时任务执行位置.md` | CLI/Web 两种执行模式、cron 调度循环、子进程 vs 进程内执行、并发安全、任务结果推送 |
-| `07-消息路由编号原理.md` | 四层编号体系、身份映射查找优先级、OneBot/Telegram 路由流程、推送队列状态机、Source 闭环 |
-| `08-任务计划实际执行原理.md` | 无专用引擎设计、子代理生成计划、Web/外部审批、system prompt 注入驱动执行、状态机与缓存失效 |
-| `09-智能体工作规范.md` | Skill 优先于 shell、默认路径规则、`tmp`/`download`/`history/file` 用途边界、知识库索引维护、插件收口状态 |
+| 文件 | 用途 | 检索关键词 |
+|---|---|---|
+| `01-system-prompt拼接架构.md` | 当前 Prompt 拼接顺序、Skill/知识索引注入、mtime 缓存 | system prompt、缓存 |
+| `02-对话历史保留与压缩原理.md` | ChatManager、历史持久化、条数/Token 压缩和手动 `/compress` | 历史、压缩、Token |
+| `03-工具调用原理.md` | Skill 注册、ToolRunner、调用循环、JSON 配置控制、当前插件边界 | tool_calls、ToolRunner、Skill |
+| `04-memory生命周期执行原理.md` | memory/self-improving/ontology 与主动/被动模式 | 记忆、review |
+| `05-临时记忆生命周期执行原理.md` | 临时记忆创建、注入、过期清理和转永久 | temporary、cleanup |
+| `06-定时任务执行位置.md` | CLI/Web 调度、任务上下文和结果推送 | cron、定时任务 |
+| `07-消息路由编号原理.md` | 外部身份映射、OneBot/Telegram 路由、推送队列状态 | 消息路由、编号 |
+| `08-任务计划实际执行原理.md` | 计划生成、审批、状态机、磁盘文件和执行驱动 | task plan、审批 |
+| `09-智能体工作规范.md` | 双 JSON 配置权威、目录职责、当前已解除/保留的控制、文档工具边界 | 工作规范、限制、路径 |
+| `10-回复渲染与工具产物展示.md` | Markdown 正文、工具卡片、artifacts 和媒体展示 | 渲染、artifact |
 
-| `10-回复渲染与工具产物展示.md` | 回复渲染边界、正文层与 artifact 层规则、内嵌代码面板、图片气泡、文件下载、用户附件预览 |
+## 当前文档口径
 
-## 使用建议
+- 配置以 `config/config_core.json` 与 `users/<name>/config.json` 为主。
+- `.env` 仅用于源码仍读取的启动参数和兼容兜底。
+- 当前源码不包含 旧版内置文档转换、PDF 与 DOCX 插件。
+- file/shell/network/download 不再使用旧路径白名单、命令黑名单或 network_scope 环境变量；ToolRunner 仍执行 JSON 配置中的 enabled/deny/禁用 Skill/tool_timeout。
+- `knowledge/` 文件发生增删改移后必须同步本索引。
 
-- 用户询问外部消息路由、QQ/NapCat、Telegram、附件接收时，优先阅读 `message-config.md`。
-- 用户询问模型配置、API Key、用户目录、技能开关、多模态能力、头像配置时，优先阅读 `users-config.md`。
-- 用户询问部署、环境变量、局域网访问、外部访问、版本更新时，优先阅读 `deployment.md`。
-- 用户询问智能体产物保存位置、临时文件、上传文件、Skill 与 shell 的使用边界、知识库索引维护时，优先阅读 `09-智能体工作规范.md`。
+## 检索规则
 
-- 用户询问回复渲染、代码块共存、图片气泡、工具产物展示时，优先阅读 `10-回复渲染与工具产物展示.md`。
-- 用户询问内部架构、执行原理、数据流时，阅读对应的 `01~08` 系列文件。
-- 用户个人资料、聊天记录和私有知识不应写入这里，应放在 `users/<用户名>/` 下。
-
-## 规则
-
-- 检索时同时搜索两层，用户级结果优先。
-- 默认写入用户级，只有用户明确说"写入全局"时才写入全局知识库。
-- 全局知识库发生新增、修改、删除、重命名、移动后，必须更新本索引。
+1. 先查 `users/<name>/knowledge/`，再查本目录。
+2. 用户私有信息默认写入用户级知识库。
+3. 全局库只存共享说明或用户明确要求的资料。
+4. 不把大段正文复制到索引。
