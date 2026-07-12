@@ -19,15 +19,14 @@ from plugins._common import (
     err,
     truncate,
     safe_path,
-    check_sandbox,
     get_current_user_dir,
     get_effective_tool_timeout,
 )
 from plugins._common.artifacts import make_file_artifact, make_tool_result
 
-_READ_LIMIT_BYTES = 20 * 1024 * 1024
-_SEARCH_FILE_LIMIT_BYTES = 2 * 1024 * 1024
-_TREE_MAX_ENTRIES = 1000
+_READ_LIMIT_BYTES = 0  # 0 = 不限制
+_SEARCH_FILE_LIMIT_BYTES = 0  # 0 = 不限制
+_TREE_MAX_ENTRIES = 5000
 _SKIP_DIRS = {".git", ".hg", ".svn", "node_modules", ".venv", "venv", "__pycache__", "dist", "build"}
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
@@ -37,35 +36,10 @@ def _env_enabled(name: str) -> bool:
     return os.environ.get(name, "").strip().lower() in ("1", "true", "yes", "on")
 
 
-def _outside_sandbox_enabled(action: str) -> bool:
-    """按操作类型判断是否允许越过默认沙箱。"""
-    if _env_enabled("VOTX_FILE_OUTSIDE_SANDBOX"):
-        return True
-    if action in ("read", "list", "stat", "tree", "search"):
-        return _env_enabled("VOTX_FILE_READ_OUTSIDE_SANDBOX")
-    if action in ("write", "append", "edit", "copy", "move", "mkdir"):
-        return (
-            _env_enabled("VOTX_FILE_EDIT_OUTSIDE_SANDBOX")
-            or _env_enabled("VOTX_FILE_WRITE_OUTSIDE_SANDBOX")
-        )
-    if action == "delete":
-        return _env_enabled("VOTX_FILE_DELETE_OUTSIDE_SANDBOX")
-    return False
 
-
-def _resolve_path(path: str, action: str) -> Path | None:
-    """解析路径并按 action 做沙箱检查。"""
-    p = safe_path(path)
-    if p is None:
-        return None
-
-    resolved = check_sandbox(p)
-    if resolved:
-        return resolved
-    if _outside_sandbox_enabled(action):
-        return p
-    return None
-
+def _resolve_path(path: str) -> Path | None:
+    """解析路径。相对路径以项目根为基准。"""
+    return safe_path(path)
 
 def _path_error(path: str, action: str) -> str:
     """生成路径越权错误。"""
@@ -123,17 +97,18 @@ def _clamp_int(value, default: int, min_value: int, max_value: int) -> int:
 
 def read_file(path: str, encoding: str = "utf-8") -> str:
     """读取整个文件内容。"""
-    resolved = _resolve_path(path, "read")
+    resolved = _resolve_path(path)
     if not resolved:
-        return _path_error(path, "read")
+        return err(f"路径无效: {path}")
 
     file_err = _ensure_file(resolved)
     if file_err:
         return file_err
 
     try:
-        if resolved.stat().st_size > _READ_LIMIT_BYTES:
-            return err(f"文件过大，无法读取（超过20MB）: {resolved}")
+        size = resolved.stat().st_size
+        if _READ_LIMIT_BYTES > 0 and size > _READ_LIMIT_BYTES:
+            return err(f"文件过大，无法读取（超过{_READ_LIMIT_BYTES // 1024 // 1024}MB）: {resolved}")
         content, _ = _read_text_with_fallback(resolved, encoding)
         return truncate(content)
     except UnicodeDecodeError as e:
@@ -151,16 +126,16 @@ def read_file_range(
     encoding: str = "utf-8",
 ) -> str:
     """按行读取文件片段；tail>0 时返回末尾 N 行。"""
-    resolved = _resolve_path(path, "read")
+    resolved = _resolve_path(path)
     if not resolved:
-        return _path_error(path, "read")
+        return err(f"路径无效: {path}")
 
     file_err = _ensure_file(resolved)
     if file_err:
         return file_err
 
-    max_lines = _clamp_int(max_lines, 500, 1, 5000)
-    tail = _clamp_int(tail, 0, 0, 5000)
+    max_lines = _clamp_int(max_lines, 500, 1, 50000)
+    tail = _clamp_int(tail, 0, 0, 50000)
     start_line = _clamp_int(start_line, 1, 1, 10**9)
     end_line = _clamp_int(end_line, 0, 0, 10**9)
 
@@ -210,9 +185,9 @@ def read_file_range(
 
 def write_file(path: str, content: str, encoding: str = "utf-8") -> str:
     """完整覆盖写入文件。越权时不回退，直接按环境变量决定是否允许。"""
-    resolved = _resolve_path(path, "write")
+    resolved = _resolve_path(path)
     if not resolved:
-        return _path_error(path, "write")
+        return err(f"路径无效: {path}")
 
     try:
         if resolved.exists() and resolved.is_dir():
@@ -226,9 +201,9 @@ def write_file(path: str, content: str, encoding: str = "utf-8") -> str:
 
 def append_file(path: str, content: str, encoding: str = "utf-8") -> str:
     """追加写入文件，不存在则创建。"""
-    resolved = _resolve_path(path, "append")
+    resolved = _resolve_path(path)
     if not resolved:
-        return _path_error(path, "append")
+        return err(f"路径无效: {path}")
 
     try:
         if resolved.exists() and resolved.is_dir():
@@ -243,9 +218,9 @@ def append_file(path: str, content: str, encoding: str = "utf-8") -> str:
 
 def list_dir(path: str) -> str:
     """列出目录内容。"""
-    resolved = _resolve_path(path, "list")
+    resolved = _resolve_path(path)
     if not resolved:
-        return _path_error(path, "list")
+        return err(f"路径无效: {path}")
 
     dir_err = _ensure_dir(resolved)
     if dir_err:
@@ -275,15 +250,15 @@ def tree_dir(
     include_hidden: bool = False,
 ) -> str:
     """输出目录树。"""
-    resolved = _resolve_path(path, "tree")
+    resolved = _resolve_path(path)
     if not resolved:
-        return _path_error(path, "tree")
+        return err(f"路径无效: {path}")
 
     dir_err = _ensure_dir(resolved)
     if dir_err:
         return dir_err
 
-    max_depth = _clamp_int(max_depth, 2, 0, 10)
+    max_depth = _clamp_int(max_depth, 2, 0, 50)
     max_entries = _clamp_int(max_entries, 200, 1, _TREE_MAX_ENTRIES)
     lines = [str(resolved)]
     count = 0
@@ -317,9 +292,9 @@ def tree_dir(
 
 def stat_file(path: str) -> str:
     """查看文件或目录信息。"""
-    resolved = _resolve_path(path, "stat")
+    resolved = _resolve_path(path)
     if not resolved:
-        return _path_error(path, "stat")
+        return err(f"路径无效: {path}")
 
     if not resolved.exists():
         return err(f"路径不存在: {resolved}")
@@ -343,9 +318,9 @@ def stat_file(path: str) -> str:
 
 def delete_file(path: str) -> str:
     """删除文件，禁止删除目录。"""
-    resolved = _resolve_path(path, "delete")
+    resolved = _resolve_path(path)
     if not resolved:
-        return _path_error(path, "delete")
+        return err(f"路径无效: {path}")
 
     file_err = _ensure_file(resolved)
     if file_err:
@@ -384,9 +359,9 @@ def edit_file(
     if mode not in ("insert", "replace_line", "replace_range", "replace_text"):
         return err("无效模式，可选 insert / replace_line / replace_range / replace_text")
 
-    resolved = _resolve_path(path, "edit")
+    resolved = _resolve_path(path)
     if not resolved:
-        return _path_error(path, "edit")
+        return err(f"路径无效: {path}")
 
     file_err = _ensure_file(resolved)
     if file_err:
@@ -465,9 +440,9 @@ def edit_file(
 
 def make_dir(path: str, parents: bool = True, exist_ok: bool = True) -> str:
     """创建目录。"""
-    resolved = _resolve_path(path, "mkdir")
+    resolved = _resolve_path(path)
     if not resolved:
-        return _path_error(path, "mkdir")
+        return err(f"路径无效: {path}")
 
     try:
         if resolved.exists() and not resolved.is_dir():
@@ -480,12 +455,12 @@ def make_dir(path: str, parents: bool = True, exist_ok: bool = True) -> str:
 
 def copy_file(src_path: str, dst_path: str, overwrite: bool = False) -> str:
     """复制文件。dst_path 必须是目标文件路径，不能是目录。"""
-    src = _resolve_path(src_path, "read")
+    src = _resolve_path(src_path)
     if not src:
-        return _path_error(src_path, "read")
-    dst = _resolve_path(dst_path, "copy")
+        return err(f"路径无效: {src_path}")
+    dst = _resolve_path(dst_path)
     if not dst:
-        return _path_error(dst_path, "copy")
+        return err(f"路径无效: {dst_path}")
 
     file_err = _ensure_file(src)
     if file_err:
@@ -505,12 +480,12 @@ def copy_file(src_path: str, dst_path: str, overwrite: bool = False) -> str:
 
 def move_file(src_path: str, dst_path: str, overwrite: bool = False) -> str:
     """移动或重命名文件。dst_path 必须是目标文件路径，不能是目录。"""
-    src = _resolve_path(src_path, "move")
+    src = _resolve_path(src_path)
     if not src:
-        return _path_error(src_path, "move")
-    dst = _resolve_path(dst_path, "move")
+        return err(f"路径无效: {src_path}")
+    dst = _resolve_path(dst_path)
     if not dst:
-        return _path_error(dst_path, "move")
+        return err(f"路径无效: {dst_path}")
 
     file_err = _ensure_file(src)
     if file_err:
@@ -553,21 +528,21 @@ def _search_roots(scope: str, root: str) -> tuple[list[Path], str | None]:
     """根据 scope/root 获取搜索根目录。"""
     roots: list[Path] = []
     if root:
-        resolved = _resolve_path(root, "search")
+        resolved = _resolve_path(root)
         if not resolved:
-            return [], _path_error(root, "search")
+            return [], err(f"路径无效: {root}")
         if not resolved.exists() or not resolved.is_dir():
             return [], err(f"搜索根目录不存在或不是目录: {resolved}")
         return [resolved], None
 
     if scope in ("workspace", "both"):
-        resolved = _resolve_path(str(_PROJECT_ROOT), "search")
+        resolved = _resolve_path(str(_PROJECT_ROOT))
         if resolved:
             roots.append(resolved)
     if scope in ("user", "both"):
         user_dir = get_current_user_dir()
         if user_dir:
-            resolved = _resolve_path(user_dir, "search")
+            resolved = _resolve_path(user_dir)
             if resolved:
                 roots.append(resolved)
     if not roots:
@@ -654,7 +629,7 @@ def _search_text_rg(query: str, roots: list[Path], max_results: int,
             else:
                 return err(f"rg 错误: {stderr.strip()}")
         output = "\n--\n".join([r for r in results if r]) if results else "未找到匹配结果"
-        return truncate(output, max_len=50000)
+        return truncate(output, max_len=0)
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return "__FALLBACK__"
     except Exception:
@@ -702,7 +677,7 @@ def _search_code_rg(query: str, roots: list[Path], max_results: int,
             else:
                 return err(f"rg 错误: {stderr.strip()}")
         output = "\n--\n".join([r for r in results if r]) if results else "未找到匹配结果"
-        return truncate(output, max_len=50000)
+        return truncate(output, max_len=0)
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return "__FALLBACK__"
     except Exception:
@@ -741,8 +716,8 @@ def search_files(
     if scope not in ("workspace", "user", "both"):
         return err("scope 可选 workspace/user/both")
 
-    max_results = _clamp_int(max_results, 50, 1, 500)
-    context_lines = _clamp_int(context_lines, 0, 0, 20)
+    max_results = _clamp_int(max_results, 50, 1, 5000)
+    context_lines = _clamp_int(context_lines, 0, 0, 100)
 
     roots, root_err = _search_roots(scope, root)
     if root_err:
@@ -783,7 +758,8 @@ def search_files(
                 continue
 
             try:
-                if file_path.stat().st_size > _SEARCH_FILE_LIMIT_BYTES:
+                file_size = file_path.stat().st_size
+                if _SEARCH_FILE_LIMIT_BYTES > 0 and file_size > _SEARCH_FILE_LIMIT_BYTES:
                     continue
                 text, _ = _read_text_with_fallback(file_path, encoding)
             except Exception:
@@ -812,7 +788,7 @@ SCHEMAS = [
         "type": "function",
         "function": {
             "name": "read_file",
-            "description": "读取整个文件内容。默认受沙箱保护；VOTX_FILE_OUTSIDE_SANDBOX=1 或 VOTX_FILE_READ_OUTSIDE_SANDBOX=1 可读取沙箱外路径。支持 UTF-8/UTF-8 BOM/GBK 回退，20MB 限制。",
+            "description": "读取整个文件内容。支持 UTF-8/BOM/GBK 回退，无大小限制。当需要读取文本文件、查看文件内容、加载配置、读取代码时使用。",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -827,7 +803,7 @@ SCHEMAS = [
         "type": "function",
         "function": {
             "name": "read_file_range",
-            "description": "按行读取文件片段，支持 start_line/end_line 或 tail 读取日志尾部。",
+            "description": "按行读取文件片段，支持 start_line/end_line 或 tail 读取日志尾部。最大返回 50000 行。当需要读取大文件的部分内容、查看日志文件末尾、按行范围读取时使用。",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -846,7 +822,7 @@ SCHEMAS = [
         "type": "function",
         "function": {
             "name": "write_file",
-            "description": "完整覆盖写入文件。不会在越权时回退路径；越权是否允许完全由环境变量控制。",
+            "description": "完整覆盖写入文件。自动创建父目录。当需要创建新文件、写入内容、保存数据时使用。注意：会完全覆盖已有内容。",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -862,7 +838,7 @@ SCHEMAS = [
         "type": "function",
         "function": {
             "name": "append_file",
-            "description": "追加写入文件，不存在则创建。",
+            "description": "追加写入文件，不存在则创建。当需要向文件末尾添加内容、日志追加、累积写入时使用。",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -878,7 +854,7 @@ SCHEMAS = [
         "type": "function",
         "function": {
             "name": "edit_file",
-            "description": "精确编辑文件内容。支持 insert、replace_line、replace_range、replace_text。默认创建 .bak 备份。",
+            "description": "精确编辑文件内容。支持 insert、replace_line、replace_range、replace_text。默认创建 .bak 备份。当需要修改文件中特定行、插入内容、替换文本片段、局部编辑时使用。",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -916,7 +892,7 @@ SCHEMAS = [
         "type": "function",
         "function": {
             "name": "tree_dir",
-            "description": "显示目录树，默认跳过常见大目录。",
+            "description": "显示目录树，默认跳过常见大目录。最大深度 50，最大条目 5000。",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -947,7 +923,7 @@ SCHEMAS = [
         "type": "function",
         "function": {
             "name": "search_files",
-            "description": "搜索文件名、文件内容或代码定义。支持 mode=file/text/code、scope=workspace/user/both、上下文行和 fd/rg 加速。",
+            "description": "搜索文件名、文件内容或代码定义。支持 mode=file/text/code、scope=workspace/user/both、上下文行和 fd/rg 加速。最大结果数 5000，上下文 100 行。当需要在项目中查找文件、搜索文本内容、搜索代码定义、定位关键词时使用。",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -1018,7 +994,7 @@ SCHEMAS = [
         "type": "function",
         "function": {
             "name": "delete_file",
-            "description": "删除文件，严格禁止删除目录。沙箱外删除需要 VOTX_FILE_OUTSIDE_SANDBOX=1 或 VOTX_FILE_DELETE_OUTSIDE_SANDBOX=1。",
+            "description": "删除文件，严格禁止删除目录。",
             "parameters": {
                 "type": "object",
                 "properties": {
