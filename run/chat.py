@@ -272,7 +272,7 @@ class ChatManager:
                 })
         msg: dict[str, Any] = {
             "role": "assistant",
-            "content": None,
+            "content": "",
             "tool_calls": tc_list,
         }
         if reasoning_content:
