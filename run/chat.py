@@ -117,9 +117,10 @@ class ChatManager:
                 other += 1  # 其他多字节字符（emoji, 符号等）
             else:
                 other += 1
-        # CJK: ~0.6 token/字; 非CJK多字节: ~1 token/字; ASCII: ~0.25 token/字
+        # CJK: ~1.5 token/字（主流 tokenizer 对中文普遍 1-2.5 token/字）;
+        # 非CJK多字节: ~1 token/字; ASCII: ~0.25 token/字
         # 保守估计使用略高系数
-        return int(cjk * 0.65 + other * 0.3)
+        return int(cjk * 1.5 + other * 0.3)
 
     @classmethod
     def _msg_tokens(cls, msg: dict[str, Any]) -> int:
