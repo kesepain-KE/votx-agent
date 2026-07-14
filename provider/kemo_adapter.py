@@ -237,15 +237,15 @@ class KemoProvider(BaseProvider):
                 request = urllib.request.Request(url, data=raw_body, headers=headers, method="POST")
                 response = urllib.request.urlopen(request, timeout=self.timeout)
                 break
+            except urllib.error.HTTPError as exc:
+                body_text = exc.read().decode("utf-8", errors="replace")
+                raise RuntimeError(f"Kemo chat stream failed ({exc.code}): {_error_message(body_text)}") from exc
             except (urllib.error.URLError, OSError) as e:
                 last_err = e
                 if attempt < MAX_RETRIES:
                     _time.sleep(RETRY_DELAY * (attempt + 1))
                     continue
                 raise RuntimeError(f"Kemo chat stream 失败（已重试 {MAX_RETRIES} 次）: {e}") from e
-            except urllib.error.HTTPError as exc:
-                body_text = exc.read().decode("utf-8", errors="replace")
-                raise RuntimeError(f"Kemo chat stream failed ({exc.code}): {_error_message(body_text)}") from exc
 
         content_parts: list[str] = []
         reasoning_parts: list[str] = []
