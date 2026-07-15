@@ -253,72 +253,82 @@ class KemoProvider(BaseProvider):
         reasoning_parts: list[str] = []
         tool_calls_map: dict[int, dict] = {}
         usage = None
+        self.last_response = None
+        self.last_usage = None
 
-        buf = b""
         done_received = False
         stream_error: Exception | None = None
         try:
             while True:
                 try:
-                    chunk = response.read(4096)
+                    # SSE 以空行分隔事件。按行读取可在每个 data 行到达时立即
+                    # 向上游 yield；固定长度 read(4096) 会攒包，表现成“伪非流式”。
+                    line_bytes = response.readline()
                 except (http.client.IncompleteRead, http.client.RemoteDisconnected,
                         ConnectionResetError, BrokenPipeError, OSError) as exc:
                     stream_error = exc
                     break
-                if not chunk:
+                if not line_bytes:
                     break
-                buf += chunk
-                while b"\n" in buf:
-                    line_bytes, buf = buf.split(b"\n", 1)
-                    line = line_bytes.decode("utf-8", errors="replace").strip()
-                    if not line or not line.startswith("data:"):
-                        continue
-                    data_str = line[5:].strip()
-                    if data_str == "[DONE]":
-                        done_received = True
-                        continue
-                    try:
-                        obj = json.loads(data_str)
-                    except json.JSONDecodeError:
-                        continue
 
-                    # 网关会把上游流式异常封装为 SSE error；不能把它当正常空响应。
-                    if obj.get("error"):
-                        raise RuntimeError(f"Kemo chat stream 上游错误: {obj['error']}")
+                line = line_bytes.decode("utf-8", errors="replace").strip()
+                if not line or not line.startswith("data:"):
+                    continue
+                data_str = line[5:].strip()
+                if not data_str:
+                    continue
+                if data_str == "[DONE]":
+                    done_received = True
+                    break
+                try:
+                    obj = json.loads(data_str)
+                except json.JSONDecodeError as exc:
+                    raise RuntimeError(
+                        f"Kemo chat stream 返回了畸形 SSE 数据: {data_str[:160]}"
+                    ) from exc
 
-                    # usage（通常出现在最后）
-                    if obj.get("usage"):
-                        usage = obj["usage"]
-                        if isinstance(usage, dict):
-                            self.last_usage = {
-                                "prompt_tokens": usage.get("prompt_tokens", 0),
-                                "completion_tokens": usage.get("completion_tokens", 0),
-                                "total_tokens": usage.get("total_tokens", 0),
+                # 网关会把上游流式异常封装为 SSE error；不能把它当正常空响应。
+                if obj.get("error"):
+                    error = obj["error"]
+                    if isinstance(error, dict):
+                        message = error.get("message") or error.get("detail") or str(error)
+                    else:
+                        message = str(error)
+                    raise RuntimeError(f"Kemo chat stream 上游错误: {message}")
+
+                # usage（通常出现在最后）
+                if obj.get("usage"):
+                    usage = obj["usage"]
+                    if isinstance(usage, dict):
+                        self.last_usage = {
+                            "prompt_tokens": usage.get("prompt_tokens", 0),
+                            "completion_tokens": usage.get("completion_tokens", 0),
+                            "total_tokens": usage.get("total_tokens", 0),
+                        }
+
+                choices = obj.get("choices", [])
+                for choice in choices:
+                    delta = choice.get("delta", {})
+                    if delta.get("reasoning_content"):
+                        reasoning_parts.append(delta["reasoning_content"])
+                        yield {"type": "thinking_chunk", "content": delta["reasoning_content"]}
+                    if delta.get("content"):
+                        content_parts.append(delta["content"])
+                        yield {"type": "text_chunk", "content": delta["content"]}
+                    for tc in delta.get("tool_calls", []) or []:
+                        idx = tc.get("index", 0)
+                        if idx not in tool_calls_map:
+                            tool_calls_map[idx] = {
+                                "id": tc.get("id", ""),
+                                "function": {"name": "", "arguments": ""},
                             }
-
-                    choices = obj.get("choices", [])
-                    for choice in choices:
-                        delta = choice.get("delta", {})
-                        if delta.get("reasoning_content"):
-                            reasoning_parts.append(delta["reasoning_content"])
-                            yield {"type": "thinking_chunk", "content": delta["reasoning_content"]}
-                        if delta.get("content"):
-                            content_parts.append(delta["content"])
-                            yield {"type": "text_chunk", "content": delta["content"]}
-                        for tc in delta.get("tool_calls", []) or []:
-                            idx = tc.get("index", 0)
-                            if idx not in tool_calls_map:
-                                tool_calls_map[idx] = {
-                                    "id": tc.get("id", ""),
-                                    "function": {"name": "", "arguments": ""},
-                                }
-                            if tc.get("id"):
-                                tool_calls_map[idx]["id"] = tc["id"]
-                            fn = tc.get("function", {})
-                            if fn.get("name"):
-                                tool_calls_map[idx]["function"]["name"] += fn["name"]
-                            if fn.get("arguments"):
-                                tool_calls_map[idx]["function"]["arguments"] += fn["arguments"]
+                        if tc.get("id"):
+                            tool_calls_map[idx]["id"] = tc["id"]
+                        fn = tc.get("function", {})
+                        if fn.get("name"):
+                            tool_calls_map[idx]["function"]["name"] += fn["name"]
+                        if fn.get("arguments"):
+                            tool_calls_map[idx]["function"]["arguments"] += fn["arguments"]
         finally:
             if response:
                 try:
