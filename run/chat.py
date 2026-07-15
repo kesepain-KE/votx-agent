@@ -208,6 +208,7 @@ class ChatManager:
                 body.insert(0, {"role": "user", "content": "\n".join(lines)})
 
         self.messages = list(body)
+        self._repair_tool_chain()
         result = [sys_msg] + body if sys_msg else body
         return result
 
