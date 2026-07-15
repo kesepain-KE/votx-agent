@@ -328,63 +328,98 @@ class ChatManager:
         else:
             self.messages = []
 
-    def _repair_tool_chain(self):
-        """修复历史中的 tool_calls 链断裂
+    def _repair_tool_chain(self) -> int:
+        """按完整事务清理非法工具消息链，返回移除的消息数。
 
-        三种情况都会导致 Provider 400：
-        1) assistant(tool_calls) 之后缺少对应的 tool 消息（前向断裂）
-        2) tool 消息之前缺少对应的 assistant(tool_calls)（后向断裂，孤立 tool）
-        3) tool 消息出现在其匹配的 assistant(tool_calls) 之前（乱序）
-           — 常见于 _trim_if_needed 剪切历史后，剩余消息以 tool 开头
+        合法事务必须是 ``assistant(tool_calls)``，后面紧跟且仅跟每个
+        ``tool_call_id`` 对应的一条 ``tool`` 结果。孤立、重复、乱序、
+        缺失结果或声明格式损坏的事务会被整体移除；事务之后的正常消息
+        会保留，避免旧实现从异常点截断整个历史尾部。
         """
-        # 第一遍：收集所有 assistant(tool_calls) 声明的 tool_call_id 集合
-        valid_ids: set[str] = set()
-        for msg in self.messages:
-            if msg.get("role") == "assistant" and msg.get("tool_calls"):
-                for tc in msg["tool_calls"]:
-                    valid_ids.add(tc["id"])
-
-        # 第二遍：按顺序扫描，维护"已出现过的 assistant(tc) ID"集合
-        # tool 消息不仅需要 ID 存在于 valid_ids，还必须已见过其匹配的 assistant(tc)
-        seen_tc_ids: set[str] = set()
+        repaired: list[dict[str, Any]] = []
+        removed = 0
+        normalized = False
         i = 0
-        cut_at = None
+
         while i < len(self.messages):
             msg = self.messages[i]
-            if msg.get("role") == "tool":
-                tid = msg.get("tool_call_id", "")
-                if tid not in valid_ids or tid not in seen_tc_ids:
-                    cut_at = i
-                    break
-                i += 1
-            elif msg.get("role") == "assistant" and msg.get("tool_calls"):
-                tc_list = msg["tool_calls"]
-                for tc in tc_list:
-                    seen_tc_ids.add(tc["id"])
-                needed = len(tc_list)
-                expected_ids = {tc["id"] for tc in tc_list}
-                j = i + 1
-                found = 0
-                while j < len(self.messages) and found < needed:
-                    nxt = self.messages[j]
-                    if nxt.get("role") == "tool":
-                        tid = nxt.get("tool_call_id", "")
-                        if tid in expected_ids:
-                            found += 1
-                        j += 1
-                    else:
-                        break
-                if found < needed:
-                    cut_at = i
-                    break
-                i = j
-            else:
-                i += 1
+            role = msg.get("role")
 
-        if cut_at is not None:
-            dropped = len(self.messages) - cut_at
-            self.messages = self.messages[:cut_at]
-            print(f"[历史修复] 检测到断裂的 tool_calls 链，已切除末尾 {dropped} 条消息")
+            # 没有 assistant(tool_calls) 声明的 tool 结果不能单独发送。
+            if role == "tool":
+                removed += 1
+                i += 1
+                continue
+
+            tool_calls = msg.get("tool_calls") if role == "assistant" else None
+            if not tool_calls:
+                repaired.append(msg)
+                i += 1
+                continue
+
+            ids: list[str] = []
+            valid_declaration = isinstance(tool_calls, list) and bool(tool_calls)
+            if valid_declaration:
+                for tc in tool_calls:
+                    if not isinstance(tc, dict):
+                        valid_declaration = False
+                        break
+                    tool_id = tc.get("id")
+                    function = tc.get("function")
+                    if (not isinstance(tool_id, str) or not tool_id or
+                            not isinstance(function, dict) or
+                            not isinstance(function.get("name"), str) or
+                            not function.get("name") or
+                            not isinstance(function.get("arguments"), str)):
+                        valid_declaration = False
+                        break
+                    ids.append(tool_id)
+                if len(ids) != len(set(ids)):
+                    valid_declaration = False
+
+            # 收集紧随其后的所有 tool 消息，事务边界遇到非 tool 即结束。
+            j = i + 1
+            tool_results: list[dict[str, Any]] = []
+            while j < len(self.messages) and self.messages[j].get("role") == "tool":
+                tool_results.append(self.messages[j])
+                j += 1
+
+            expected = set(ids)
+            seen: set[str] = set()
+            valid_results = valid_declaration and len(tool_results) == len(ids)
+            if valid_results:
+                for result in tool_results:
+                    tool_id = result.get("tool_call_id")
+                    if (not isinstance(tool_id, str) or tool_id not in expected or
+                            tool_id in seen or "content" not in result):
+                        valid_results = False
+                        break
+                    seen.add(tool_id)
+                valid_results = seen == expected
+
+            if valid_results:
+                # 统一旧历史中的 null content，避免兼容层拒绝工具调用消息。
+                if msg.get("content") is None:
+                    msg = {**msg, "content": ""}
+                    normalized = True
+                repaired.append(msg)
+                repaired.extend(tool_results)
+            else:
+                removed += 1 + len(tool_results)
+                content = msg.get("content")
+                # 若损坏声明同时带有可见正文，只移除 tool_calls 字段并保留正文。
+                if isinstance(content, str) and content:
+                    clean_msg = {k: v for k, v in msg.items() if k != "tool_calls"}
+                    repaired.append(clean_msg)
+                    removed -= 1
+
+            i = j
+
+        if removed or normalized:
+            self.messages = repaired
+        if removed:
+            print(f"[历史修复] 已移除 {removed} 条非法工具链消息")
+        return removed
 
     def save_history(self):
         """落盘历史消息（不含 system prompt）
