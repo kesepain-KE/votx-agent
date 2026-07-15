@@ -89,7 +89,10 @@ class ChatManager:
     # ---- 消息组装 ----
 
     def build_messages(self) -> list[dict[str, Any]]:
-        """组装完整消息列表: system + history，自动确保不超上下文窗口"""
+        """组装完整消息列表: system + history，自动确保不超上下文窗口。"""
+        # 发送前最后一次按完整工具事务清理历史，避免任何孤立 tool
+        # 或未闭合 assistant(tool_calls) 进入 Provider 请求体。
+        self._repair_tool_chain()
         msgs: list[dict[str, Any]] = []
         if self.system_prompt:
             msgs.append({"role": "system", "content": self.system_prompt})
