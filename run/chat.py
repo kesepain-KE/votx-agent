@@ -183,14 +183,15 @@ class ChatManager:
             if not body:
                 break
 
-            # 找安全切点：向后扫描，第一次遇到非 tool 消息处切开
+            # 找事务边界：若目标落在 tool 结果中，向后移动到该事务之后。
+            # 后面没有非 tool 消息时，移除整个末尾工具事务，绝不从中间切开。
             cut = 1
             for i in range(1, len(body)):
                 if body[i].get("role") != "tool":
                     cut = i
                     break
             else:
-                cut = max(1, len(body) // 2)
+                cut = len(body)
 
             trimmed_batches.append(body[:cut])
             body = body[cut:]
