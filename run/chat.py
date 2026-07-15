@@ -249,6 +249,7 @@ class ChatManager:
 
     def add_tool_call_message(self, tool_calls, reasoning_content: str = ""):
         """将 tool_calls 转为可序列化 dict 后追加（适配统一 ToolCall 和旧 SDK 对象）"""
+        self._trim_if_needed()
         tc_list = []
         for tc in tool_calls:
             if hasattr(tc, "name"):
@@ -282,7 +283,6 @@ class ChatManager:
 
     def add_tool_results(self, tool_outputs: list[dict[str, Any]]):
         """处理 add_tool_results 相关逻辑。"""
-        self._trim_if_needed()
         self.messages.extend(tool_outputs)
 
     # ---- 持久化 ----
