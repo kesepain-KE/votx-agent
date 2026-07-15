@@ -209,7 +209,7 @@ class ChatManager:
 
         self.messages = list(body)
         self._repair_tool_chain()
-        result = [sys_msg] + body if sys_msg else body
+        result = [sys_msg] + self.messages if sys_msg else self.messages
         return result
 
     @staticmethod
