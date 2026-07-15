@@ -11,6 +11,7 @@ ASR 降级策略：
 from __future__ import annotations
 
 import base64
+import http.client
 import json
 import mimetypes
 import os
@@ -230,7 +231,6 @@ class KemoProvider(BaseProvider):
         }
         raw_body = _json_bytes(body)
 
-        last_err = None
         response = None
         for attempt in range(MAX_RETRIES + 1):
             try:
@@ -240,12 +240,14 @@ class KemoProvider(BaseProvider):
             except urllib.error.HTTPError as exc:
                 body_text = exc.read().decode("utf-8", errors="replace")
                 raise RuntimeError(f"Kemo chat stream failed ({exc.code}): {_error_message(body_text)}") from exc
-            except (urllib.error.URLError, OSError) as e:
-                last_err = e
+            except (urllib.error.URLError, OSError, http.client.HTTPException) as exc:
                 if attempt < MAX_RETRIES:
                     _time.sleep(RETRY_DELAY * (attempt + 1))
                     continue
-                raise RuntimeError(f"Kemo chat stream 失败（已重试 {MAX_RETRIES} 次）: {e}") from e
+                raise RuntimeError(
+                    f"Kemo chat stream 建立连接失败（已重试 {MAX_RETRIES} 次）: "
+                    f"{type(exc).__name__}: {exc}"
+                ) from exc
 
         content_parts: list[str] = []
         reasoning_parts: list[str] = []
@@ -253,9 +255,16 @@ class KemoProvider(BaseProvider):
         usage = None
 
         buf = b""
+        done_received = False
+        stream_error: Exception | None = None
         try:
             while True:
-                chunk = response.read(4096)
+                try:
+                    chunk = response.read(4096)
+                except (http.client.IncompleteRead, http.client.RemoteDisconnected,
+                        ConnectionResetError, BrokenPipeError, OSError) as exc:
+                    stream_error = exc
+                    break
                 if not chunk:
                     break
                 buf += chunk
@@ -266,11 +275,16 @@ class KemoProvider(BaseProvider):
                         continue
                     data_str = line[5:].strip()
                     if data_str == "[DONE]":
+                        done_received = True
                         continue
                     try:
                         obj = json.loads(data_str)
                     except json.JSONDecodeError:
                         continue
+
+                    # 网关会把上游流式异常封装为 SSE error；不能把它当正常空响应。
+                    if obj.get("error"):
+                        raise RuntimeError(f"Kemo chat stream 上游错误: {obj['error']}")
 
                     # usage（通常出现在最后）
                     if obj.get("usage"):
@@ -311,6 +325,20 @@ class KemoProvider(BaseProvider):
                     response.close()
                 except Exception:
                     pass
+
+        if stream_error is not None:
+            raise RuntimeError(
+                "Kemo chat stream 传输中断"
+                f"（{type(stream_error).__name__}: {stream_error}；"
+                f"已接收正文 {sum(len(x) for x in content_parts)} 字符、"
+                f"工具调用片段 {len(tool_calls_map)} 个）"
+            ) from stream_error
+        if not done_received:
+            raise RuntimeError(
+                "Kemo chat stream 在收到 [DONE] 前关闭"
+                f"（已接收正文 {sum(len(x) for x in content_parts)} 字符、"
+                f"工具调用片段 {len(tool_calls_map)} 个）"
+            )
 
         content = "".join(content_parts)
         reasoning = "".join(reasoning_parts)
