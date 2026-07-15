@@ -497,8 +497,9 @@ class ChatManager:
         if cut <= 0:
             return 0
 
-        # 向后扫描到安全切点：不在 tool_calls/tool 配对中间截断。
-        safe = cut
+        # 向后扫描到完整事务边界；若剩余尾部全是 tool 结果，说明目标
+        # 落在末尾工具事务中，此时压缩整个事务而不是留下孤立结果。
+        safe = message_count
         for i in range(cut, message_count):
             if self.messages[i].get("role", "") != "tool":
                 safe = i
