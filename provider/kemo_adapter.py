@@ -12,11 +12,13 @@ from __future__ import annotations
 
 import base64
 import http.client
+import ipaddress
 import json
 import mimetypes
 import os
 import time as _time
 import urllib.error
+import urllib.parse
 import urllib.request
 import uuid
 from pathlib import Path
@@ -34,6 +36,34 @@ DEFAULT_IMAGE_EDIT_MODEL = "stepfun-step-image-edit-2"
 
 MAX_RETRIES = 2
 RETRY_DELAY = 1.0
+
+
+def _is_loopback_url(url: str) -> bool:
+    """Return whether *url* targets the local host.
+
+    ``urllib`` honors ``HTTP_PROXY`` for loopback URLs when ``NO_PROXY`` is
+    missing on some Windows setups.  Kemo commonly runs on 127.0.0.1, so
+    allowing that traffic to enter an HTTP proxy makes the local SSE stream
+    unnecessarily fragile.
+    """
+    try:
+        host = (urllib.parse.urlsplit(url).hostname or "").rstrip(".").lower()
+    except ValueError:
+        return False
+    if host == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def _urlopen(request: urllib.request.Request, timeout: int):
+    """Open a request, bypassing environment proxies for loopback targets."""
+    if _is_loopback_url(request.full_url):
+        direct_opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        return direct_opener.open(request, timeout=timeout)
+    return urllib.request.urlopen(request, timeout=timeout)
 
 
 def _normalize_base_url(base_url: str) -> str:
@@ -235,7 +265,7 @@ class KemoProvider(BaseProvider):
         for attempt in range(MAX_RETRIES + 1):
             try:
                 request = urllib.request.Request(url, data=raw_body, headers=headers, method="POST")
-                response = urllib.request.urlopen(request, timeout=self.timeout)
+                response = _urlopen(request, timeout=self.timeout)
                 break
             except urllib.error.HTTPError as exc:
                 body_text = exc.read().decode("utf-8", errors="replace")
@@ -393,7 +423,7 @@ class KemoProvider(BaseProvider):
         for attempt in range(MAX_RETRIES + 1):
             try:
                 request = urllib.request.Request(url, data=data, headers=headers, method=method)
-                with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                with _urlopen(request, timeout=self.timeout) as response:
                     raw = response.read().decode("utf-8")
                     return json.loads(raw) if raw else {}
             except urllib.error.HTTPError as exc:
@@ -488,7 +518,7 @@ class KemoProvider(BaseProvider):
         )
 
         try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+            with _urlopen(request, timeout=self.timeout) as response:
                 payload = json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
             body_text = exc.read().decode("utf-8", errors="replace")
@@ -551,7 +581,7 @@ class KemoProvider(BaseProvider):
             method="POST",
         )
         try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+            with _urlopen(request, timeout=self.timeout) as response:
                 content = response.read()
         except urllib.error.HTTPError as exc:
             body_text = exc.read().decode("utf-8", errors="replace")
@@ -638,7 +668,7 @@ class KemoProvider(BaseProvider):
             },
             method="POST",
         )
-        with urllib.request.urlopen(request, timeout=self.timeout) as response:
+        with _urlopen(request, timeout=self.timeout) as response:
             payload = json.loads(response.read().decode("utf-8"))
         return (payload.get("text") or "").strip()
 
@@ -673,7 +703,7 @@ class KemoProvider(BaseProvider):
             method="POST",
         )
 
-        with urllib.request.urlopen(request, timeout=self.timeout) as response:
+        with _urlopen(request, timeout=self.timeout) as response:
             payload = json.loads(response.read().decode("utf-8"))
         return (payload.get("text") or "").strip()
 
@@ -723,7 +753,7 @@ class KemoProvider(BaseProvider):
             method="POST",
         )
         try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+            with _urlopen(request, timeout=self.timeout) as response:
                 content = response.read()
         except urllib.error.HTTPError as exc:
             body_text = exc.read().decode("utf-8", errors="replace")
@@ -772,7 +802,7 @@ class KemoProvider(BaseProvider):
             method="GET",
         )
         try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+            with _urlopen(request, timeout=self.timeout) as response:
                 content_type = response.headers.get("Content-Type", "")
                 raw = response.read()
         except urllib.error.HTTPError as exc:
