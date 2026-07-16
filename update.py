@@ -153,6 +153,11 @@ def require_commands(names: Iterable[str]) -> None:
         raise UpdateError(f"缺少必需命令: {', '.join(missing)}")
 
 
+def require_commands_optional(names: Iterable[str]) -> list[str]:
+    """检查命令是否存在，返回缺失列表；与 require_commands 不同，不抛异常。"""
+    return [name for name in names if not command_exists(name)]
+
+
 def find_compose_command() -> list[str] | None:
     if command_exists("docker"):
         try:
@@ -614,26 +619,36 @@ def migrate_user_skeletons(*, dry_run: bool) -> None:
 
 
 def build_web_frontend(*, dry_run: bool) -> None:
-    """强制构建 Web 前端产物。"""
+    """构建 Web 前端产物。
+    
+    优先使用 npm 构建；npm 不可用时若 dist 已存在则跳过，
+    否则报错提示手动构建。
+    """
     package_json = WEB_DIR / "package.json"
     if not package_json.is_file():
         raise UpdateError(f"未找到前端构建配置: {package_json}")
 
-    print(green("正在构建 Web 前端..."))
     if dry_run:
         print(f"[dry-run] 将在 {WEB_DIR} 执行 npm install && npm run build")
         return
 
     npm_cmd = _resolve_npm_command()
+    dist_dir = WEB_DIR / "dist"
+
     if not npm_cmd:
+        if dist_dir.is_dir() and any(dist_dir.iterdir()):
+            print(yellow("未找到 npm，但 web/dist 已存在，跳过前端构建"))
+            return
         raise UpdateError(
-            "未找到 npm。请安装 Node.js（https://nodejs.org/），"
-            "或者手动执行: cd web && npm install && npm run build"
+            "未找到 npm 且 web/dist 不存在。"
+            "请安装 Node.js（https://nodejs.org/），"
+            "然后手动执行: cd web && npm install && npm run build"
         )
+
+    print(green("正在构建 Web 前端..."))
     run([npm_cmd, "install"], cwd=WEB_DIR)
     run([npm_cmd, "run", "build"], cwd=WEB_DIR)
 
-    dist_dir = WEB_DIR / "dist"
     if not dist_dir.is_dir() or not any(dist_dir.iterdir()):
         raise UpdateError("Web 前端构建失败：web/dist 为空")
     print(green("Web 前端已构建"))
@@ -847,12 +862,9 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         # ── 环境检查 ──────────────────────────────────────────────
-        # 需要 git 来克隆远程仓库，npm 用于前端构建；不再需要 rsync
+        # git 必需；npm 若缺失则在前端构建阶段按需处理
         if not args.dry_run:
-            required = ["git"]
-            if update_scope == UPDATE_SCOPE_FULL:
-                required.append("npm")
-            require_commands(required)
+            require_commands(["git"])
 
         mode = detect_mode(args)
         print(f"update mode: {mode}")
