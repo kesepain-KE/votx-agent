@@ -1,10 +1,10 @@
-"""Kemo LLM Adapter provider — 完全独立的本地网关适配器。
+"""VOTX LLM Adapter provider — 完全独立的本地网关适配器。
 
-所有通信用 urllib HTTP 直接调用 llm-adapter-kemo 端点。
+所有通信用 urllib HTTP 直接调用 llm-adapter-votx 端点。
 不依赖 OpenAI SDK，不依赖市场 API。
 
 ASR 降级策略：
-  1. Kemo 网关 /v1/audio/transcriptions 优先
+  1. VOTX 网关 /v1/audio/transcriptions 优先
   2. 网关返回 404/501（未映射 ASR 路由）时 → StepFun 原生 SSE ASR
 """
 
@@ -28,7 +28,7 @@ from provider.base import BaseProvider, VALID_CAPABILITIES
 from provider.schema import ProviderResponse, ToolCall
 
 
-DEFAULT_KEMO_BASE_URL = "http://127.0.0.1:8741/v1"
+DEFAULT_VOTX_BASE_URL = "http://127.0.0.1:8741/v1"
 DEFAULT_CHAT_MODEL = "stepfun-step-3.7-flash"
 DEFAULT_ASR_MODEL = "stepfun-stepaudio-2.5-asr"
 DEFAULT_TTS_MODEL = "stepfun-stepaudio-2.5-tts"
@@ -42,7 +42,7 @@ def _is_loopback_url(url: str) -> bool:
     """Return whether *url* targets the local host.
 
     ``urllib`` honors ``HTTP_PROXY`` for loopback URLs when ``NO_PROXY`` is
-    missing on some Windows setups.  Kemo commonly runs on 127.0.0.1, so
+    missing on some Windows setups.  The gateway commonly runs on 127.0.0.1, so
     allowing that traffic to enter an HTTP proxy makes the local SSE stream
     unnecessarily fragile.
     """
@@ -67,7 +67,7 @@ def _urlopen(request: urllib.request.Request, timeout: int):
 
 
 def _normalize_base_url(base_url: str) -> str:
-    base = (base_url or DEFAULT_KEMO_BASE_URL).strip().rstrip("/")
+    base = (base_url or DEFAULT_VOTX_BASE_URL).strip().rstrip("/")
     if base.endswith("/v1"):
         return base
     return f"{base}/v1"
@@ -96,7 +96,7 @@ def _json_bytes(payload: dict[str, Any]) -> bytes:
 
 
 def _multipart_body(fields: dict[str, str], files: list[tuple[str, str, bytes, str]]) -> tuple[bytes, str]:
-    boundary = f"----votx-kemo-{uuid.uuid4().hex}"
+    boundary = f"----votx-multipart-{uuid.uuid4().hex}"
     chunks: list[bytes] = []
 
     for name, value in fields.items():
@@ -122,12 +122,12 @@ def _multipart_body(fields: dict[str, str], files: list[tuple[str, str, bytes, s
     return b"".join(chunks), f"multipart/form-data; boundary={boundary}"
 
 
-class KemoProvider(BaseProvider):
-    """Kemo LLM Adapter 本地网关 Provider — 纯 HTTP，无 OpenAI SDK 依赖。
+class VotxProvider(BaseProvider):
+    """VOTX LLM Adapter 本地网关 Provider — 纯 HTTP，无 OpenAI SDK 依赖。
 
     用法::
 
-        provider = KemoProvider(user_config, core_config)
+        provider = VotxProvider(user_config, core_config)
         resp = provider.respond([{"role": "user", "content": "你好"}])
         for event in provider.respond_stream(messages):
             ...
@@ -137,19 +137,19 @@ class KemoProvider(BaseProvider):
         core = core_config or {}
         cfg = user_config.get("provider", {})
 
-        api_key = _configured(cfg.get("api_key")) or os.environ.get("KEMO_API_KEY", "").strip()
+        api_key = _configured(cfg.get("api_key")) or os.environ.get("VOTX_API_KEY", "").strip()
         if not api_key:
             raise ValueError(
-                "Kemo API Key 未设置。请在 provider.api_key 中填写 Kemo 的 sk-kemo-* 密钥，"
-                "或设置 KEMO_API_KEY。"
+                "VOTX API Key 未设置。请在 provider.api_key 中填写 VOTX 的 sk-votx-* 密钥，"
+                "或设置 VOTX_API_KEY。"
             )
 
         self.base_url: str = _normalize_base_url(
             _configured(cfg.get("base_url"))
-            or os.environ.get("KEMO_BASE_URL", "")
-            or DEFAULT_KEMO_BASE_URL
+            or os.environ.get("VOTX_BASE_URL", "")
+            or DEFAULT_VOTX_BASE_URL
         )
-        self.kemo_api_key: str = api_key
+        self.votx_api_key: str = api_key
         self.model: str = _configured(cfg.get("model")) or DEFAULT_CHAT_MODEL
         self.stream: bool = cfg.get("stream", core.get("output", {}).get("stream", False))
         self.think: bool = True  # 始终开启思考功能
@@ -255,7 +255,7 @@ class KemoProvider(BaseProvider):
 
         url = self._endpoint("chat/completions")
         headers = {
-            "Authorization": f"Bearer {self.kemo_api_key}",
+            "Authorization": f"Bearer {self.votx_api_key}",
             "Content-Type": "application/json",
             "Accept": "text/event-stream",
         }
@@ -269,13 +269,13 @@ class KemoProvider(BaseProvider):
                 break
             except urllib.error.HTTPError as exc:
                 body_text = exc.read().decode("utf-8", errors="replace")
-                raise RuntimeError(f"Kemo chat stream failed ({exc.code}): {_error_message(body_text)}") from exc
+                raise RuntimeError(f"VOTX chat stream failed ({exc.code}): {_error_message(body_text)}") from exc
             except (urllib.error.URLError, OSError, http.client.HTTPException) as exc:
                 if attempt < MAX_RETRIES:
                     _time.sleep(RETRY_DELAY * (attempt + 1))
                     continue
                 raise RuntimeError(
-                    f"Kemo chat stream 建立连接失败（已重试 {MAX_RETRIES} 次）: "
+                    f"VOTX chat stream 建立连接失败（已重试 {MAX_RETRIES} 次）: "
                     f"{type(exc).__name__}: {exc}"
                 ) from exc
 
@@ -314,7 +314,7 @@ class KemoProvider(BaseProvider):
                     obj = json.loads(data_str)
                 except json.JSONDecodeError as exc:
                     raise RuntimeError(
-                        f"Kemo chat stream 返回了畸形 SSE 数据: {data_str[:160]}"
+                        f"VOTX chat stream 返回了畸形 SSE 数据: {data_str[:160]}"
                     ) from exc
 
                 # 网关会把上游流式异常封装为 SSE error；不能把它当正常空响应。
@@ -324,7 +324,7 @@ class KemoProvider(BaseProvider):
                         message = error.get("message") or error.get("detail") or str(error)
                     else:
                         message = str(error)
-                    raise RuntimeError(f"Kemo chat stream 上游错误: {message}")
+                    raise RuntimeError(f"VOTX chat stream 上游错误: {message}")
 
                 # usage（通常出现在最后）
                 if obj.get("usage"):
@@ -368,14 +368,14 @@ class KemoProvider(BaseProvider):
 
         if stream_error is not None:
             raise RuntimeError(
-                "Kemo chat stream 传输中断"
+                "VOTX chat stream 传输中断"
                 f"（{type(stream_error).__name__}: {stream_error}；"
                 f"已接收正文 {sum(len(x) for x in content_parts)} 字符、"
                 f"工具调用片段 {len(tool_calls_map)} 个）"
             ) from stream_error
         if not done_received:
             raise RuntimeError(
-                "Kemo chat stream 在收到 [DONE] 前关闭"
+                "VOTX chat stream 在收到 [DONE] 前关闭"
                 f"（已接收正文 {sum(len(x) for x in content_parts)} 字符、"
                 f"工具调用片段 {len(tool_calls_map)} 个）"
             )
@@ -411,7 +411,7 @@ class KemoProvider(BaseProvider):
     def _json_request(self, method: str, path: str, payload: dict | None = None) -> dict:
         url = self._endpoint(path)
         headers = {
-            "Authorization": f"Bearer {self.kemo_api_key}",
+            "Authorization": f"Bearer {self.votx_api_key}",
             "Accept": "application/json",
         }
         data = None
@@ -428,13 +428,13 @@ class KemoProvider(BaseProvider):
                     return json.loads(raw) if raw else {}
             except urllib.error.HTTPError as exc:
                 body_text = exc.read().decode("utf-8", errors="replace")
-                raise RuntimeError(f"Kemo {path} failed ({exc.code}): {_error_message(body_text)}") from exc
+                raise RuntimeError(f"VOTX {path} failed ({exc.code}): {_error_message(body_text)}") from exc
             except (urllib.error.URLError, OSError) as exc:
                 last_err = exc
                 if attempt < MAX_RETRIES:
                     _time.sleep(RETRY_DELAY * (attempt + 1))
                     continue
-                raise RuntimeError(f"Kemo {path} connection failed: {exc}") from exc
+                raise RuntimeError(f"VOTX {path} connection failed: {exc}") from exc
         raise RuntimeError("unreachable")
 
     # ── Image / Audio / Video / Embedding / Rerank ──
@@ -511,7 +511,7 @@ class KemoProvider(BaseProvider):
             url,
             data=body,
             headers={
-                "Authorization": f"Bearer {self.kemo_api_key}",
+                "Authorization": f"Bearer {self.votx_api_key}",
                 "Content-Type": multipart_type,
             },
             method="POST",
@@ -522,9 +522,9 @@ class KemoProvider(BaseProvider):
                 payload = json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
             body_text = exc.read().decode("utf-8", errors="replace")
-            raise RuntimeError(f"Kemo image edit failed ({exc.code}): {_error_message(body_text)}") from exc
+            raise RuntimeError(f"VOTX image edit failed ({exc.code}): {_error_message(body_text)}") from exc
         except urllib.error.URLError as exc:
-            raise RuntimeError(f"Kemo image edit connection failed: {exc}") from exc
+            raise RuntimeError(f"VOTX image edit connection failed: {exc}") from exc
 
         results: list[dict] = []
         for item in payload.get("data", []):
@@ -575,7 +575,7 @@ class KemoProvider(BaseProvider):
             url,
             data=_json_bytes(payload),
             headers={
-                "Authorization": f"Bearer {self.kemo_api_key}",
+                "Authorization": f"Bearer {self.votx_api_key}",
                 "Content-Type": "application/json",
             },
             method="POST",
@@ -585,18 +585,18 @@ class KemoProvider(BaseProvider):
                 content = response.read()
         except urllib.error.HTTPError as exc:
             body_text = exc.read().decode("utf-8", errors="replace")
-            raise RuntimeError(f"Kemo TTS failed ({exc.code}): {_error_message(body_text)}") from exc
+            raise RuntimeError(f"VOTX TTS failed ({exc.code}): {_error_message(body_text)}") from exc
         except urllib.error.URLError as exc:
-            raise RuntimeError(f"Kemo TTS connection failed: {exc}") from exc
+            raise RuntimeError(f"VOTX TTS connection failed: {exc}") from exc
 
         with open(filepath, "wb") as f:
             f.write(content)
         return filepath
 
     def transcribe_audio(self, file_path: str, **kwargs) -> str:
-        """ASR — Kemo 网关优先，StepFun 原生 SSE ASR 降级。
+        """ASR — VOTX 网关优先，StepFun 原生 SSE ASR 降级。
 
-        优先 Kemo 网关，网关返回 404/501 时用同一套凭据再试标准接口。
+        优先 VOTX 网关，网关返回 404/501 时用同一套凭据再试标准接口。
         """
         if "audio_transcription" not in self.capabilities():
             raise NotImplementedError("当前 provider 不支持语音识别 (audio_transcription)")
@@ -610,24 +610,24 @@ class KemoProvider(BaseProvider):
         if not model:
             raise ValueError("audio_transcription_model 未配置")
 
-        # ── 第 1 步：Kemo 网关 ──
+        # ── 第 1 步：VOTX 网关 ──
         try:
-            return self._transcribe_audio_kemo(audio_file, model, **kwargs)
+            return self._transcribe_audio_votx(audio_file, model, **kwargs)
         except urllib.error.HTTPError as exc:
             if exc.code not in (404, 501):
                 body_text = exc.read().decode("utf-8", errors="replace")
                 raise RuntimeError(
-                    f"Kemo ASR failed ({exc.code}): {_error_message(body_text)}"
+                    f"VOTX ASR failed ({exc.code}): {_error_message(body_text)}"
                 ) from exc
-            kemo_err = f"Kemo ASR ({exc.code}): {_error_message(exc.read().decode('utf-8', errors='replace'))}"
+            votx_err = f"VOTX ASR ({exc.code}): {_error_message(exc.read().decode('utf-8', errors='replace'))}"
         except urllib.error.URLError as exc:
-            raise RuntimeError(f"Kemo ASR connection failed: {exc}") from exc
+            raise RuntimeError(f"VOTX ASR connection failed: {exc}") from exc
         except RuntimeError as exc:
-            # 404/501 也可能被 _transcribe_audio_kemo 以 RuntimeError 抛出
+            # 404/501 也可能被 _transcribe_audio_votx 以 RuntimeError 抛出
             msg = str(exc)
             if "404" not in msg and "501" not in msg:
                 raise
-            kemo_err = msg
+            votx_err = msg
 
         # ── 第 2 步：标准 ASR 接口降级 ──
         stepfun_err = None
@@ -637,13 +637,13 @@ class KemoProvider(BaseProvider):
             stepfun_err = str(exc)
 
         raise RuntimeError(
-            f"ASR 全部失败: {kemo_err}; "
+            f"ASR 全部失败: {votx_err}; "
             f"StepFun fallback {'也' if stepfun_err else '未配置或跳过'}"
             + (f" ({stepfun_err})" if stepfun_err else "")
         )
 
-    def _transcribe_audio_kemo(self, audio_file: Path, model: str, **kwargs) -> str:
-        """通过 Kemo 网关 multipart 上传音频进行 ASR。"""
+    def _transcribe_audio_votx(self, audio_file: Path, model: str, **kwargs) -> str:
+        """通过 VOTX 网关 multipart 上传音频进行 ASR。"""
         language = kwargs.get("language", "zh")
         prompt = kwargs.get("prompt", "")
         content_type = mimetypes.guess_type(audio_file.name)[0] or "application/octet-stream"
@@ -663,7 +663,7 @@ class KemoProvider(BaseProvider):
             url,
             data=body,
             headers={
-                "Authorization": f"Bearer {self.kemo_api_key}",
+                "Authorization": f"Bearer {self.votx_api_key}",
                 "Content-Type": multipart_type,
             },
             method="POST",
@@ -697,7 +697,7 @@ class KemoProvider(BaseProvider):
             url,
             data=body,
             headers={
-                "Authorization": f"Bearer {self.kemo_api_key}",
+                "Authorization": f"Bearer {self.votx_api_key}",
                 "Content-Type": multipart_type,
             },
             method="POST",
@@ -747,7 +747,7 @@ class KemoProvider(BaseProvider):
             url,
             data=body,
             headers={
-                "Authorization": f"Bearer {self.kemo_api_key}",
+                "Authorization": f"Bearer {self.votx_api_key}",
                 "Content-Type": multipart_type,
             },
             method="POST",
@@ -757,9 +757,9 @@ class KemoProvider(BaseProvider):
                 content = response.read()
         except urllib.error.HTTPError as exc:
             body_text = exc.read().decode("utf-8", errors="replace")
-            raise RuntimeError(f"Kemo speech-to-speech failed ({exc.code}): {_error_message(body_text)}") from exc
+            raise RuntimeError(f"VOTX speech-to-speech failed ({exc.code}): {_error_message(body_text)}") from exc
         except urllib.error.URLError as exc:
-            raise RuntimeError(f"Kemo speech-to-speech connection failed: {exc}") from exc
+            raise RuntimeError(f"VOTX speech-to-speech connection failed: {exc}") from exc
 
         with open(filepath, "wb") as f:
             f.write(content)
@@ -798,7 +798,7 @@ class KemoProvider(BaseProvider):
         filepath = os.path.join(output_dir, filename)
         request = urllib.request.Request(
             self._endpoint(f"videos/{job_id}/content"),
-            headers={"Authorization": f"Bearer {self.kemo_api_key}"},
+            headers={"Authorization": f"Bearer {self.votx_api_key}"},
             method="GET",
         )
         try:
@@ -807,9 +807,9 @@ class KemoProvider(BaseProvider):
                 raw = response.read()
         except urllib.error.HTTPError as exc:
             body_text = exc.read().decode("utf-8", errors="replace")
-            raise RuntimeError(f"Kemo video content failed ({exc.code}): {_error_message(body_text)}") from exc
+            raise RuntimeError(f"VOTX video content failed ({exc.code}): {_error_message(body_text)}") from exc
         except urllib.error.URLError as exc:
-            raise RuntimeError(f"Kemo video content connection failed: {exc}") from exc
+            raise RuntimeError(f"VOTX video content connection failed: {exc}") from exc
 
         if "application/json" in content_type:
             payload = json.loads(raw.decode("utf-8"))

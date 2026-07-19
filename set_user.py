@@ -21,7 +21,7 @@ except Exception:
     ROOT = Path(__file__).parent
 USERS_DIR = ROOT / "users"
 
-KEMO_DEFAULT_BASE_URL = "http://127.0.0.1:8741/v1"
+VOTX_DEFAULT_BASE_URL = "http://127.0.0.1:8741/v1"
 
 # ── 默认人设模板 ───────────────────────────────
 
@@ -164,19 +164,19 @@ def _prompt_existing_key(current_key: str, empty_hint: str) -> str:
     return input(empty_hint).strip()
 
 
-def _configure_kemo_provider(current: dict | None = None) -> dict:
-    """配置 provider（type 固定为 kemo）。"""
+def _configure_votx_provider(current: dict | None = None) -> dict:
+    """配置 provider（type 固定为 votx）。"""
     current = current or {}
-    print("\n  Kemo LLM Adapter 本地网关 / OpenAI 兼容接口。")
+    print("\n  VOTX LLM Adapter 本地网关 / OpenAI 兼容接口。")
     cur_base_url = (
         current.get("base_url", "").strip()
-        or os.environ.get("KEMO_BASE_URL", "").strip()
-        or KEMO_DEFAULT_BASE_URL
+        or os.environ.get("VOTX_BASE_URL", "").strip()
+        or VOTX_DEFAULT_BASE_URL
     )
     base_url = input(f"  Base URL [{cur_base_url}]: ").strip() or cur_base_url
     api_key = _prompt_existing_key(
         current.get("api_key", "").strip(),
-        "  API Key (留空使用 KEMO_API_KEY 或上游密钥): ",
+        "  API Key (留空使用 VOTX_API_KEY 或上游密钥): ",
     )
     default_model = current.get("model", "").strip()
     model = input(f"  模型名称 [{default_model}]: ").strip() or default_model
@@ -184,7 +184,7 @@ def _configure_kemo_provider(current: dict | None = None) -> dict:
         model = input("  请输入模型名称: ").strip()
 
     return {
-        "type": "kemo",
+        "type": "votx",
         "model": model,
         "api_key": api_key,
         "base_url": base_url,
@@ -199,11 +199,11 @@ def _configure_kemo_provider(current: dict | None = None) -> dict:
 
 
 def _pick_provider_config(current: dict | None = None, allow_keep: bool = False) -> dict | None:
-    """选择并配置 provider。type 统一为 kemo。"""
+    """选择并配置 provider。type 统一为 votx。"""
     current = current or {}
     default_model = current.get("model", "")
 
-    print("\n  Provider: kemo（Kemo 网关 / OpenAI-compatible）")
+    print("\n  Provider: votx（VOTX 网关 / OpenAI-compatible）")
     print(f"  当前模型: {default_model or '(未设置)'}")
 
     if allow_keep:
@@ -213,7 +213,7 @@ def _pick_provider_config(current: dict | None = None, allow_keep: bool = False)
     else:
         input("  按回车继续配置...")
 
-    return _configure_kemo_provider(current)
+    return _configure_votx_provider(current)
 
 
 def _edit_api_key_only(config: dict, cfg: dict):

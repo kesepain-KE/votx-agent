@@ -8,7 +8,7 @@ interface Props {
 }
 
 const FRIENDLY_PROVIDER: Record<string, string> = {
-  kemo: 'Kemo',
+  votx: 'VOTX',
 }
 
 export function UserSelect({ selectUser }: Props) {

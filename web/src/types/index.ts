@@ -100,7 +100,7 @@ export interface CapabilitiesInfo {
 
 /** 描述 UserConfig 数据结构。 */
 export interface UserConfig {
-  type: 'kemo'
+  type: 'votx'
   model: string
   baseUrl: string
   keyDraft: string

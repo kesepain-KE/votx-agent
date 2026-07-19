@@ -105,7 +105,7 @@ web/dist-ssr/
 # 知识库 — 全局 knowledge/ 提交到仓库（用户级 knowledge/ 在 users/ 下已被用户数据规则覆盖）
 message/config.json
 tests/*
-!tests/test_kemo_adapter.py
+!tests/test_votx_adapter.py
 
 # ============================================================
 # 备份文件（含敏感配置）

@@ -139,30 +139,30 @@ def setup_env() -> bool:
     # 已有有效 .env
     if env_file.exists() and env_file.stat().st_size > 0:
         content = env_file.read_text(encoding="utf-8")
-        if "KEMO_API_KEY=" in content and "sk-kemo-your-key-here" not in content:
+        if "VOTX_API_KEY=" in content and "sk-votx-your-key-here" not in content:
             print("  .env              [已配置]")
             return True
 
-    print("  .env 未配置或包含占位符，需要填写 Kemo API Key")
-    print("  获取: 查看 llm-adapter-kemo 的 config/api_keys.json")
+    print("  .env 未配置或包含占位符，需要填写 VOTX API Key")
+    print("  获取: 查看 llm-adapter-votx 的 config/api_keys.json")
 
     if env_example.exists():
         template = env_example.read_text(encoding="utf-8")
     else:
         template = (
             "# votx-agent 环境变量\n"
-            "KEMO_API_KEY=sk-kemo-your-key-here\n"
-            "# KEMO_BASE_URL=http://127.0.0.1:8741/v1\n"
+            "VOTX_API_KEY=sk-votx-your-key-here\n"
+            "# VOTX_BASE_URL=http://127.0.0.1:8741/v1\n"
             "# TAVILY_API_KEY=your-tavily-key\n"
             "# HTTP_TIMEOUT=15\n"
         )
 
     try:
-        api_key = input("  Kemo API Key (回车跳过): ").strip()
+        api_key = input("  VOTX API Key (回车跳过): ").strip()
     except (EOFError, KeyboardInterrupt):
         api_key = ""
 
-    content = template.replace("sk-kemo-your-key-here", api_key) if api_key else template
+    content = template.replace("sk-votx-your-key-here", api_key) if api_key else template
     env_file.write_text(content, encoding="utf-8")
     print(f"  .env              [{'已创建' if api_key else '已跳过'}]")
     return True
@@ -172,7 +172,7 @@ def verify_imports() -> bool:
     """验证关键模块可导入"""
     sys.path.insert(0, str(ROOT))
     modules = [
-        "provider.kemo_adapter",
+        "provider.votx_adapter",
         "run.chat",
         "run.tool",
         "run.engine",

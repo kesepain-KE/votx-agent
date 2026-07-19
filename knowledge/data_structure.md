@@ -11,7 +11,7 @@ VOTX Agent 全局知识库索引。此目录存放所有用户共享的框架说
 | `data_structure.md` | 全局知识库索引（本文件） | 索引、知识库 |
 | `deployment.md` | 安装、启动、Web host/port、环境变量、消息配置、打包、update.py | 部署、环境变量、更新 |
 | `message-config.md` | OneBot/NapCat、Telegram、账号绑定、附件、推送队列 | QQ、Telegram、附件 |
-| `users-config.md` | 用户目录、`config.json`、Provider、多模态、历史、工具权限、技能禁用 | 用户配置、Provider、tool |
+| `users-config.md` | 用户目录、`config.json`、Provider（VOTX 网关 / OpenAI-compatible）、多模态、历史、工具权限、技能禁用 | 用户配置、Provider、VOTX、tool |
 
 ## 架构原理
 

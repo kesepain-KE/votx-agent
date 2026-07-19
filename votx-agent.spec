@@ -22,7 +22,7 @@ hiddenimports = [
     "message.routes.telegram",
     "websockets",
     "provider.factory",
-    "provider.kemo_adapter",
+    "provider.votx_adapter",
     "provider.schema",
     "plugins._common",
     "yaml",

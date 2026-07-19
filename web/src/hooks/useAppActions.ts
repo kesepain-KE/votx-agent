@@ -930,9 +930,9 @@ export function useAppActions() {
     if (!get().userActive) return
     try {
       const cfg = await api<RawConfig>('/api/config'); if (cfg.error) return
-      const provider = cfg.provider; const rawType = provider?.type || 'kemo'
+      const provider = cfg.provider; const rawType = provider?.type || 'votx'
       set((s) => ({
-        config: { ...s.config, type: 'kemo', stream: !!provider?.stream, acceptTask: !!(cfg.task_plan && cfg.task_plan.accept_task), model: provider?.model || '', baseUrl: provider?.base_url || '',
+        config: { ...s.config, type: 'votx', stream: !!provider?.stream, acceptTask: !!(cfg.task_plan && cfg.task_plan.accept_task), model: provider?.model || '', baseUrl: provider?.base_url || '',
           capabilitiesOverride: (provider as Record<string,unknown>)?.capabilities_override as string[]|null ?? null,
           visionModel: (provider as Record<string,unknown>)?.vision_model as string || '',
           audioTranscriptionModel: (provider as Record<string,unknown>)?.audio_transcription_model as string || '',
@@ -1017,7 +1017,7 @@ export function useAppActions() {
   const restoreConfig = useCallback(() => {
     if (!get().userActive) { toast('请先选择用户'); return }
     const last = get().lastSavedConfig; if (!last.model && !last.baseUrl && !last.type) { toast('没有可恢复的保存状态'); return }
-    set((s) => ({ config: { ...s.config, type: last.type || 'kemo', model: last.model || '', baseUrl: last.baseUrl || '', stream: 'stream' in last ? !!last.stream : s.config.stream, acceptTask: 'acceptTask' in last ? !!last.acceptTask : s.config.acceptTask, capabilitiesOverride: ('capabilitiesOverride' in last ? last.capabilitiesOverride ?? null : s.config.capabilitiesOverride), visionModel: 'visionModel' in last ? (last.visionModel || '') : s.config.visionModel, audioTranscriptionModel: 'audioTranscriptionModel' in last ? (last.audioTranscriptionModel || '') : s.config.audioTranscriptionModel, imageGenerationModel: 'imageGenerationModel' in last ? (last.imageGenerationModel || '') : s.config.imageGenerationModel, imageEditModel: 'imageEditModel' in last ? (last.imageEditModel || '') : s.config.imageEditModel, speechGenerationModel: 'speechGenerationModel' in last ? (last.speechGenerationModel || '') : s.config.speechGenerationModel, speechToSpeechModel: 'speechToSpeechModel' in last ? (last.speechToSpeechModel || '') : s.config.speechToSpeechModel, videoGenerationModel: 'videoGenerationModel' in last ? (last.videoGenerationModel || '') : s.config.videoGenerationModel } }))
+    set((s) => ({ config: { ...s.config, type: last.type || 'votx', model: last.model || '', baseUrl: last.baseUrl || '', stream: 'stream' in last ? !!last.stream : s.config.stream, acceptTask: 'acceptTask' in last ? !!last.acceptTask : s.config.acceptTask, capabilitiesOverride: ('capabilitiesOverride' in last ? last.capabilitiesOverride ?? null : s.config.capabilitiesOverride), visionModel: 'visionModel' in last ? (last.visionModel || '') : s.config.visionModel, audioTranscriptionModel: 'audioTranscriptionModel' in last ? (last.audioTranscriptionModel || '') : s.config.audioTranscriptionModel, imageGenerationModel: 'imageGenerationModel' in last ? (last.imageGenerationModel || '') : s.config.imageGenerationModel, imageEditModel: 'imageEditModel' in last ? (last.imageEditModel || '') : s.config.imageEditModel, speechGenerationModel: 'speechGenerationModel' in last ? (last.speechGenerationModel || '') : s.config.speechGenerationModel, speechToSpeechModel: 'speechToSpeechModel' in last ? (last.speechToSpeechModel || '') : s.config.speechToSpeechModel, videoGenerationModel: 'videoGenerationModel' in last ? (last.videoGenerationModel || '') : s.config.videoGenerationModel } }))
     toast('已恢复到上次保存状态')
   }, [get, set])
 

@@ -4,7 +4,7 @@
 
 [![License](https://img.shields.io/badge/license-MIT-orange)](./LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
-[![Kemo](https://img.shields.io/badge/LLM-Kemo%20LLM%20Adapter-brightgreen)](https://github.com/kesepain-KE/llm-adapter-kemo)
+[![VOTX](https://img.shields.io/badge/LLM-VOTX%20LLM%20Adapter-brightgreen)](https://github.com/kesepain-KE/llm-adapter-votx)
 [![Web](https://img.shields.io/badge/web-Flask%20%2B%20React%20%2B%20TypeScript-lightgrey)](https://flask.palletsprojects.com/)
 
 [中文](./README.md) | English
@@ -51,7 +51,7 @@ User Input → ChatManager.add_user_message()
 
 ### Features
 
-- **Single Provider (Kemo LLM Adapter)**: Pure HTTP local multimodal gateway, no OpenAI SDK dependency — all models and capabilities are routed through Kemo.
+- **Single Provider (VOTX LLM Adapter)**: Pure HTTP local multimodal gateway, no OpenAI SDK dependency — all models and capabilities are routed through VOTX.
 - **Multi-user data isolation**: Each user has independent `config.json`, `self_soul.md`, history, files, memory, and knowledge base.
 - **Shared Web/CLI engine**: `run/engine.py` handles system prompts, tool calls, and history persistence.
 - **Skills/Plugins architecture**: `plugins/` for built-in skills, `skills/` for user extensions.
@@ -100,14 +100,14 @@ Output: `dist\votx-agent-windows.zip` containing two EXEs sharing a single runti
 
 votx-agent offers two Provider modes:
 
-- **Recommended mode** → pair with the Kemo LLM Adapter gateway for full multimodal support.
+- **Recommended mode** → pair with the VOTX LLM Adapter gateway for full multimodal support.
 - **Compatible mode** → point `base_url` at any OpenAI-compatible API (`base_url` determines the target); some endpoints (such as image generation, video, or parts of ASR routing) may be unavailable.
 
-Switch modes by changing only `base_url` and `api_key`; keep `provider.type` set to `"kemo"`.
+Switch modes by changing only `base_url` and `api_key`; keep `provider.type` set to `"votx"`.
 
 ### Direct OpenAI-Compatible API
 
-Change `base_url` to the third-party endpoint and fill `api_key` with that platform's key. Keep `provider.type` as `"kemo"`.
+Change `base_url` to the third-party endpoint and fill `api_key` with that platform's key. Keep `provider.type` as `"votx"`.
 
 ### Configuration Priority
 
@@ -118,8 +118,8 @@ users/<name>/config.json > environment variables > program defaults
 Environment variables are fallback only (see `.env.example` for full details):
 
 ```env
-KEMO_API_KEY=your-api-key
-KEMO_BASE_URL=http://127.0.0.1:8741/v1
+VOTX_API_KEY=your-api-key
+VOTX_BASE_URL=http://127.0.0.1:8741/v1
 TAVILY_API_KEY=tvly-xxx
 ```
 
@@ -138,11 +138,11 @@ TAVILY_API_KEY=tvly-xxx
 provider/
 ├── base.py          # BaseProvider abstract interface (respond / respond_stream + all multimodal capability stubs)
 ├── schema.py        # ToolCall + ProviderResponse unified data structures
-├── factory.py       # create_provider() → only supports type: "kemo"
-└── kemo_adapter.py  # Kemo LLM Adapter Provider — pure urllib HTTP, no OpenAI SDK dependency
+├── factory.py       # create_provider() → only supports type: "votx"
+└── votx_adapter.py  # VOTX LLM Adapter Provider — pure urllib HTTP, no OpenAI SDK dependency
 ```
 
-KemoProvider communicates with the configured `base_url` via pure `urllib` HTTP. `type` stays `kemo`, while `base_url` can target either the Kemo LLM Adapter gateway (recommended mode) or any OpenAI-compatible API (compatible mode); image generation, video, and some ASR routes may only be available on the Kemo gateway.
+VotxProvider communicates with the configured `base_url` via pure `urllib` HTTP. `type` stays `votx`, while `base_url` can target either the VOTX LLM Adapter gateway (recommended mode) or any OpenAI-compatible API (compatible mode); image generation, video, and some ASR routes may only be available on the VOTX gateway.
 
 ## Multimodal Capabilities
 
@@ -389,7 +389,7 @@ votx-agent/
 ├── knowledge/          # Global knowledge base (includes architecture docs)
 ├── message/            # External message routing: OneBot/NapCat, Telegram, push queue, identity mapping
 ├── plugins/            # Built-in skills (18 tool + 2 instruction-only Skills)
-├── provider/           # Kemo LLM Adapter Provider — pure HTTP local gateway adapter
+├── provider/           # VOTX LLM Adapter Provider — pure HTTP local gateway adapter
 ├── run/                # Conversation engine, history management, tool runner, summarizer, prompt cache
 ├── skills/             # User extension skills
 ├── users/              # User data (config, history, files, knowledge, memory)
@@ -497,7 +497,7 @@ knowledge/
 
 ## Related Efforts
 
-- [Kemo LLM Adapter](https://github.com/kesepain-KE/llm-adapter-kemo) — Local multimodal LLM gateway, the provider backend for votx-agent
+- [VOTX LLM Adapter](https://github.com/kesepain-KE/llm-adapter-votx) — Local multimodal LLM gateway, the provider backend for votx-agent
 - [NapCat](https://github.com/NapNeko/NapCatQQ) — QQ bot framework
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp) — Video download engine
 

@@ -60,7 +60,7 @@ export const useAppStore = create<AppStore>(() => ({
   promptTab: 'system',
   statusSubTab: 'logs',
   config: {
-    type: 'kemo',
+    type: 'votx',
     model: '',
     baseUrl: '',
     keyDraft: '',

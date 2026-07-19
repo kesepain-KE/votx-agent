@@ -39,7 +39,7 @@ votx-agent 项目智能体的操作手册。应以当前源码和配置为准，
 ## 3. 项目结构
 
 ```text
-provider/          Kemo Provider 适配层
+provider/          VOTX Provider 适配层
 run/               对话引擎、历史、ToolRunner、摘要和 prompt 缓存
 web/               Flask + React/TypeScript/Vite
 plugins/           内置 Skills
@@ -154,7 +154,7 @@ knowledge/message-config.md
 
 ## 7. Provider 与多模态
 
-`provider.type` 统一为 `"kemo"`。`base_url` 可以指向 Kemo LLM Adapter 或 OpenAI 兼容 API。
+`provider.type` 统一为 `"votx"`。`base_url` 可以指向 VOTX LLM Adapter 或 OpenAI 兼容 API。
 
 能力名：
 

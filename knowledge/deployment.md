@@ -32,7 +32,7 @@ python start.py --user <用户名> --prompt "<内容>" --once
 
 常规模型配置应写入用户 `config.json`。`.env.example` 当前保留的变量类别：
 
-- `KEMO_API_KEY`、`KEMO_BASE_URL`：Provider 兜底。
+- `VOTX_API_KEY`、`VOTX_BASE_URL`：Provider 兜底。
 - `TAVILY_API_KEY`、`TAVILY_RESULT_TRUNCATE`：Tavily。
 - `PORT`、`VOTX_HOST`、`VOTX_SESSION_COOKIE_NAME`：Web 启动和 Cookie。
 - `VOTX_SECRET_KEY`、`VOTX_ACCESS_TOKEN`：Web 会话/API 认证。
