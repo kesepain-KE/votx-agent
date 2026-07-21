@@ -35,6 +35,30 @@
 > [!NOTE]
 > votx-agent is intended for personal and small-scale multi-user deployments, with an emphasis on local execution, a unified toolchain, multimodal integration, and cross-platform messaging. It is developed and maintained independently from kemo-agent and does not inherit from it.
 
+## Table of Contents
+
+- [Positioning](#positioning)
+- [Core Capabilities](#core-capabilities)
+- [Capability Overview](#capability-overview)
+- [Architecture](#architecture)
+- [Quick Start](#quick-start)
+- [Provider Configuration](#provider-configuration)
+- [Multimodal Capabilities](#multimodal-capabilities)
+- [Web and CLI](#web-and-cli)
+- [External Message Router](#external-message-router)
+- [Files and Knowledge](#files-and-knowledge)
+- [Skills and Plugins](#skills-and-plugins)
+- [Project Structure](#project-structure)
+- [Updates](#updates)
+- [Windows Packaging](#windows-packaging)
+- [Development](#development)
+- [Relationship to Adjacent Projects](#relationship-to-adjacent-projects)
+- [Current Scope](#current-scope)
+- [Maintainer](#maintainer)
+- [Contributing](#contributing)
+- [Contributors](#contributors)
+- [License](#license)
+
 ---
 
 ## Positioning
