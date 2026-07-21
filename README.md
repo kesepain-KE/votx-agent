@@ -1,152 +1,415 @@
-<p align="center"><img src="votx-agent.png" width="160" alt="votx-agent"></p>
+<p align="center">
+  <img src="votx-agent.png" width="168" alt="votx-agent logo">
+</p>
 
-# votx-agent
+<h1 align="center">votx-agent</h1>
 
-[![License](https://img.shields.io/badge/license-MIT-orange)](./LICENSE)
-[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
-[![VOTX](https://img.shields.io/badge/LLM-VOTX%20LLM%20Adapter-brightgreen)](https://github.com/kesepain-KE/llm-adapter-votx)
-[![Web](https://img.shields.io/badge/web-Flask%20%2B%20React%20%2B%20TypeScript-lightgrey)](https://flask.palletsprojects.com/)
+<p align="center">
+  <strong>面向个人部署与跨终端自动化的本地多用户 Agent Framework。</strong>
+</p>
 
-中文 | [English](./README_EN.md)
+<p align="center">
+  以统一对话引擎与 VOTX 多模态网关为核心，集成工具调用、任务计划、持久记忆、知识库、外部消息路由与全栈多模态能力，<br>
+  为个人智能助手、自动化工作流和多终端智能服务提供可部署、可扩展、可迁移的运行框架。
+</p>
 
-## 目录
+<p align="center">
+  <a href="./LICENSE">
+    <img src="https://img.shields.io/badge/license-MIT-orange" alt="license">
+  </a>
+  <a href="https://www.python.org/">
+    <img src="https://img.shields.io/badge/python-3.10%2B-blue" alt="python">
+  </a>
+  <a href="https://github.com/kesepain-KE/llm-adapter-votx">
+    <img src="https://img.shields.io/badge/provider-VOTX%20LLM%20Adapter-brightgreen" alt="provider">
+  </a>
+  <a href="https://flask.palletsprojects.com/">
+    <img src="https://img.shields.io/badge/web-Flask%20%2B%20React%20%2B%20TypeScript-lightgrey" alt="web">
+  </a>
+</p>
 
-- [定位](#定位)
-- [安装](#安装)
-- [Provider 配置](#provider-配置)
-- [多模态能力](#多模态能力)
-- [用法](#用法)
-- [外部消息路由](#外部消息路由)
-- [文件与知识库](#文件与知识库)
-- [Skills / Plugins](#skills--plugins)
-- [项目结构](#项目结构)
-- [更新](#更新)
-- [Windows 打包](#windows-打包)
-- [开发](#开发)
-- [相关项目](#相关项目)
-- [主要项目负责人](#主要项目负责人)
-- [参与贡献方式](#参与贡献方式)
-  - [贡献人员](#贡献人员)
-- [开源协议](#开源协议)
+<p align="center">
+  中文 · <a href="./README_EN.md">English</a>
+</p>
 
-## 定位
+> [!NOTE]
+> votx-agent 面向个人与小规模多用户部署，强调本地运行、统一工具链、多模态接入和跨平台消息交互。它与 kemo-agent 独立开发、独立维护，不存在继承关系。
 
-votx-agent 是一个本地优先、面向个人部署的多用户 AI Agent 框架。它提供 Web UI、CLI、工具调用、任务计划、定时任务、持久记忆、自我改进、QQ/Telegram 消息路由和全栈多模态 Provider 接入。
+---
 
-### 架构概览
+## 项目定位
+
+votx-agent 是一个本地优先、面向个人部署的多用户 AI Agent 框架。
+
+它不是单纯的聊天前端，也不是只负责转发模型请求的 API 封装，而是一套能够长期运行、持续接收任务并连接多种终端的完整 Agent 系统。
+
+框架围绕统一对话引擎构建，将以下能力整合到同一运行链路中：
+
+- Web 与 CLI 交互
+- 模型调用与流式事件输出
+- 工具发现、调度与执行
+- 任务计划与定时任务
+- 临时记忆、永久记忆与自我改进
+- 用户知识库与共享知识库
+- QQ、Telegram 等外部消息入口
+- 图像、语音、视频等多模态能力
+- 用户级配置、历史与文件隔离
+
+votx-agent 适合作为：
+
+- 个人长期运行的本地智能助手
+- 局域网内可访问的多终端 Agent 服务
+- QQ、Telegram 等消息平台的智能处理核心
+- 自动化任务、定时任务与多模态工作流的统一入口
+- VOTX LLM Adapter 的上层 Agent 应用框架
+
+---
+
+## 核心特性
+
+### 统一对话引擎
+
+`run/engine.py` 是系统唯一的对话执行入口。
+
+Web、CLI 和外部消息模块不重复实现 Agent 逻辑，只负责将输入转换为统一请求，并消费引擎输出的事件流。
+
+核心运行链路：
 
 ```text
-用户输入 → ChatManager.add_user_message()
-  → engine.run_chat_turn()
-    → 循环:
-      1. chat.build_messages() → system prompt + 历史
-      2. provider.respond_stream() → yield SSE 事件
-      3. 如有 tool_calls → tool_runner.execute()
-      4. chat.add_tool_call_message() + add_tool_results()
-      5. 回到步骤 1（最多 MAX_TOOL_ROUNDS 轮）
-    → 最终文本回复 → chat.add_assistant_message()
+用户输入
+→ ChatManager.add_user_message()
+→ engine.run_chat_turn()
+→ 构建 system prompt 与历史消息
+→ Provider 流式响应
+→ 检测并执行 tool_calls
+→ 写入工具调用与工具结果
+→ 继续模型循环
+→ 提交最终回复与历史
 ```
 
-`run/engine.py` 是唯一对话引擎入口。CLI (`main.py`) 和 Web (`web/routes/`) 都调用它，只负责消费事件流并渲染。Web 后端是 Flask + SSE；前端是 React + TypeScript + Vite。
+模型与工具可以进行多轮循环，直至得到最终结果或达到 `MAX_TOOL_ROUNDS` 上限。
 
-### 特性
+### 本地多用户隔离
 
-- **单 Provider（VOTX LLM Adapter）**：纯 HTTP 本地多模态网关，不依赖 OpenAI SDK，所有模型和能力通过 VOTX 统一路由。
-- **多用户数据隔离**：每个用户独立 `config.json`、`self_soul.md`、历史、文件、记忆和知识库。
-- **Web + CLI 共用引擎**：`run/engine.py` 统一处理 system prompt、tool_calls、历史保存。
-- **Skills/Plugins 架构**：`plugins/` 为内置技能，`skills/` 为用户拓展技能。
-- **工具优先工作流**：文件、网络、下载、知识库等任务优先走专用 Skill/工具，shell 作为最后的诊断和构建手段。
-- **任务计划**：复杂请求可生成计划，Web UI 批准后执行，支持暂停、继续、终止。
-- **auto_improve**：临时记忆与永久记忆分层，支持主动审阅与清理。
-- **外部消息路由**：QQ/NapCat/OneBot 与 Telegram，可接收图片、语音、文件，支持推送队列。
-- **全栈多模态能力**：图像识别、语音识别、图像生成、图像编辑、语音生成、语音生语音、视频生成，按 Provider 能力启用。
-- **全局/用户知识库**：`knowledge/` 全局共享，`users/<name>/knowledge/` 用户私有。
+每个用户拥有独立的数据空间：
 
-<p align="center"><img src="votx-agent-web-UI.png" width="720" alt="votx-agent Web UI"></p>
+```text
+users/<name>/
+├── config.json
+├── self_soul.md
+├── avatar/
+├── history/
+├── knowledge/
+├── download/
+├── task-plan/
+├── tasks/
+└── improve/
+```
 
-## 安装
+用户之间的以下资源相互隔离：
 
-需要 Python 3.10+、Git。构建 Web 前端还需要 Node.js 18+/npm。
+- Provider 配置
+- 系统人格
+- 对话历史
+- 上传文件
+- 下载文件
+- 私有知识库
+- 任务计划
+- 定时任务
+- 记忆与自我改进数据
 
-### 普通 Python 运行
+### VOTX 多模态 Provider
+
+votx-agent 通过纯 HTTP 方式接入 VOTX LLM Adapter，不依赖 OpenAI SDK。
+
+同一 Provider 层可以统一承载：
+
+- 文本生成
+- 工具调用
+- 图片识别
+- 语音识别
+- 图像生成
+- 图像编辑
+- 语音生成
+- 语音生语音
+- 视频生成
+
+当 `base_url` 指向普通 OpenAI 兼容接口时，文本、工具调用和部分多模态能力仍可工作；图像编辑、视频生成和部分 ASR 路由等高级能力取决于目标接口是否实现对应端点。
+
+### 工具优先工作流
+
+框架优先使用专用 Skill 完成任务，例如：
+
+- 文件操作
+- 网络请求
+- 下载
+- 网页搜索
+- 知识库检索
+- 多模态处理
+- 任务计划
+- 定时任务
+- 外部消息推送
+
+`shell` 保留为诊断、构建和系统级操作能力，而不是所有任务的默认入口。
+
+### 任务计划与定时任务
+
+复杂请求可以先转换为结构化任务计划，再由用户批准后执行。
+
+任务计划支持：
+
+- 创建
+- 查看
+- 批准
+- 暂停
+- 继续
+- 终止
+- 进度记录
+
+Cron 定时任务支持：
+
+- 创建
+- 查询
+- 修改
+- 删除
+- 暂停
+- 恢复
+- 立即执行
+
+### 分层记忆与自我改进
+
+`auto_improve` 提供三类长期数据：
+
+```text
+memory
+self-improving
+ontology
+```
+
+系统支持临时记忆与永久记忆分层，并提供：
+
+- 保存
+- 搜索
+- 审阅
+- 晋升
+- 删除
+- 清理
+
+被动模式主要处理临时层；主动审阅可以读取临时层与永久层，并将具有长期价值的内容晋升到永久层。
+
+### 外部消息路由
+
+消息模块可以将 QQ、Telegram 等平台接入同一 Agent 引擎。
+
+支持：
+
+- OneBot / NapCat
+- Telegram Bot
+- 用户身份绑定
+- 图片、语音、视频和文件接收
+- 外部命令
+- 主动消息推送
+- 推送队列
+- 附件统一归档
+
+### 本地优先与开放文件格式
+
+主要数据以本地文件形式保存：
+
+- JSON：配置与状态
+- JSONL：历史与附件日志
+- Markdown：知识库、人格、技能与操作手册
+- 普通目录：上传文件、下载文件与媒体资源
+
+用户可以直接查看、编辑、备份和迁移数据，不依赖封闭云端存储。
+
+---
+
+## 功能概览
+
+| 子系统 | 主要能力 |
+|---|---|
+| 对话引擎 | Prompt 构建、流式响应、模型与工具多轮循环、历史提交 |
+| Provider | VOTX LLM Adapter 与 OpenAI 兼容接口接入 |
+| 多用户 | 配置、人格、历史、文件、知识库和任务独立隔离 |
+| 工具系统 | 内置 Plugins 与用户 Skills 自动发现、加载与执行 |
+| 多模态 | 识图、ASR、文生图、图像编辑、TTS、语音生语音、视频生成 |
+| 任务计划 | 计划生成、审批、执行、暂停、恢复和终止 |
+| 定时任务 | Cron 创建、更新、暂停、恢复、删除和立即执行 |
+| 记忆系统 | 临时记忆、永久记忆、主动审阅与清理 |
+| 知识库 | 用户私有知识库与全局共享知识库 |
+| 消息路由 | OneBot、NapCat、Telegram、身份映射与附件处理 |
+| Web 管理端 | Flask 后端、SSE 流式输出、React + TypeScript 前端 |
+| Windows 打包 | PyInstaller 双 EXE，共享运行时，插件与技能外置 |
+
+---
+
+## 系统架构
+
+```text
+                        ┌──────────────────────────┐
+                        │       User Inputs        │
+                        │ Web / CLI / QQ / TG / Cron│
+                        └─────────────┬────────────┘
+                                      │
+                        ┌─────────────▼────────────┐
+                        │   Unified Chat Engine    │
+                        │      run/engine.py       │
+                        └───────┬─────────┬────────┘
+                                │         │
+                   ┌────────────▼─┐   ┌──▼─────────────┐
+                   │   Provider   │   │ Tool / Skill   │
+                   │ VOTX Adapter │   │   Execution    │
+                   └──────┬───────┘   └──┬─────────────┘
+                          │              │
+                 ┌────────▼──────┐  ┌────▼─────────────┐
+                 │ Text / Media  │  │ File / Network   │
+                 │ Model Services│  │ Search / Tasks   │
+                 └───────────────┘  └──────────────────┘
+                                      │
+                        ┌─────────────▼────────────┐
+                        │  History / Memory / KB   │
+                        │    Local User Storage    │
+                        └──────────────────────────┘
+```
+
+### 对话执行链路
+
+```text
+请求进入
+→ 读取用户配置与人格
+→ 构建 system prompt
+→ 加载当前会话历史
+→ 调用 Provider
+→ 输出文本与推理事件
+→ 检测工具调用
+→ 执行工具并写入结果
+→ 继续模型循环
+→ 保存最终回复
+→ 更新历史、任务和记忆状态
+```
+
+---
+
+## 快速开始
+
+### 环境要求
+
+- Python 3.10+
+- Git
+- Node.js 18+ 与 npm，仅在开发或重新构建 Web 前端时需要
+
+### 获取源码
 
 ```bash
 git clone https://github.com/kesepain-KE/votx-agent.git
 cd votx-agent
+```
+
+### 安装与初始化
+
+```bash
 python setup.py
 python set_user.py add
+```
+
+### 启动 Web
+
+```bash
 python start_web.py
 ```
 
-访问：
+默认访问地址：
 
-```
+```text
 http://localhost:1478
 ```
 
-### Windows 打包版
+### 启动 CLI
 
-下载 `votx-agent-windows.zip`，解压后双击 `votx-agent-web.exe` 启动 Web UI，或双击 `votx-agent-cli.exe` 进入 CLI 模式。无需安装 Python 环境。
-
-自行构建：
-
-```cmd
-build_windows.bat
+```bash
+python start.py
 ```
 
-构建完成后生成 `dist\votx-agent-windows.zip`，包含两个 EXE 共享同一套运行时。
+### 单次执行
+
+```bash
+python start.py --user <用户名> --prompt "<内容>" --once
+```
+
+---
 
 ## Provider 配置
 
-votx-agent 的 Provider 接入方式：
+votx-agent 使用统一的 VOTX Provider 实现。
 
-- **推荐模式** → 搭配 VOTX LLM Adapter 网关，多模态全开。
-- **兼容模式** → 直连任意 OpenAI 兼容 API（`base_url` 指向谁就是谁），部分端点（如图生图、视频、部分 ASR 路由）可能不可用。
+配置中的 `provider.type` 保持为：
 
-配置上只需改 `base_url` 和 `api_key` 即可切换，`provider.type` 统一填 `"votx"`。
+```json
+{
+  "provider": {
+    "type": "votx"
+  }
+}
+```
 
-### 直连 OpenAI 兼容 API
+实际后端由 `base_url` 决定。
 
-将 `base_url` 改为第三方端点，`api_key` 填该平台的密钥即可。`provider.type` 保持 `"votx"` 不变。
+### 推荐模式
+
+将 `base_url` 指向 VOTX LLM Adapter：
+
+```env
+VOTX_BASE_URL=http://127.0.0.1:8741/v1
+VOTX_API_KEY=your-api-key
+```
+
+该模式可以获得完整的 VOTX 多模态能力。
+
+### OpenAI 兼容模式
+
+将 `base_url` 指向任意兼容 `/v1/chat/completions` 的服务，并填写对应 API Key。
+
+此时：
+
+- 文本能力通常可用
+- 工具调用取决于目标服务兼容性
+- 图片输入取决于目标模型能力
+- 图像编辑、视频生成和部分音频能力可能不可用
 
 ### 配置优先级
 
 ```text
-users/<name>/config.json > 环境变量 > 程序默认值
+users/<name>/config.json
+> 环境变量
+> 程序默认值
 ```
 
-环境变量仅作为兜底（`.env.example` 有完整说明）：
+### 配置职责
 
-```env
-VOTX_API_KEY=your-api-key
-VOTX_BASE_URL=http://127.0.0.1:8741/v1
-TAVILY_API_KEY=tvly-xxx
-```
-
-### 配置文件职责
-
-| 配置 | 职责 |
+| 配置文件 | 职责 |
 |---|---|
-| `config/config_core.json` | 框架全局默认值（历史、工具超时、输出、改进、任务计划、上下文窗口等） |
-| `users/<name>/config.json` | 用户 Provider、历史、工具权限、技能和任务计划设置；覆盖全局默认值 |
-| `.env` | 少量启动级参数和兼容兜底，不作为主要业务配置 |
-| `message/config.local.json` | 外部消息私有配置；不存在时回退 `message/config.json` |
+| `config/config_core.json` | 全局默认参数、历史、工具、任务、上下文窗口与改进配置 |
+| `users/<name>/config.json` | 用户 Provider、权限、技能、历史和任务设置 |
+| `.env` | 启动级参数、密钥与兼容兜底 |
+| `message/config.local.json` | 外部消息私有配置 |
+| `message/config.json` | 外部消息默认配置 |
 
-### Provider 架构
+### Provider 结构
 
 ```text
 provider/
-├── base.py          # BaseProvider 抽象接口（respond / respond_stream + 全部多模态能力接口）
-├── schema.py        # ToolCall + ProviderResponse 统一数据结构
-├── factory.py       # create_provider() → 仅支持 type: "votx"
-└── votx_adapter.py  # VOTX LLM Adapter Provider — 纯 urllib HTTP 实现，无 OpenAI SDK 依赖
+├── base.py          # BaseProvider 抽象接口
+├── schema.py        # ToolCall 与 ProviderResponse
+├── factory.py       # create_provider()
+└── votx_adapter.py  # 纯 urllib HTTP Provider
 ```
 
-VotxProvider 通过纯 `urllib` HTTP 直接调用配置的 `base_url`。`type` 固定为 `votx`，但 `base_url` 可以指向 VOTX LLM Adapter 网关或任意 OpenAI 兼容 API；图生图、视频、部分 ASR 路由等能力可能只在 VOTX 网关可用。
+---
 
 ## 多模态能力
 
-能力声明：
+### 能力声明
 
 ```text
 vision
@@ -158,7 +421,7 @@ speech_to_speech
 video_generation
 ```
 
-高级配置（在 `users/<name>/config.json` 的 `provider` 中）：
+### 用户配置示例
 
 ```json
 {
@@ -182,42 +445,45 @@ video_generation
 }
 ```
 
-调用优先级：
+模型选择优先级：
 
 ```text
-专用模型配置 > 默认聊天模型
+专用能力模型 > 默认聊天模型
 ```
 
-常用工具：
+### 常用工具
 
-| 工具 | 说明 |
+| 工具 | 作用 |
 |---|---|
-| `vision_analyze` | 图片识别，支持多图 |
-| `audio_transcribe` | 语音转文字，支持多语言和时间戳 |
-| `image_generate` | 文生图，默认输出到 `users/<name>/download/` |
-| `image_edit` | 图像编辑（需 Provider 支持），默认输出到 `users/<name>/download/` |
-| `speech_generate` | 文生语音，默认输出到 `users/<name>/download/` |
-| `speech_to_speech` | 语音生语音（需 Provider 支持），默认输出到 `users/<name>/download/` |
-| `video_generate` / `video_status` / `video_download` | 视频生成、查询和下载（需 Provider 支持） |
+| `vision_analyze` | 单图或多图识别 |
+| `audio_transcribe` | 语音转文字、语言识别与时间戳 |
+| `image_generate` | 文本生成图片 |
+| `image_edit` | 基于输入图片执行编辑 |
+| `speech_generate` | 文本生成语音 |
+| `speech_to_speech` | 语音到语音转换 |
+| `video_generate` | 创建视频生成任务 |
+| `video_status` | 查询视频任务状态 |
+| `video_download` | 下载生成结果 |
 
-目标 Provider 不支持某个端点时，对应能力不可用。
+默认输出目录：
 
-## 用法
+```text
+users/<name>/download/
+```
+
+---
+
+## Web 与 CLI
+
+### Web 启动参数
 
 ```bash
-# 启动 Web UI
 python start_web.py
 python start_web.py --port=8080
 python start_web.py --host=0.0.0.0 --port=1478
-
-# CLI 交互模式
-python start.py
-
-# 单次模式
-python start.py --user <用户名> --prompt "<内容>" --once
 ```
 
-局域网访问：
+### 局域网访问
 
 ```env
 VOTX_HOST=0.0.0.0
@@ -225,40 +491,57 @@ PORT=1478
 VOTX_SESSION_COOKIE_NAME=votx_agent_session
 ```
 
-启动后同一局域网设备访问 `http://<服务器局域网IP>:1478`。如果同一 IP 下部署多个不同 Web 项目，建议为每个项目配置不同的 `VOTX_SESSION_COOKIE_NAME`，避免浏览器 Cookie 名冲突导致登录态互相挤掉。
+局域网设备访问：
 
-斜杠命令（Web UI 和 CLI 共用）：
+```text
+http://<服务器局域网IP>:1478
+```
 
-| 命令 | 说明 |
+同一 IP 上运行多个 Web 项目时，应为每个项目设置不同的 `VOTX_SESSION_COOKIE_NAME`，避免 Cookie 冲突。
+
+### 通用斜杠命令
+
+| 命令 | 功能 |
 |---|---|
-| `/clear` | 清空当前对话历史及工具日志 |
-| `/archive` | 归档当前对话并生成摘要 |
-| `/new` | 归档后开启新对话 |
-| `/summarize` | 生成当前对话摘要 |
-| `/compress` | 手动压缩较早历史，保留近期对话 |
-| `/retry` | 移除上一条 AI 回复并重新生成 |
-| `/history` 或 `/stats` | 查看当前会话统计 |
-| `/help` | 查看可用命令列表 |
+| `/clear` | 清空当前会话历史与工具日志 |
+| `/archive` | 归档当前会话并生成摘要 |
+| `/new` | 归档当前会话后创建新会话 |
+| `/summarize` | 生成当前会话摘要 |
+| `/compress` | 压缩较早历史并保留近期上下文 |
+| `/retry` | 删除上一条 AI 回复并重新生成 |
+| `/history` | 查看会话统计 |
+| `/stats` | 查看会话统计 |
+| `/help` | 查看可用命令 |
 
-CLI 额外支持：
+### CLI 附加命令
 
-| 命令 | 说明 |
-|---|---|
-| `/exit` / `/quit` / `/q` | 退出 CLI（自动摘要 + 保存） |
+```text
+/exit
+/quit
+/q
+```
+
+退出 CLI 时会自动执行摘要与保存。
+
+---
 
 ## 外部消息路由
 
-配置文件优先级：
+### 配置优先级
 
 ```text
-VOTX_MESSAGE_CONFIG 环境变量
-message/config.local.json（若存在）
-message/config.json（默认）
+VOTX_MESSAGE_CONFIG
+> message/config.local.json
+> message/config.json
 ```
 
-完整配置示例见 `message/config.example.json`。
+完整示例：
 
-OneBot/NapCat 示例：
+```text
+message/config.example.json
+```
+
+### OneBot / NapCat
 
 ```json
 {
@@ -276,7 +559,7 @@ OneBot/NapCat 示例：
 }
 ```
 
-Telegram 示例：
+### Telegram
 
 ```json
 {
@@ -294,7 +577,9 @@ Telegram 示例：
 }
 ```
 
-外部附件统一保存到：
+### 附件存储
+
+外部附件：
 
 ```text
 users/<用户名>/history/file/
@@ -306,145 +591,234 @@ users/<用户名>/history/file/
 users/<用户名>/history/log/external_attachments.jsonl
 ```
 
-支持：
+支持的媒体类型：
 
-- OneBot/NapCat：image、record、video、file
-- Telegram：photo、document、voice、audio、video
-- 外部命令：`/cron list|add|update|delete`、`/plan list|view|approve|abort`
+| 平台 | 类型 |
+|---|---|
+| OneBot / NapCat | image、record、video、file |
+| Telegram | photo、document、voice、audio、video |
 
-详见 [knowledge/message-config.md](./knowledge/message-config.md)。
+外部消息命令：
+
+```text
+/cron list
+/cron add
+/cron update
+/cron delete
+
+/plan list
+/plan view
+/plan approve
+/plan abort
+```
+
+详细配置见：
+
+```text
+knowledge/message-config.md
+```
+
+---
 
 ## 文件与知识库
 
 | 路径 | 用途 |
 |---|---|
-| `users/<name>/config.json` | 用户模型、Key、超时、工具和技能配置 |
-| `users/<name>/self_soul.md` | 用户人设文件，作为 system prompt 叠加层 |
+| `users/<name>/config.json` | 用户模型、API Key、超时、工具和技能配置 |
+| `users/<name>/self_soul.md` | 用户人格与 system prompt 叠加层 |
 | `users/<name>/avatar/` | 用户头像 |
-| `users/<name>/history/file/` | Web 上传文件、外部消息附件、用户原始材料 |
-| `users/<name>/download/` | 智能体生成、导出、下载的默认输出（报告、文档、表格、图片、语音、视频、压缩包等） |
+| `users/<name>/history/file/` | 上传文件与外部消息附件 |
+| `users/<name>/download/` | 智能体生成和导出的文件 |
 | `users/<name>/knowledge/` | 用户私有知识库 |
-| `users/<name>/task-plan/` | 任务计划存储 |
-| `users/<name>/tasks/` | 定时任务存储 |
-| `users/<name>/improve/` | 自改进三层记忆：memory / self-improving / ontology |
-| `knowledge/` | 全局共享知识库与框架说明 |
-| `tmp/` | 临时脚本、中间缓存，用完清理 |
+| `users/<name>/task-plan/` | 任务计划 |
+| `users/<name>/tasks/` | 定时任务 |
+| `users/<name>/improve/` | 记忆、自我改进与本体数据 |
+| `knowledge/` | 全局知识库与框架说明 |
+| `tmp/` | 临时脚本与中间缓存 |
 
-知识库变动必须同步索引：
+### 知识库索引
 
-- 用户知识库新增、修改、删除、重命名、移动后，更新 `users/<name>/knowledge/data_structure.md`。
-- 全局知识库新增、修改、删除、重命名、移动后，更新 `knowledge/data_structure.md`。
-- 查询时用户知识库优先，全局知识库兜底。
+用户知识库发生新增、修改、删除、移动或重命名后，需要同步更新：
 
-## Skills / Plugins
+```text
+users/<name>/knowledge/data_structure.md
+```
 
-源码当前包含 20 个插件目录：18 个工具型 Skill 和 2 个指令型 Skill。
+全局知识库发生变动后，需要同步更新：
 
-| 目录 | 说明 |
+```text
+knowledge/data_structure.md
+```
+
+检索优先级：
+
+```text
+用户知识库 > 全局知识库
+```
+
+---
+
+## Skills 与 Plugins
+
+框架包含两类扩展目录：
+
+| 目录 | 定位 |
 |---|---|
-| `plugins/` | 框架内置基础技能，更新脚本可覆盖 |
-| `skills/` | 用户拓展技能，更新脚本永不覆盖 |
+| `plugins/` | 内置基础能力，更新脚本可能覆盖 |
+| `skills/` | 用户扩展能力，更新脚本不会覆盖 |
+
+当前源码包含 20 个插件目录：
+
+- 18 个工具型 Skill
+- 2 个指令型 Skill
+
+### 内置能力
 
 | Skill | 主要能力 |
 |---|---|
-| `file` | 文件读取、范围读取、写入、追加、精确编辑、目录树、搜索、复制、移动、建目录、删除文件 |
-| `shell` | 跨平台命令执行、cwd/env、stdin 和会话状态 |
-| `network` | `http_get`、`http_post`、`web_read`，支持 `network_scope` 控制公网/本机/内网访问 |
-| `download_anything` | 链接检查、直链下载、视频/音频下载、下载列表 |
-| `tavily_search` | Tavily 搜索、网页提取、站点爬取、站点地图、深度研究 |
-| `time` | 当前时间、最长 30 分钟等待 |
-| `audio_universal` | 语音转文字，支持多语言和时间戳 |
-| `vision_universal` | 通用识图，支持本地图片和远程 URL |
-| `image_generation` | 文生图，支持多种尺寸和质量 |
-| `image_edit` | 图像编辑（需 Provider 支持） |
-| `speech_generation` | 文生语音，支持多种语音风格 |
-| `speech_to_speech` | 语音生语音（需 Provider 支持） |
-| `video_generation` | 视频生成、查询和下载（需 Provider 支持） |
-| `auto_improve` | 记忆保存、审阅、搜索和清理 |
+| `file` | 文件读取、写入、追加、编辑、搜索、复制、移动与删除 |
+| `shell` | 跨平台命令执行、cwd、环境变量、stdin 与会话状态 |
+| `network` | HTTP 请求、网页读取与网络范围控制 |
+| `download_anything` | 链接检查、文件与媒体下载 |
+| `tavily_search` | 搜索、提取、爬取、站点地图与深度研究 |
+| `time` | 当前时间与最长 30 分钟等待 |
+| `audio_universal` | 语音转文字 |
+| `vision_universal` | 本地图片与远程图片识别 |
+| `image_generation` | 文本生成图片 |
+| `image_edit` | 图片编辑 |
+| `speech_generation` | 文本生成语音 |
+| `speech_to_speech` | 语音生语音 |
+| `video_generation` | 视频生成、查询和下载 |
+| `auto_improve` | 记忆保存、搜索、审阅与清理 |
 | `task_plan` | 复杂任务计划与进度管理 |
-| `task_time` | cron 定时任务管理 |
-| `qq_send` / `qq_file` | QQ/Telegram 主动消息和文件推送 |
-| `kb_retriever` | 双层知识库检索流程（指令型） |
-| `skill_creator` | Skill 创建规范（指令型） |
+| `task_time` | Cron 定时任务管理 |
+| `qq_send` / `qq_file` | QQ 与 Telegram 消息和文件推送 |
+| `kb_retriever` | 双层知识库检索流程 |
+| `skill_creator` | Skill 创建规范 |
 
-核心内置技能不可禁用：
+### 核心技能
+
+以下技能属于框架基础运行能力，不可禁用：
 
 ```text
-file shell time network task_plan auto_improve skill_creator task_time kb_retriever
+file
+shell
+time
+network
+task_plan
+auto_improve
+skill_creator
+task_time
+kb_retriever
 ```
 
-用户技能可通过 `override: true` 覆盖同名内置技能。
+用户 Skill 可以通过：
 
-当前源码不包含旧版内置文档转换、PDF 与 DOCX 插件。二进制文档需由已安装的用户 Skill、外部工具或其他服务处理。
+```yaml
+override: true
+```
 
-工具是否可用、执行超时和技能禁用由 `config/config_core.json` 与 `users/<name>/config.json` 决定。
+覆盖同名内置 Skill。
+
+当前源码不再内置旧版 PDF、DOCX 与文档转换插件。二进制文档处理由用户 Skill、外部程序或其他服务承担。
+
+---
 
 ## 项目结构
 
 ```text
 votx-agent/
 ├── agents/             # 子智能体：auto_improve、task_plan
-├── config/             # 全局配置 (config_core.json) 与基座人格 (soul.md)
+├── config/             # 全局配置与基座人格
 ├── cron/               # 定时任务调度器
-├── knowledge/          # 全局知识库（含架构原理文档）
-├── message/            # 外部消息路由：OneBot/NapCat、Telegram、推送队列、身份映射
-├── plugins/            # 内置技能（18 个工具型 + 2 个指令型 Skill）
-├── provider/           # VOTX LLM Adapter Provider — 纯 HTTP 本地网关适配层
-├── run/                # 对话引擎、历史管理、工具调度、摘要、prompt 缓存
-├── skills/             # 用户拓展技能
-├── users/              # 用户数据（配置、历史、文件、知识库、记忆）
+├── knowledge/          # 全局知识库与架构文档
+├── message/            # OneBot、Telegram、推送队列与身份映射
+├── plugins/            # 内置 Skills
+├── provider/           # VOTX Provider 与统一响应结构
+├── run/                # 对话引擎、历史、工具调度、摘要与 Prompt 缓存
+├── skills/             # 用户扩展 Skills
+├── users/              # 用户配置、历史、文件、知识库和记忆
 ├── web/                # Flask + React + TypeScript + Vite
 ├── AGENTS.md           # 智能体操作手册
 ├── main.py             # CLI 入口
-├── start.py            # CLI/Web 入口（用户选择）
-├── start_web.py        # Web 专用入口
-├── windows_entry.py    # Windows 双 EXE 统一入口（按名称分发 Web/CLI）
+├── start.py            # CLI / Web 选择入口
+├── start_web.py        # Web 启动入口
+├── windows_entry.py    # Windows 双 EXE 分发入口
 ├── setup.py            # 环境安装脚本
 ├── set_user.py         # 用户管理脚本
 ├── update.py           # 全平台更新脚本
-├── paths.py            # 路径解析（开发/PyInstaller 通用）
-├── version.json        # 当前版本
-├── requirements.txt    # Python 依赖清单
-├── votx-agent.spec     # PyInstaller 打包规格（双 EXE onedir）
-├── build_windows.bat   # Windows 打包脚本
-└── LICENSE             # MIT 许可证
+├── paths.py            # 开发与 PyInstaller 路径解析
+├── version.json        # 版本信息
+├── requirements.txt    # Python 依赖
+├── votx-agent.spec     # PyInstaller 打包规格
+├── build_windows.bat   # Windows 构建脚本
+└── LICENSE             # MIT License
 ```
+
+---
 
 ## 更新
 
+### 检查版本
+
 ```bash
-# 检查版本
 python update.py --check
+```
 
-# 执行更新（备份 → 同步框架 → 处理配置/知识库 → 刷新依赖）
+### 执行更新
+
+```bash
 python update.py --yes
+```
 
-# 仅查看会做什么
+### 预览更新
+
+```bash
 python update.py --dry-run
 ```
 
-`update.py` 全平台通用（Linux / macOS / Windows 需有 git），纯 Python 实现，不依赖 rsync。它会：
+更新流程：
 
-1. 比对本地与 GitHub main 的 `version.json`
+1. 比较本地与远程 `version.json`
 2. 浅克隆最新源码到临时目录
-3. 备份当前项目（`users/`、`skills/`、`.env` 等不备份）
-4. 同步框架代码，跳过排除列表中的用户数据和构建产物
-5. 交互处理 `config/` 和 `knowledge/`（覆盖 / 保持 / 合并）
-6. 补齐用户目录骨架
-7. 刷新依赖（`python setup.py --skip-env`）
+3. 备份当前框架文件
+4. 同步代码并跳过用户数据与构建产物
+5. 处理 `config/` 与 `knowledge/`
+6. 补齐用户目录结构
+7. 刷新 Python 依赖
 
-更新前仍建议备份 `users/`、`skills/`、`.env`、`message/config.local.json` 和未发送队列。
+更新前建议手动备份：
+
+```text
+users/
+skills/
+.env
+message/config.local.json
+message/push_queue/
+```
+
+---
 
 ## Windows 打包
 
 ### 双 EXE 架构
 
-`votx-agent.spec` 使用 PyInstaller onedir 模式生成两个 EXE，共享同一套 `_internal` 运行时：
+PyInstaller 使用 `onedir` 模式生成两个入口：
 
-- **`votx-agent-web.exe`** → 启动 Web UI
-- **`votx-agent-cli.exe`** → 启动 CLI 交互模式
+```text
+votx-agent-web.exe
+votx-agent-cli.exe
+```
 
-入口文件（`start.py`、`start_web.py` 等）由 `build_windows.bat` 复制到 EXE 同级目录，运行时通过 `paths.get_project_root()` 定位框架资源。插件和技能目录外置于 EXE 同级，支持热插拔更新。
+两个 EXE 共享同一套 `_internal` 运行时。
+
+插件、技能、配置和用户目录位于 EXE 外部，因此仍然支持：
+
+- 热插拔
+- 配置修改
+- 用户数据持久化
+- 独立更新
+- Skill 扩展
 
 ### 构建命令
 
@@ -452,42 +826,64 @@ python update.py --dry-run
 build_windows.bat
 ```
 
-### 打包内容
-
-包含：
+### 主要打包内容
 
 ```text
-votx-agent-web.exe  votx-agent-cli.exe  _internal/
-agents/ config/ cron/ message/ plugins/ provider/ run/
-skills/ web/ users/ tmp/ knowledge/
-paths.py AGENTS.md set_user.py setup.py start.py start_web.py
-main.py update.py windows_entry.py requirements.txt version.json .env.example
+votx-agent-web.exe
+votx-agent-cli.exe
+_internal/
+
+agents/
+config/
+cron/
+message/
+plugins/
+provider/
+run/
+skills/
+web/
+users/
+tmp/
+knowledge/
+
+paths.py
+AGENTS.md
+set_user.py
+setup.py
+start.py
+start_web.py
+main.py
+update.py
+windows_entry.py
+requirements.txt
+version.json
+.env.example
 ```
 
-排除：
+敏感配置、缓存和本地状态不会进入发行包。
 
-```text
-使用手册-AI/ tools/ web/node_modules/
-message/config.json message/config.local.json message/identity/identity_map.json
-message/push_queue/ .env .session_secret *.pyc *.pyo __pycache__/
-```
+---
 
 ## 开发
 
+### Python 检查
+
 ```bash
-# 语法检查
 python -m py_compile <file.py>
 python -m compileall -q .
-
-# Web 前端
-cd web
-npm install
-npm run dev      # 开发模式
-npm run build    # 生产构建
-npx tsc --noEmit # TypeScript 检查
 ```
 
-维护者文档：
+### Web 前端
+
+```bash
+cd web
+npm install
+npm run dev
+npm run build
+npx tsc --noEmit
+```
+
+### 维护者文档
 
 ```text
 AGENTS.md
@@ -495,27 +891,107 @@ knowledge/
 使用手册-AI/
 ```
 
-## 相关项目
+---
 
-- [VOTX LLM Adapter](https://github.com/kesepain-KE/llm-adapter-votx) — 本地多模态 LLM 网关，votx-agent 的 Provider 后端
-- [NapCat](https://github.com/NapNeko/NapCatQQ) — QQ 机器人框架
-- [yt-dlp](https://github.com/yt-dlp/yt-dlp) — 视频下载引擎
+## 与相邻项目的关系
 
-## 主要项目负责人
+### VOTX LLM Adapter
+
+[VOTX LLM Adapter](https://github.com/kesepain-KE/llm-adapter-votx) 是 votx-agent 的多模态 Provider 网关。
+
+它负责：
+
+- 统一不同模型服务的接口
+- 提供多模态能力路由
+- 处理模型、媒体与端点适配
+
+votx-agent 负责：
+
+- 对话运行
+- 工具调用
+- 任务计划
+- 记忆与知识库
+- Web、CLI 和消息入口
+- 用户数据管理
+
+### kemo-agent
+
+kemo-agent 是另一套独立开发的 Agent Runtime。
+
+两者定位不同：
+
+| 项目 | 定位 |
+|---|---|
+| votx-agent | 面向个人部署、跨终端交互和多模态服务的完整 Agent 框架 |
+| kemo-agent | 面向生命周期记忆、结构化编排和长期运行的多用户 Agent Runtime |
+
+两者不存在继承关系，也不共享内部实现。
+
+### 其他相关项目
+
+- [NapCat](https://github.com/NapNeko/NapCatQQ) — QQ 消息接入
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp) — 视频与音频下载引擎
+
+---
+
+## 当前边界
+
+votx-agent 当前主要面向个人与小规模多用户环境。
+
+在以下场景中应进行额外验证和加固：
+
+- 大规模公网部署
+- 高并发多租户服务
+- 严格的企业级权限审计
+- 不可信用户的任意代码执行环境
+- 高可用集群与分布式调度
+- 关键业务生产系统
+
+`shell`、网络访问、文件操作与外部消息能力均具有较高权限，部署者应根据实际环境配置工具白名单、网络范围和用户访问控制。
+
+---
+
+## 主要维护者
 
 [@kesepain](https://github.com/kesepain-KE)
 
-## 参与贡献方式
+---
 
-欢迎提交 [Pull Request](https://github.com/kesepain-KE/votx-agent/pulls) 或 [Issue](https://github.com/kesepain-KE/votx-agent/issues)。
+## 参与贡献
 
-大改动请先开 Issue 讨论。贡献前建议阅读 [AGENTS.md](./AGENTS.md)。
+欢迎提交：
 
-### 贡献人员
+- [Issue](https://github.com/kesepain-KE/votx-agent/issues)
+- [Pull Request](https://github.com/kesepain-KE/votx-agent/pulls)
 
-感谢所有贡献的人。
+涉及核心架构的大规模改动，建议先创建 Issue 讨论。
+
+推荐流程：
+
+```bash
+git checkout -b feature/your-feature
+git commit -m "feat: describe your change"
+git push origin feature/your-feature
+```
+
+贡献前建议阅读：
+
+```text
+AGENTS.md
+```
+
+---
+
+## 贡献人员
+
+感谢所有参与项目开发、测试与文档维护的贡献者。
+
 [@kesepain](https://github.com/kesepain-KE)
+
+---
 
 ## 开源协议
 
-[MIT](./LICENSE) © kesepain
+本项目基于 [MIT License](./LICENSE) 开源。
+
+Copyright © kesepain
