@@ -497,6 +497,8 @@ VOTX_SESSION_COOKIE_NAME=votx_agent_session
 http://<服务器局域网IP>:1478
 ```
 
+<p align="center"><img src="votx-agent-web-UI.png" width="720" alt="votx-agent Web UI"></p>
+
 同一 IP 上运行多个 Web 项目时，应为每个项目设置不同的 `VOTX_SESSION_COOKIE_NAME`，避免 Cookie 冲突。
 
 ### 通用斜杠命令

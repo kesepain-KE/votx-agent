@@ -496,6 +496,8 @@ Devices on the same network can then open:
 
 ```text
 http://<server-lan-ip>:1478
+
+<p align="center"><img src="votx-agent-web-UI.png" width="720" alt="votx-agent Web UI"></p>
 ```
 
 When multiple Web applications run on the same IP with different ports, assign each one a unique `VOTX_SESSION_COOKIE_NAME` to prevent browser cookie collisions.
