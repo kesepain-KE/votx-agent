@@ -54,9 +54,7 @@
 - [Development](#development)
 - [Relationship to Adjacent Projects](#relationship-to-adjacent-projects)
 - [Current Scope](#current-scope)
-- [Maintainer](#maintainer)
 - [Contributing](#contributing)
-- [Contributors](#contributors)
 - [License](#license)
 
 ---
@@ -94,44 +92,13 @@ votx-agent is suitable for:
 
 ### Unified Conversation Engine
 
-`run/engine.py` is the single execution entry point for all conversational workloads.
+Web, CLI, and external messaging modules share a single conversation engine rather than duplicating Agent logic.
 
-Web, CLI, and external messaging modules do not implement separate Agent logic. They convert input into a unified request, invoke the same engine, and render the resulting event stream.
-
-Core execution flow:
-
-```text
-User input
-→ ChatManager.add_user_message()
-→ engine.run_chat_turn()
-→ Build system prompt and conversation history
-→ Stream Provider response
-→ Detect and execute tool calls
-→ Persist tool calls and tool results
-→ Continue the model loop
-→ Commit the final response and history
-```
-
-The model can enter multiple tool-call rounds until it produces a final response or reaches the configured `MAX_TOOL_ROUNDS` limit.
+The engine builds the system prompt, manages conversation history, invokes the model, detects and executes tool calls, and supports multiple model-tool rounds until a final response is produced.
 
 ### Local Multi-User Isolation
 
-Each user has an independent data workspace:
-
-```text
-users/<name>/
-├── config.json
-├── self_soul.md
-├── avatar/
-├── history/
-├── knowledge/
-├── download/
-├── task-plan/
-├── tasks/
-└── improve/
-```
-
-The following data is isolated per user:
+Each user has an independent data workspace. The following data is isolated per user:
 
 - Provider configuration
 - System persona
@@ -145,9 +112,7 @@ The following data is isolated per user:
 
 ### VOTX Multimodal Provider
 
-votx-agent integrates with VOTX LLM Adapter through plain HTTP and does not depend on the OpenAI SDK.
-
-The same Provider layer can expose:
+A single Provider layer exposes the following capabilities:
 
 - Text generation
 - Tool calling
@@ -159,7 +124,7 @@ The same Provider layer can expose:
 - Speech-to-speech
 - Video generation
 
-When `base_url` points to a standard OpenAI-compatible endpoint, text, tool calling, and some multimodal features may still work. Advanced capabilities such as image editing, video generation, and specific ASR routes depend on whether the target endpoint implements the required APIs.
+When `base_url` points to a standard OpenAI-compatible endpoint, text, tool calling, and some multimodal features may still work. Advanced capabilities such as image editing, video generation, and specific ASR routes depend on endpoint support. VOTX LLM Adapter provides the complete capability surface.
 
 ### Tool-First Workflow
 
@@ -203,24 +168,9 @@ Scheduled jobs support:
 
 ### Layered Memory and Self-Improvement
 
-`auto_improve` organizes long-term data into three domains:
+The system supports temporary and permanent memory layers with save, search, review, promote, delete, and cleanup operations.
 
-```text
-memory
-self-improving
-ontology
-```
-
-The system supports temporary and permanent memory layers, with operations for:
-
-- Save
-- Search
-- Review
-- Promote
-- Delete
-- Cleanup
-
-Passive mode primarily works on temporary memory. Active review can inspect both temporary and permanent memory, promoting information that has durable value.
+Passive mode primarily handles temporary memory. Active review inspects both layers and promotes information with durable value to permanent storage.
 
 ### External Message Routing
 
@@ -296,22 +246,6 @@ Users can inspect, edit, back up, migrate, and version their data without depend
                                │ History / Memory / Knowledge │
                                │       Local User Storage      │
                                └───────────────────────────────┘
-```
-
-### Request Lifecycle
-
-```text
-Request received
-→ Load user configuration and persona
-→ Build the system prompt
-→ Load current conversation history
-→ Invoke the Provider
-→ Stream text and reasoning events
-→ Detect tool calls
-→ Execute tools and append results
-→ Continue the model loop
-→ Persist the final response
-→ Update history, tasks, and memory state
 ```
 
 ---
@@ -420,16 +354,6 @@ users/<name>/config.json
 | `message/config.local.json` | Private external-message configuration |
 | `message/config.json` | Default external-message configuration |
 
-### Provider Structure
-
-```text
-provider/
-├── base.py          # BaseProvider abstraction
-├── schema.py        # ToolCall and ProviderResponse models
-├── factory.py       # create_provider()
-└── votx_adapter.py  # Pure urllib HTTP Provider
-```
-
 ---
 
 ## Multimodal Capabilities
@@ -444,30 +368,6 @@ image_edit
 speech_generation
 speech_to_speech
 video_generation
-```
-
-### User Configuration Example
-
-```json
-{
-  "provider": {
-    "capabilities_override": [
-      "vision",
-      "audio_transcription",
-      "image_generation",
-      "image_edit",
-      "speech_generation",
-      "speech_to_speech",
-      "video_generation"
-    ],
-    "audio_transcription_model": "stepfun-stepaudio-2.5-asr",
-    "image_generation_model": "",
-    "image_edit_model": "stepfun-step-image-edit-2",
-    "speech_generation_model": "stepfun-stepaudio-2.5-tts",
-    "speech_to_speech_model": "",
-    "video_generation_model": ""
-  }
-}
 ```
 
 Model selection priority:
@@ -520,9 +420,9 @@ Devices on the same network can then open:
 
 ```text
 http://<server-lan-ip>:1478
+```
 
 <p align="center"><img src="votx-agent-web-UI.png" width="720" alt="votx-agent Web UI"></p>
-```
 
 When multiple Web applications run on the same IP with different ports, assign each one a unique `VOTX_SESSION_COOKIE_NAME` to prevent browser cookie collisions.
 
@@ -562,47 +462,9 @@ VOTX_MESSAGE_CONFIG
 > message/config.json
 ```
 
-Full example:
+### Supported Platforms
 
-```text
-message/config.example.json
-```
-
-### OneBot / NapCat
-
-```json
-{
-  "enabled": true,
-  "platforms": {
-    "onebot": {
-      "enabled": true,
-      "ws_url": "ws://127.0.0.1:3001",
-      "access_token": "",
-      "bound_users": {
-        "qq:123456789": "alice"
-      }
-    }
-  }
-}
-```
-
-### Telegram
-
-```json
-{
-  "enabled": true,
-  "platforms": {
-    "telegram": {
-      "enabled": true,
-      "bot_token": "<telegram-bot-token>",
-      "proxy": "http://127.0.0.1:7890",
-      "bound_users": {
-        "tg:987654321": "alice"
-      }
-    }
-  }
-}
-```
+OneBot/NapCat (QQ) and Telegram Bot are supported, with user identity binding, media attachments, external commands, and proactive message delivery. Full configuration example available at `message/config.example.json`.
 
 ### Attachment Storage
 
@@ -649,103 +511,19 @@ knowledge/message-config.md
 
 ## Files and Knowledge
 
-| Path | Purpose |
-|---|---|
-| `users/<name>/config.json` | User model, API key, timeout, tool, and Skill configuration |
-| `users/<name>/self_soul.md` | User persona layered into the system prompt |
-| `users/<name>/avatar/` | User avatar |
-| `users/<name>/history/file/` | Uploaded files and external attachments |
-| `users/<name>/download/` | Generated, exported, and downloaded artifacts |
-| `users/<name>/knowledge/` | Private user knowledge base |
-| `users/<name>/task-plan/` | Task plans |
-| `users/<name>/tasks/` | Scheduled jobs |
-| `users/<name>/improve/` | Memory, self-improvement, and ontology data |
-| `knowledge/` | Global knowledge base and framework documentation |
-| `tmp/` | Temporary scripts and intermediate caches |
+Each user has independent storage for configuration, persona, uploads, downloads, private knowledge base, task plans, and memory.
 
-### Knowledge Indexes
-
-After adding, modifying, deleting, moving, or renaming a user knowledge file, update:
-
-```text
-users/<name>/knowledge/data_structure.md
-```
-
-After changing the global knowledge base, update:
-
-```text
-knowledge/data_structure.md
-```
-
-Retrieval priority:
-
-```text
-user knowledge > global knowledge
-```
+A two-tier knowledge base design prioritizes user-private knowledge, falling back to globally shared knowledge. Index files must be updated when knowledge bases change.
 
 ---
 
 ## Skills and Plugins
 
-The framework uses two extension directories:
+The framework uses two extension directories: `plugins/` for built-in capabilities and `skills/` for user extensions. Updates overwrite the former and preserve the latter.
 
-| Directory | Role |
-|---|---|
-| `plugins/` | Built-in framework capabilities that may be overwritten by updates |
-| `skills/` | User extensions that are preserved across updates |
+Twenty built-in Skills cover file operations, command execution, networking, downloads, search, multimodal processing (vision, ASR, image generation/editing, TTS, speech-to-speech, video), memory management, task planning, scheduled jobs, message delivery, knowledge retrieval, and more. Core Skills cannot be disabled to ensure baseline functionality.
 
-The current source tree contains 20 plugin directories:
-
-- 18 tool-oriented Skills
-- 2 instruction-only Skills
-
-### Built-In Capabilities
-
-| Skill | Main Capabilities |
-|---|---|
-| `file` | Read, write, append, edit, search, copy, move, and delete files |
-| `shell` | Cross-platform commands, cwd, environment variables, stdin, and sessions |
-| `network` | HTTP requests, page reading, and network-scope control |
-| `download_anything` | URL inspection and file or media downloads |
-| `tavily_search` | Search, extraction, crawling, site maps, and deep research |
-| `time` | Current time and waits up to 30 minutes |
-| `audio_universal` | Audio transcription |
-| `vision_universal` | Local and remote image understanding |
-| `image_generation` | Text-to-image generation |
-| `image_edit` | Image editing |
-| `speech_generation` | Text-to-speech generation |
-| `speech_to_speech` | Speech-to-speech transformation |
-| `video_generation` | Video generation, status, and download |
-| `auto_improve` | Memory saving, search, review, and cleanup |
-| `task_plan` | Complex task planning and progress management |
-| `task_time` | Scheduled task management |
-| `qq_send` / `qq_file` | QQ and Telegram message or file delivery |
-| `kb_retriever` | Two-layer knowledge retrieval workflow |
-| `skill_creator` | Skill authoring specification |
-
-### Core Skills
-
-The following Skills are required by the framework and cannot be disabled:
-
-```text
-file
-shell
-time
-network
-task_plan
-auto_improve
-skill_creator
-task_time
-kb_retriever
-```
-
-A user Skill can override a built-in Skill with:
-
-```yaml
-override: true
-```
-
-Legacy PDF, DOCX, and document-conversion plugins are no longer bundled. Binary document processing must be provided by a user Skill, an external utility, or another service.
+User Skills can override built-in Skills with `override: true`. Binary document processing relies on user Skills or external tools.
 
 ---
 
@@ -753,30 +531,22 @@ Legacy PDF, DOCX, and document-conversion plugins are no longer bundled. Binary 
 
 ```text
 votx-agent/
-├── agents/             # Sub-agents: auto_improve and task_plan
+├── agents/             # Sub-agents
 ├── config/             # Global configuration and base persona
 ├── cron/               # Scheduled task engine
 ├── knowledge/          # Global knowledge base and architecture docs
-├── message/            # OneBot, Telegram, push queue, and identity mapping
+├── message/            # External message routing
 ├── plugins/            # Built-in Skills
-├── provider/           # VOTX Provider and unified response models
-├── run/                # Conversation engine, history, tools, summaries, prompt cache
+├── provider/           # Provider adapter
+├── run/                # Conversation engine and tool execution
 ├── skills/             # User extension Skills
-├── users/              # User config, history, files, knowledge, and memory
-├── web/                # Flask + React + TypeScript + Vite
-├── AGENTS.md           # Agent operation manual
-├── main.py             # CLI entry point
-├── start.py            # CLI / Web selection entry
-├── start_web.py        # Web entry point
-├── windows_entry.py    # Windows dual-EXE dispatcher
-├── setup.py            # Setup script
-├── set_user.py         # User management script
+├── users/              # User data workspace
+├── web/                # Web management interface
+├── setup.py            # Environment setup
+├── set_user.py         # User management
 ├── update.py           # Cross-platform updater
-├── paths.py            # Development and PyInstaller path resolution
-├── version.json        # Version information
-├── requirements.txt    # Python dependencies
-├── votx-agent.spec     # PyInstaller specification
-├── build_windows.bat   # Windows build script
+├── start_web.py        # Web launcher
+├── start.py            # CLI launcher
 └── LICENSE             # MIT License
 ```
 
@@ -802,25 +572,7 @@ python update.py --yes
 python update.py --dry-run
 ```
 
-Update flow:
-
-1. Compare the local `version.json` with the remote version
-2. Shallow-clone the latest source into a temporary directory
-3. Back up the current framework files
-4. Synchronize code while excluding user data and build artifacts
-5. Process `config/` and `knowledge/`
-6. Repair missing user directory structures
-7. Refresh Python dependencies
-
-Back up the following before manual updates:
-
-```text
-users/
-skills/
-.env
-message/config.local.json
-message/push_queue/
-```
+Back up `users/`, `skills/`, `.env`, and private message configuration before manual updates.
 
 ---
 
@@ -851,70 +603,13 @@ Plugins, Skills, configuration, and user directories remain outside the executab
 build_windows.bat
 ```
 
-### Main Package Contents
-
-```text
-votx-agent-web.exe
-votx-agent-cli.exe
-_internal/
-
-agents/
-config/
-cron/
-message/
-plugins/
-provider/
-run/
-skills/
-web/
-users/
-tmp/
-knowledge/
-
-paths.py
-AGENTS.md
-set_user.py
-setup.py
-start.py
-start_web.py
-main.py
-update.py
-windows_entry.py
-requirements.txt
-version.json
-.env.example
-```
-
 Secrets, caches, and local runtime state are excluded from release packages.
 
 ---
 
 ## Development
 
-### Python Validation
-
-```bash
-python -m py_compile <file.py>
-python -m compileall -q .
-```
-
-### Web Frontend
-
-```bash
-cd web
-npm install
-npm run dev
-npm run build
-npx tsc --noEmit
-```
-
-### Maintainer Documentation
-
-```text
-AGENTS.md
-knowledge/
-使用手册-AI/
-```
+The Web frontend uses React + TypeScript + Vite. Python code follows standard tooling conventions. Maintainers should refer to `AGENTS.md` and the architecture documentation in `knowledge/`. Read `AGENTS.md` before contributing.
 
 ---
 
@@ -977,42 +672,16 @@ Additional validation and hardening are required for:
 
 ---
 
-## Maintainer
-
-[@kesepain](https://github.com/kesepain-KE)
-
----
-
 ## Contributing
 
-Issues and Pull Requests are welcome:
+Issues and Pull Requests are welcome. For major architectural changes, open an Issue before implementation. Read `AGENTS.md` before contributing.
 
 - [Issues](https://github.com/kesepain-KE/votx-agent/issues)
 - [Pull Requests](https://github.com/kesepain-KE/votx-agent/pulls)
 
-For major architectural changes, open an Issue before implementation.
-
-Recommended workflow:
-
-```bash
-git checkout -b feature/your-feature
-git commit -m "feat: describe your change"
-git push origin feature/your-feature
-```
-
-Read before contributing:
-
-```text
-AGENTS.md
-```
-
----
-
-## Contributors
+**Maintainer**: [@kesepain](https://github.com/kesepain-KE)
 
 Thanks to everyone who contributes to development, testing, and documentation.
-
-[@kesepain](https://github.com/kesepain-KE)
 
 ---
 
